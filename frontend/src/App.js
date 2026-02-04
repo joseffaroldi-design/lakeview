@@ -2,39 +2,12 @@ import React, { useState, useEffect } from "react";
 import "@/App.css";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, Clock, ChevronDown } from "lucide-react";
+import { burgers, seafood, sides } from "@/data/menu";
 
 // Logo and Images
 const LOGO = "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png";
 const HERO_BG = "https://images.unsplash.com/photo-1767468200555-4b07ba275a43?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHxuZXclMjBvcmxlYW5zJTIwZnJlbmNoJTIwcXVhcnRlciUyMHN0cmVldCUyMGRheXRpbWV8ZW58MHx8fHwxNzcwMjE5MDA0fDA&ixlib=rb-4.1.0&q=85";
 const ABOUT_IMG = "https://images.unsplash.com/photo-1549965738-e1aaf1168943?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwyfHxuZXclMjBvcmxlYW5zJTIwZnJlbmNoJTIwcXVhcnRlciUyMHN0cmVldCUyMGRheXRpbWV8ZW58MHx8fHwxNzcwMjE5MDA0fDA&ixlib=rb-4.1.0&q=85";
-
-// Menu Data
-const menuData = {
-  burgers: [
-    { name: "The Lakeview Classic", description: "1/2 lb Angus beef, lettuce, tomato, onion, pickles", price: "14.99" },
-    { name: "Cajun Blackened Burger", description: "Cajun spiced patty, pepper jack, jalapeños, remoulade", price: "16.99" },
-    { name: "Mushroom Swiss", description: "Sautéed mushrooms, Swiss cheese, garlic aioli", price: "15.99" },
-    { name: "BBQ Bacon Burger", description: "Crispy bacon, cheddar, onion rings, BBQ sauce", price: "17.99" },
-    { name: "The Big Easy", description: "Double patty, American cheese, special sauce", price: "19.99" },
-    { name: "Veggie Burger", description: "House-made black bean patty, avocado, sprouts", price: "13.99" },
-  ],
-  seafood: [
-    { name: "Gulf Shrimp Po'Boy", description: "Fried Gulf shrimp, lettuce, tomato, remoulade on French bread", price: "16.99" },
-    { name: "Fried Catfish Platter", description: "Louisiana catfish, fries, coleslaw, hush puppies", price: "18.99" },
-    { name: "Crawfish Étouffée", description: "Louisiana crawfish in rich Creole sauce over rice", price: "21.99" },
-    { name: "Grilled Redfish", description: "Fresh Gulf redfish, lemon butter, seasonal vegetables", price: "24.99" },
-    { name: "Shrimp & Grits", description: "Sautéed shrimp, stone-ground grits, Tasso ham gravy", price: "19.99" },
-    { name: "Oyster Platter", description: "Fried Gulf oysters, fries, coleslaw, cocktail sauce", price: "22.99" },
-  ],
-  sides: [
-    { name: "Cajun Fries", price: "5.99" },
-    { name: "Onion Rings", price: "6.99" },
-    { name: "Coleslaw", price: "3.99" },
-    { name: "Hush Puppies", price: "5.99" },
-    { name: "Side Salad", price: "6.99" },
-    { name: "Sweet Potato Fries", price: "6.99" },
-  ]
-};
 
 // Navbar Component
 const Navbar = () => {
@@ -73,18 +46,33 @@ const Navbar = () => {
           </button>
           
           <div className="hidden md:flex items-center space-x-12">
-            {["About", "Menu", "Contact"].map((item) => (
-              <button
-                key={item}
-                data-testid={`nav-${item.toLowerCase()}`}
-                onClick={() => scrollToSection(item.toLowerCase())}
-                className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
-                  scrolled ? "text-navy" : "text-white"
-                } hover:text-gold`}
-              >
-                {item}
-              </button>
-            ))}
+            <button
+              data-testid="nav-about"
+              onClick={() => scrollToSection("about")}
+              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
+                scrolled ? "text-navy" : "text-white"
+              } hover:text-gold`}
+            >
+              About
+            </button>
+            <button
+              data-testid="nav-menu"
+              onClick={() => scrollToSection("menu")}
+              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
+                scrolled ? "text-navy" : "text-white"
+              } hover:text-gold`}
+            >
+              Menu
+            </button>
+            <button
+              data-testid="nav-contact"
+              onClick={() => scrollToSection("contact")}
+              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
+                scrolled ? "text-navy" : "text-white"
+              } hover:text-gold`}
+            >
+              Contact
+            </button>
           </div>
 
           <Button
@@ -121,10 +109,8 @@ const Hero = () => {
       className="relative min-h-screen flex items-center justify-center hero-bg"
       style={{ backgroundImage: `url(${HERO_BG})` }}
     >
-      {/* Overlay */}
       <div className="absolute inset-0 bg-navy/60"></div>
       
-      {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
         <div className="animate-fade-in-up">
           <img 
@@ -151,7 +137,6 @@ const Hero = () => {
           View Our Menu
         </Button>
         
-        {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <ChevronDown className="w-8 h-8 text-cream/70" />
         </div>
@@ -170,7 +155,6 @@ const About = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          {/* Image */}
           <div className="order-2 lg:order-1">
             <div className="img-zoom decorative-border p-2 vintage-shadow">
               <img 
@@ -182,7 +166,6 @@ const About = () => {
             </div>
           </div>
           
-          {/* Content */}
           <div className="order-1 lg:order-2 space-y-8">
             <div>
               <p className="font-accent text-3xl text-gold mb-2">Our Story</p>
@@ -223,8 +206,8 @@ const About = () => {
 };
 
 // Menu Item Component
-const MenuItem = ({ name, description, price }) => (
-  <div className="menu-item py-4 px-2 rounded-sm" data-testid={`menu-item-${name.toLowerCase().replace(/\s+/g, '-')}`}>
+const MenuItem = ({ name, description, price, index }) => (
+  <div className="menu-item py-4 px-2 rounded-sm" data-testid={`menu-item-${index}`}>
     <div className="flex items-baseline">
       <h4 className="font-serif text-lg text-navy font-semibold">{name}</h4>
       <span className="dotted-leader"></span>
@@ -245,7 +228,6 @@ const Menu = () => {
       className="py-24 md:py-32 bg-cream"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-16">
           <p className="font-accent text-3xl text-gold mb-2">Delicious</p>
           <h2 className="font-serif text-4xl md:text-5xl text-navy font-bold tracking-tight mb-4">
@@ -254,9 +236,7 @@ const Menu = () => {
           <div className="section-divider"></div>
         </div>
         
-        {/* Menu Content */}
         <div className="decorative-border p-8 md:p-12 bg-card paper-texture vintage-shadow">
-          {/* Burgers */}
           <div className="mb-16">
             <div className="flex items-center justify-center mb-8">
               <span className="text-gold">⚜</span>
@@ -266,13 +246,12 @@ const Menu = () => {
               <span className="text-gold">⚜</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {menuData.burgers.map((item, index) => (
-                <MenuItem key={index} {...item} />
+              {burgers.map((item, idx) => (
+                <MenuItem key={idx} index={`burger-${idx}`} name={item.name} description={item.description} price={item.price} />
               ))}
             </div>
           </div>
           
-          {/* Seafood */}
           <div className="mb-16">
             <div className="flex items-center justify-center mb-8">
               <span className="text-gold">⚜</span>
@@ -282,13 +261,12 @@ const Menu = () => {
               <span className="text-gold">⚜</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {menuData.seafood.map((item, index) => (
-                <MenuItem key={index} {...item} />
+              {seafood.map((item, idx) => (
+                <MenuItem key={idx} index={`seafood-${idx}`} name={item.name} description={item.description} price={item.price} />
               ))}
             </div>
           </div>
           
-          {/* Sides */}
           <div>
             <div className="flex items-center justify-center mb-8">
               <span className="text-gold">⚜</span>
@@ -298,14 +276,13 @@ const Menu = () => {
               <span className="text-gold">⚜</span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-12">
-              {menuData.sides.map((item, index) => (
-                <MenuItem key={index} {...item} />
+              {sides.map((item, idx) => (
+                <MenuItem key={idx} index={`side-${idx}`} name={item.name} price={item.price} />
               ))}
             </div>
           </div>
         </div>
         
-        {/* Note */}
         <p className="text-center font-sans text-sm text-muted-foreground mt-8 italic">
           * Consuming raw or undercooked meats, poultry, seafood, shellfish or eggs may increase your risk of foodborne illness
         </p>
@@ -323,7 +300,6 @@ const Contact = () => {
       className="bg-navy text-cream py-24 md:py-32"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-16">
           <p className="font-accent text-3xl text-gold mb-2">Get in Touch</p>
           <h2 className="font-serif text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -332,9 +308,7 @@ const Contact = () => {
           <div className="w-24 h-1 mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #a5935b, transparent)' }}></div>
         </div>
         
-        {/* Contact Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
-          {/* Location */}
           <div className="text-center group">
             <div className="w-16 h-16 mx-auto mb-6 border-2 border-gold rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
               <MapPin className="w-8 h-8 text-gold" />
@@ -346,7 +320,6 @@ const Contact = () => {
             </p>
           </div>
           
-          {/* Hours */}
           <div className="text-center group">
             <div className="w-16 h-16 mx-auto mb-6 border-2 border-gold rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
               <Clock className="w-8 h-8 text-gold" />
@@ -359,7 +332,6 @@ const Contact = () => {
             </div>
           </div>
           
-          {/* Contact */}
           <div className="text-center group">
             <div className="w-16 h-16 mx-auto mb-6 border-2 border-gold rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
               <Phone className="w-8 h-8 text-gold" />
@@ -377,7 +349,6 @@ const Contact = () => {
           </div>
         </div>
         
-        {/* Call to Action */}
         <div className="text-center mt-16">
           <p className="font-sans text-cream/70 mb-6">
             Catering available for private events and parties
