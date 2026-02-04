@@ -237,7 +237,56 @@ const Menu = () => {
         </div>
         
         <div className="decorative-border p-8 md:p-12 bg-card paper-texture vintage-shadow">
-          <div className="mb-16">
+          {/* Appetizers */}
+          <div className="mb-12">
+            <div className="flex items-center justify-center mb-8">
+              <span className="text-gold">⚜</span>
+              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                Appetizers
+              </h3>
+              <span className="text-gold">⚜</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
+              {appetizers.map((item, idx) => (
+                <MenuItem key={idx} index={`app-${idx}`} name={item.name} description={item.description} price={item.price} />
+              ))}
+            </div>
+          </div>
+
+          {/* Soups */}
+          <div className="mb-12">
+            <div className="flex items-center justify-center mb-8">
+              <span className="text-gold">⚜</span>
+              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                Soups
+              </h3>
+              <span className="text-gold">⚜</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12">
+              {soups.map((item, idx) => (
+                <MenuItem key={idx} index={`soup-${idx}`} name={item.name} description={item.description} price={item.price} />
+              ))}
+            </div>
+          </div>
+
+          {/* Salads */}
+          <div className="mb-12">
+            <div className="flex items-center justify-center mb-8">
+              <span className="text-gold">⚜</span>
+              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                Salads
+              </h3>
+              <span className="text-gold">⚜</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
+              {salads.map((item, idx) => (
+                <MenuItem key={idx} index={`salad-${idx}`} name={item.name} description={item.description} price={item.price} />
+              ))}
+            </div>
+          </div>
+
+          {/* Burgers */}
+          <div className="mb-12">
             <div className="flex items-center justify-center mb-8">
               <span className="text-gold">⚜</span>
               <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
@@ -252,22 +301,73 @@ const Menu = () => {
             </div>
           </div>
           
-          <div className="mb-16">
+          {/* Sandwiches & Po'Boys */}
+          <div className="mb-12">
             <div className="flex items-center justify-center mb-8">
               <span className="text-gold">⚜</span>
               <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Seafood
+                Sandwiches & Po'Boys
               </h3>
               <span className="text-gold">⚜</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {seafood.map((item, idx) => (
-                <MenuItem key={idx} index={`seafood-${idx}`} name={item.name} description={item.description} price={item.price} />
+              {sandwiches.map((item, idx) => (
+                <MenuItem key={idx} index={`sandwich-${idx}`} name={item.name} description={item.description} price={item.price} />
               ))}
             </div>
           </div>
-          
-          <div>
+
+          {/* Tacos */}
+          <div className="mb-12">
+            <div className="flex items-center justify-center mb-8">
+              <span className="text-gold">⚜</span>
+              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                Tacos
+              </h3>
+              <span className="text-gold">⚜</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
+              {tacos.map((item, idx) => (
+                <MenuItem key={idx} index={`taco-${idx}`} name={item.name} description={item.description} price={item.price} />
+              ))}
+            </div>
+          </div>
+
+          {/* Fried Plates */}
+          <div className="mb-12">
+            <div className="flex items-center justify-center mb-8">
+              <span className="text-gold">⚜</span>
+              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                Fried Plates
+              </h3>
+              <span className="text-gold">⚜</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
+              {friedPlates.map((item, idx) => (
+                <MenuItem key={idx} index={`fried-${idx}`} name={item.name} description={item.description} price={item.price} />
+              ))}
+            </div>
+          </div>
+
+          {/* Family Dinners */}
+          <div className="mb-12">
+            <div className="flex items-center justify-center mb-8">
+              <span className="text-gold">⚜</span>
+              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                Family Dinners
+              </h3>
+              <span className="text-gold">⚜</span>
+            </div>
+            <p className="text-center text-muted-foreground mb-6 font-sans text-sm">Served with Bed of Fries & Garlic Bread</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
+              {familyDinners.map((item, idx) => (
+                <MenuItem key={idx} index={`family-${idx}`} name={item.name} description={item.description} price={item.price} />
+              ))}
+            </div>
+          </div>
+
+          {/* Sides */}
+          <div className="mb-12">
             <div className="flex items-center justify-center mb-8">
               <span className="text-gold">⚜</span>
               <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
@@ -277,7 +377,23 @@ const Menu = () => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-12">
               {sides.map((item, idx) => (
-                <MenuItem key={idx} index={`side-${idx}`} name={item.name} price={item.price} />
+                <MenuItem key={idx} index={`side-${idx}`} name={item.name} description={item.description} price={item.price} />
+              ))}
+            </div>
+          </div>
+
+          {/* Kids Menu */}
+          <div>
+            <div className="flex items-center justify-center mb-8">
+              <span className="text-gold">⚜</span>
+              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                Kids Menu
+              </h3>
+              <span className="text-gold">⚜</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12">
+              {kids.map((item, idx) => (
+                <MenuItem key={idx} index={`kids-${idx}`} name={item.name} description={item.description} price={item.price} />
               ))}
             </div>
           </div>
