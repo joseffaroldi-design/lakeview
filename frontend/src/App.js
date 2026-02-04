@@ -315,7 +315,7 @@ const Contact = () => {
             </div>
             <h3 className="font-serif text-xl font-bold mb-4 uppercase tracking-wider">Location</h3>
             <p className="font-sans text-cream/80 leading-relaxed">
-              123 Lakeview Drive<br />
+              872 Harrison Ave<br />
               New Orleans, LA 70124
             </p>
           </div>
