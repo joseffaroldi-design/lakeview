@@ -137,6 +137,28 @@ const Hero = () => {
           View Our Menu
         </Button>
         
+        {/* Online Ordering Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 mt-8 animate-fade-in-up animation-delay-600">
+          <Button
+            data-testid="hero-uber-eats-btn"
+            asChild
+            className="btn-vintage bg-forest text-cream hover:bg-forest/90 text-base"
+          >
+            <a href="https://www.ubereats.com/store/lakeview-burgers-%26-seafood/YOUR_STORE_ID" target="_blank" rel="noopener noreferrer">
+              Order on Uber Eats
+            </a>
+          </Button>
+          <Button
+            data-testid="hero-square-btn"
+            asChild
+            className="btn-vintage bg-navy text-cream hover:bg-navy/90 text-base border-cream/30"
+          >
+            <a href="https://square.link/YOUR_STORE_LINK" target="_blank" rel="noopener noreferrer">
+              Order on Square
+            </a>
+          </Button>
+        </div>
+        
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <ChevronDown className="w-8 h-8 text-cream/70" />
         </div>
