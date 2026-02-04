@@ -1,34 +1,95 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* Custom styles for Lakeview Burgers & Seafood */
+
+/* Vintage button style */
+.btn-vintage {
+    @apply border-double border-4 border-primary/30 px-8 py-3 font-serif tracking-wide uppercase transition-all duration-300;
+    box-shadow: 4px 4px 0px 0px rgba(29,42,59,0.2);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
+.btn-vintage:hover {
+    box-shadow: 2px 2px 0px 0px rgba(29,42,59,0.3);
+    transform: translate(2px, 2px);
+}
+
+/* Hero section parallax */
+.hero-bg {
+    background-attachment: fixed;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+@media (max-width: 768px) {
+    .hero-bg {
+        background-attachment: scroll;
     }
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Menu item hover effect */
+.menu-item {
+    @apply transition-all duration-300;
 }
 
-.App-link {
-    color: #61dafb;
+.menu-item:hover {
+    @apply bg-muted/50;
+    transform: translateX(4px);
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Section divider */
+.section-divider {
+    @apply w-24 h-1 mx-auto;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+/* Decorative border */
+.decorative-border {
+    @apply border-double border-4 border-primary/20;
+}
+
+/* Fleur-de-lis decoration */
+.fleur-de-lis::before {
+    content: '⚜';
+    @apply text-gold mx-4;
+}
+
+/* Gold accent text */
+.text-gold-accent {
+    color: var(--gold);
+}
+
+/* Navy background */
+.bg-navy {
+    background-color: var(--navy);
+}
+
+/* Forest green background */
+.bg-forest {
+    background-color: var(--forest-green);
+}
+
+/* Image hover zoom */
+.img-zoom {
+    @apply overflow-hidden;
+}
+
+.img-zoom img {
+    @apply transition-transform duration-500;
+}
+
+.img-zoom:hover img {
+    transform: scale(1.05);
+}
+
+/* Navbar link hover */
+.nav-link {
+    @apply relative;
+}
+
+.nav-link::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-gold transition-all duration-300;
+}
+
+.nav-link:hover::after {
+    @apply w-full;
 }
