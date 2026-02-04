@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "@/App.css";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, Clock, ChevronDown } from "lucide-react";
-import { burgers, seafood, sides } from "@/data/menu";
+import { burgers, appetizers, friedPlates, sandwiches, tacos, soups, salads, sides, kids, familyDinners } from "@/data/menu";
 
 // Logo and Images
 const LOGO = "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png";
