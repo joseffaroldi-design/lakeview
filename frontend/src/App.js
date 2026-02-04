@@ -454,7 +454,7 @@ const Contact = () => {
             <h3 className="font-serif text-xl font-bold mb-4 uppercase tracking-wider">Contact</h3>
             <p className="font-sans text-cream/80 leading-relaxed">
               <a href="tel:+15045551234" className="hover:text-gold transition-colors" data-testid="contact-phone">
-                (504) 555-1234
+                (504) 289-1032
               </a>
               <br />
               <a href="mailto:info@lakeviewburgers.com" className="hover:text-gold transition-colors" data-testid="contact-email">
@@ -473,7 +473,7 @@ const Contact = () => {
             asChild
             className="btn-vintage bg-transparent border-gold text-gold hover:bg-gold hover:text-navy"
           >
-            <a href="tel:+15045551234">
+            <a href="tel:+15042891032">
               <Phone className="w-4 h-4 mr-2" />
               Call for Reservations
             </a>
