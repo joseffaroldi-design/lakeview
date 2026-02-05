@@ -153,7 +153,7 @@ const Hero = () => {
             asChild
             className="btn-vintage bg-navy text-cream hover:bg-navy/90 text-base border-cream/30"
           >
-            <a href="https://square.link/YOUR_STORE_LINK" target="_blank" rel="noopener noreferrer">
+            <a href="https://lakeview-burgers-seafood.square.site" target="_blank" rel="noopener noreferrer">
               Order on Square
             </a>
           </Button>
