@@ -200,24 +200,25 @@ const About = () => {
             
             <div className="space-y-6 font-sans text-muted-foreground leading-relaxed">
               <p>
-                Nestled in the charming Lakeview neighborhood, our family-owned restaurant has been 
-                serving the community for nearly four decades. What started as a small burger stand 
-                by Lake Pontchartrain has grown into a beloved local institution.
+                Founded by Chef Joseph Faroldi in 2015, Lakeview Burgers & Seafood has become a beloved 
+                fixture in the charming Lakeview neighborhood. What started as a dream to bring quality 
+                burgers and fresh Gulf seafood to the community has grown into a true family affair.
               </p>
               <p>
-                We take pride in sourcing the freshest Gulf seafood daily and grinding our premium 
-                Angus beef in-house. Every dish reflects our commitment to quality and our deep 
-                roots in New Orleans culinary traditions.
+                Today, Chef Joseph works alongside his son Josef, passing down culinary traditions and 
+                a passion for great food to the next generation. Together, they take pride in sourcing 
+                the freshest Gulf seafood daily and crafting each dish with care and expertise.
               </p>
               <p>
                 Whether you're craving a perfectly charred burger or authentic Louisiana seafood, 
-                we invite you to experience the taste of the Crescent City at Lakeview Burgers & Seafood.
+                the Faroldi family invites you to experience the taste of the Crescent City at 
+                Lakeview Burgers & Seafood.
               </p>
             </div>
             
             <div className="flex items-center space-x-4 pt-4">
               <span className="text-gold text-2xl">⚜</span>
-              <span className="font-serif italic text-navy text-lg">Est. 1985 • New Orleans, LA</span>
+              <span className="font-serif italic text-navy text-lg">Est. 2015 • New Orleans, LA</span>
               <span className="text-gold text-2xl">⚜</span>
             </div>
           </div>
