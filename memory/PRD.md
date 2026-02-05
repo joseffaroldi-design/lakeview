@@ -3,58 +3,56 @@
 ## Original Problem Statement
 Build a website for Lakeview Burgers & Seafood restaurant in New Orleans.
 
-## User Requirements
-- Simple one-page site (Home, Menu, About, Contact sections)
-- Menu display only (view items and prices)
-- Classic/Traditional design matching the vintage logo style
+## Business Info
+- **Address**: 872 Harrison Ave, New Orleans, LA 70124
+- **Phone**: (504) 289-1032
+- **Hours**: Monday-Saturday 11:30am-11pm, Sunday Closed
+- **Established**: 2015 by Chef Joseph Faroldi
 
-## Target Audience
-- Local New Orleans customers
-- Tourists visiting the area
-- Families looking for casual dining with quality burgers and fresh seafood
+## What's Been Implemented (Feb 2025)
 
-## Architecture
-- **Frontend**: React (Single Page Application)
-- **Backend**: FastAPI (minimal, no database required for static menu)
-- **Styling**: Tailwind CSS with custom vintage theme
+### Hero Section
+- Restaurant logo
+- View Our Menu button
+- Order on Uber Eats button (linked)
+- Order on Square button (linked)
 
-## What's Been Implemented (Feb 4, 2025)
-1. **Hero Section**: Full-screen with parallax background, centered logo, animated tagline
-2. **About Section**: Restaurant story with vintage image, split layout
-3. **Menu Section**: Classic paper menu aesthetic with dotted leaders
-   - Burgers (6 items)
-   - Seafood (6 items)
-   - Sides (6 items)
-4. **Contact Section**: Location, hours, phone/email with icons
-5. **Footer**: Simple footer with logo and copyright
-6. **Sticky Navbar**: Changes style on scroll with smooth scrolling navigation
-7. **Mobile Responsive**: Fully responsive design
+### Our Story Section
+- Actual restaurant storefront photo
+- Story featuring Chef Joseph Faroldi and son Josef
+- Est. 2015 • New Orleans, LA
 
-## Design Elements
-- Colors: Navy (#1d2a3b), Forest Green (#366343), Cream (#fcfbf7), Gold (#a5935b)
-- Fonts: Playfair Display (headings), Lato (body), Great Vibes (accents)
-- Vintage paper texture backgrounds
-- Fleur-de-lis decorations (⚜) for New Orleans authenticity
+### Full Menu (from official PDF)
+- Appetizers (7 items)
+- Soups (3 items)
+- Salads (6 items)
+- Burgers (7 items)
+- Sandwiches & Po'Boys (14 items)
+- Tacos (4 items)
+- Fried Plates (5 items)
+- Family Dinners (4 items)
+- Sides (6 items)
+- Kids Menu (4 items)
 
-## Prioritized Backlog
-### P0 (Must Have) - DONE
-- [x] Hero with logo
-- [x] Menu display with prices
-- [x] Contact information
-- [x] Mobile responsive
+### Contact Section
+- Location with address
+- Hours of operation
+- Phone number
+- Call for Reservations button
 
-### P1 (Should Have)
-- [ ] Google Maps integration for location
-- [ ] Photo gallery of dishes
-- [ ] Social media links
+### Design
+- Classic/Traditional New Orleans aesthetic
+- Colors: Navy, Forest Green, Cream, Gold
+- Fonts: Playfair Display, Lato, Great Vibes
+- Fleur-de-lis decorations
+- Mobile responsive
 
-### P2 (Nice to Have)
-- [ ] Online ordering capability
-- [ ] Reservation system
-- [ ] Customer reviews section
-- [ ] Newsletter signup
+## External Links
+- Uber Eats: https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36
+- Square: https://lakeview-burgers-seafood.square.site
 
-## Next Tasks
-1. Add Google Maps embed in contact section
-2. Integrate actual restaurant photos
-3. Add social media icons to footer
+## Future Enhancements (Optional)
+- Social media links
+- Photo gallery of dishes
+- Google Maps embed
+- Customer reviews section
