@@ -7,7 +7,7 @@ import { burgers, appetizers, friedPlates, sandwiches, tacos, soups, salads, sid
 // Logo and Images
 const LOGO = "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png";
 const HERO_BG = "https://images.unsplash.com/photo-1660882089809-9fe922300699?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHw0fHxOZXclMjBPcmxlYW5zJTIwbGFrZWZyb250JTIwc3Vuc2V0JTIwd2F0ZXJ8ZW58MHx8fHwxNzcwMjc4MDg2fDA&ixlib=rb-4.1.0&q=85";
-const ABOUT_IMG = "https://images.unsplash.com/photo-1631571592988-62b1179d5a4b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxOZXclMjBPcmxlYW5zJTIwY29sb3JmdWwlMjBob3VzZXMlMjBuZWlnaGJvcmhvb2QlMjBjaGFybXxlbnwwfHx8fDE3NzAyNzgxMDN8MA&ixlib=rb-4.1.0&q=85";
+const ABOUT_IMG = "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg";
 
 // Navbar Component
 const Navbar = () => {
