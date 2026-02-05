@@ -126,7 +126,7 @@ const Hero = () => {
         </p>
         
         <p className="font-sans text-lg md:text-xl text-cream/90 mb-12 max-w-2xl mx-auto animate-fade-in-up animation-delay-400">
-          Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 1985
+          Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 2015
         </p>
         
         <Button
