@@ -144,7 +144,7 @@ const Hero = () => {
             asChild
             className="btn-vintage bg-forest text-cream hover:bg-forest/90 text-base"
           >
-            <a href="https://www.ubereats.com/store/lakeview-burgers-%26-seafood/YOUR_STORE_ID" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY" target="_blank" rel="noopener noreferrer">
               Order on Uber Eats
             </a>
           </Button>
