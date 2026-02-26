@@ -28,11 +28,22 @@ const Dashboard = () => {
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
+  const getAuthHeader = () => {
+    const token = localStorage.getItem("admin_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const checkAuth = useCallback(async () => {
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      navigate("/login");
+      return false;
+    }
     try {
-      await axios.get(`${API}/auth/verify`, { withCredentials: true });
+      await axios.get(`${API}/auth/verify`, { headers: getAuthHeader() });
       return true;
     } catch (error) {
+      localStorage.removeItem("admin_token");
       navigate("/login");
       return false;
     }
@@ -44,14 +55,15 @@ const Dashboard = () => {
 
     try {
       const [specialsRes, analyticsRes] = await Promise.all([
-        axios.get(`${API}/specials`, { withCredentials: true }),
-        axios.get(`${API}/analytics`, { withCredentials: true })
+        axios.get(`${API}/specials`),
+        axios.get(`${API}/analytics`, { headers: getAuthHeader() })
       ]);
       setSpecials(specialsRes.data);
       setAnalytics(analyticsRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
       if (error.response?.status === 401) {
+        localStorage.removeItem("admin_token");
         navigate("/login");
       }
     } finally {
@@ -65,12 +77,12 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
-      localStorage.removeItem("admin_token");
-      navigate("/login");
+      await axios.post(`${API}/auth/logout`, {}, { headers: getAuthHeader() });
     } catch (error) {
       console.error("Error logging out:", error);
     }
+    localStorage.removeItem("admin_token");
+    navigate("/login");
   };
 
   const handleImageUpload = async (e) => {
@@ -83,8 +95,10 @@ const Dashboard = () => {
 
     try {
       const response = await axios.post(`${API}/upload-image`, formDataUpload, {
-        headers: { "Content-Type": "multipart/form-data" },
-        withCredentials: true
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          ...getAuthHeader()
+        }
       });
       setFormData(prev => ({ ...prev, image_url: response.data.image_url }));
     } catch (error) {
@@ -99,9 +113,9 @@ const Dashboard = () => {
     e.preventDefault();
     try {
       if (editingSpecial) {
-        await axios.put(`${API}/specials/${editingSpecial.id}`, formData, { withCredentials: true });
+        await axios.put(`${API}/specials/${editingSpecial.id}`, formData, { headers: getAuthHeader() });
       } else {
-        await axios.post(`${API}/specials`, formData, { withCredentials: true });
+        await axios.post(`${API}/specials`, formData, { headers: getAuthHeader() });
       }
       setShowForm(false);
       setEditingSpecial(null);
@@ -127,7 +141,7 @@ const Dashboard = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this special?")) return;
     try {
-      await axios.delete(`${API}/specials/${id}`, { withCredentials: true });
+      await axios.delete(`${API}/specials/${id}`, { headers: getAuthHeader() });
       fetchData();
     } catch (error) {
       console.error("Error deleting special:", error);
@@ -138,7 +152,7 @@ const Dashboard = () => {
     try {
       await axios.put(`${API}/specials/${special.id}`, {
         is_active: !special.is_active
-      }, { withCredentials: true });
+      }, { headers: getAuthHeader() });
       fetchData();
     } catch (error) {
       console.error("Error toggling special:", error);
