@@ -307,8 +307,8 @@ async def track_page_view(data: TrackingData):
     return {"message": "Page view tracked"}
 
 @api_router.get("/analytics")
-async def get_analytics(session_token: str = Cookie(None)):
-    verify_session(session_token)
+async def get_analytics(authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
     
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
