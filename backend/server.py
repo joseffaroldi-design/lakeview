@@ -435,8 +435,8 @@ async def get_analytics(authorization: str = Header(None), session_token: str = 
     }
 
 @api_router.post("/upload-image")
-async def upload_image(file: UploadFile = File(...), session_token: str = Cookie(None)):
-    verify_session(session_token)
+async def upload_image(file: UploadFile = File(...), authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
     contents = await file.read()
     base64_image = base64.b64encode(contents).decode('utf-8')
     content_type = file.content_type or 'image/jpeg'
