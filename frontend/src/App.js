@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from "react";
 import "@/App.css";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Phone, MapPin, Clock, ChevronDown } from "lucide-react";
+import { Phone, MapPin, Clock, ChevronDown, Settings } from "lucide-react";
 import { burgers, appetizers, friedPlates, sandwiches, tacos, soups, salads, sides, kids, familyDinners } from "@/data/menu";
+import axios from "axios";
+import Dashboard from "@/pages/Dashboard";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Logo and Images
 const LOGO = "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png";
 const HERO_BG = "https://images.unsplash.com/photo-1660882089809-9fe922300699?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHw0fHxOZXclMjBPcmxlYW5zJTIwbGFrZWZyb250JTIwc3Vuc2V0JTIwd2F0ZXJ8ZW58MHx8fHwxNzcwMjc4MDg2fDA&ixlib=rb-4.1.0&q=85";
 const ABOUT_IMG = "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg";
+
+// Track page view
+const trackPageView = async (page) => {
+  try {
+    await axios.post(`${API}/analytics/track?page=${page}`);
+  } catch (error) {
+    console.error("Error tracking page view:", error);
+  }
+};
 
 // Navbar Component
 const Navbar = () => {
@@ -56,6 +70,15 @@ const Navbar = () => {
               About
             </button>
             <button
+              data-testid="nav-specials"
+              onClick={() => scrollToSection("specials")}
+              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
+                scrolled ? "text-navy" : "text-white"
+              } hover:text-gold`}
+            >
+              Specials
+            </button>
+            <button
               data-testid="nav-menu"
               onClick={() => scrollToSection("menu")}
               className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
@@ -75,18 +98,32 @@ const Navbar = () => {
             </button>
           </div>
 
-          <Button
-            data-testid="nav-call-btn"
-            variant="outline"
-            className={`hidden sm:flex items-center gap-2 border-2 ${
-              scrolled 
-                ? "border-navy text-navy hover:bg-navy hover:text-cream" 
-                : "border-white text-white hover:bg-white hover:text-navy"
-            } transition-all duration-300`}
-          >
-            <Phone className="w-4 h-4" />
-            <span className="font-sans text-sm">Call Us</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              data-testid="nav-call-btn"
+              variant="outline"
+              asChild
+              className={`hidden sm:flex items-center gap-2 border-2 ${
+                scrolled 
+                  ? "border-navy text-navy hover:bg-navy hover:text-cream" 
+                  : "border-white text-white hover:bg-white hover:text-navy"
+              } transition-all duration-300`}
+            >
+              <a href="tel:+15042891032">
+                <Phone className="w-4 h-4" />
+                <span className="font-sans text-sm">Call Us</span>
+              </a>
+            </Button>
+            <Link to="/dashboard" data-testid="nav-dashboard">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`${scrolled ? "text-navy hover:text-gold" : "text-white hover:text-gold"}`}
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </nav>
@@ -138,7 +175,7 @@ const Hero = () => {
         </Button>
         
         {/* Online Ordering Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 mt-8 animate-fade-in-up animation-delay-600">
+        <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center animate-fade-in-up animation-delay-600">
           <Button
             data-testid="hero-uber-eats-btn"
             asChild
@@ -181,7 +218,7 @@ const About = () => {
             <div className="img-zoom decorative-border p-2 vintage-shadow">
               <img 
                 src={ABOUT_IMG} 
-                alt="New Orleans Street"
+                alt="Lakeview Burgers & Seafood Restaurant"
                 data-testid="about-image" 
                 className="w-full h-[400px] object-cover"
               />
@@ -222,6 +259,77 @@ const About = () => {
               <span className="text-gold text-2xl">⚜</span>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// Specials Section
+const Specials = () => {
+  const [specials, setSpecials] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSpecials = async () => {
+      try {
+        const response = await axios.get(`${API}/specials?active_only=true`);
+        setSpecials(response.data);
+      } catch (error) {
+        console.error("Error fetching specials:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSpecials();
+  }, []);
+
+  if (loading || specials.length === 0) {
+    return null;
+  }
+
+  return (
+    <section 
+      id="specials" 
+      data-testid="specials-section"
+      className="py-24 md:py-32 bg-navy"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <p className="font-accent text-3xl text-gold mb-2">Don't Miss</p>
+          <h2 className="font-serif text-4xl md:text-5xl text-cream font-bold tracking-tight mb-4">
+            Today's Specials
+          </h2>
+          <div className="w-24 h-1 mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #a5935b, transparent)' }}></div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {specials.map((special) => (
+            <div 
+              key={special.id}
+              className="bg-cream rounded-sm overflow-hidden vintage-shadow transition-transform hover:scale-105"
+              data-testid={`special-display-${special.id}`}
+            >
+              {special.image_url && (
+                <div className="h-48 overflow-hidden">
+                  <img 
+                    src={special.image_url} 
+                    alt={special.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-serif text-xl text-navy font-bold">{special.title}</h3>
+                  {special.price && (
+                    <span className="font-sans font-bold text-forest text-lg">{special.price}</span>
+                  )}
+                </div>
+                <p className="font-sans text-muted-foreground">{special.description}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -476,7 +584,7 @@ const Contact = () => {
             </div>
             <h3 className="font-serif text-xl font-bold mb-4 uppercase tracking-wider">Contact</h3>
             <p className="font-sans text-cream/80 leading-relaxed">
-              <a href="tel:+15045551234" className="hover:text-gold transition-colors" data-testid="contact-phone">
+              <a href="tel:+15042891032" className="hover:text-gold transition-colors" data-testid="contact-phone">
                 (504) 289-1032
               </a>
               <br />
@@ -530,18 +638,37 @@ const Footer = () => {
   );
 };
 
-// Main App Component
-function App() {
+// Home Page Component
+const Home = () => {
+  useEffect(() => {
+    trackPageView("home");
+  }, []);
+
   return (
-    <div className="App" data-testid="app-container">
+    <div data-testid="home-page">
       <Navbar />
       <main>
         <Hero />
         <About />
+        <Specials />
         <Menu />
         <Contact />
       </main>
       <Footer />
+    </div>
+  );
+};
+
+// Main App Component
+function App() {
+  return (
+    <div className="App" data-testid="app-container">
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </BrowserRouter>
     </div>
   );
 }
