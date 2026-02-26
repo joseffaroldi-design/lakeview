@@ -41,6 +41,18 @@ const trackPageView = async (page) => {
   }
 };
 
+// Track button clicks
+const trackButtonClick = async (buttonName) => {
+  try {
+    await axios.post(`${API}/analytics/button-click`, {
+      button_name: buttonName,
+      session_id: getSessionId()
+    });
+  } catch (error) {
+    console.error("Error tracking button click:", error);
+  }
+};
+
 // Navbar Component
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
