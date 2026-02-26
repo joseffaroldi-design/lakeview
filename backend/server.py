@@ -22,8 +22,8 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Admin credentials
-ADMIN_PASSWORD = "Lakeview872"
+# Admin credentials - load from environment
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Lakeview872')
 ADMIN_PASSWORD_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
 
 # Session storage (in production, use Redis or database)
@@ -493,11 +493,7 @@ app.include_router(api_router)
 # CORS configuration - handle credentials properly
 cors_origins = os.environ.get('CORS_ORIGINS', '*')
 if cors_origins == '*':
-    # For development, allow common origins
-    allowed_origins = [
-        "http://localhost:3000",
-        "https://lakeview-grill.preview.emergentagent.com"
-    ]
+    allowed_origins = ["*"]
 else:
     allowed_origins = cors_origins.split(',')
 
