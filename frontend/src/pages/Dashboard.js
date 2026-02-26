@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   ArrowLeft, Plus, Trash2, Edit2, Eye, EyeOff, 
   BarChart3, TrendingUp, Calendar, Image as ImageIcon,
-  Save, X, Upload
+  Save, X, Upload, Users, Monitor, Smartphone, Tablet,
+  Globe, Clock, LogOut
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -25,25 +26,52 @@ const Dashboard = () => {
     image_url: ""
   });
   const [uploading, setUploading] = useState(false);
+  const navigate = useNavigate();
+
+  const checkAuth = useCallback(async () => {
+    try {
+      await axios.get(`${API}/auth/verify`, { withCredentials: true });
+      return true;
+    } catch (error) {
+      navigate("/login");
+      return false;
+    }
+  }, [navigate]);
 
   const fetchData = useCallback(async () => {
+    const isAuth = await checkAuth();
+    if (!isAuth) return;
+
     try {
       const [specialsRes, analyticsRes] = await Promise.all([
-        axios.get(`${API}/specials`),
-        axios.get(`${API}/analytics`)
+        axios.get(`${API}/specials`, { withCredentials: true }),
+        axios.get(`${API}/analytics`, { withCredentials: true })
       ]);
       setSpecials(specialsRes.data);
       setAnalytics(analyticsRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
+      if (error.response?.status === 401) {
+        navigate("/login");
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkAuth, navigate]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
+      localStorage.removeItem("admin_token");
+      navigate("/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -55,7 +83,8 @@ const Dashboard = () => {
 
     try {
       const response = await axios.post(`${API}/upload-image`, formDataUpload, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true
       });
       setFormData(prev => ({ ...prev, image_url: response.data.image_url }));
     } catch (error) {
@@ -70,9 +99,9 @@ const Dashboard = () => {
     e.preventDefault();
     try {
       if (editingSpecial) {
-        await axios.put(`${API}/specials/${editingSpecial.id}`, formData);
+        await axios.put(`${API}/specials/${editingSpecial.id}`, formData, { withCredentials: true });
       } else {
-        await axios.post(`${API}/specials`, formData);
+        await axios.post(`${API}/specials`, formData, { withCredentials: true });
       }
       setShowForm(false);
       setEditingSpecial(null);
@@ -98,7 +127,7 @@ const Dashboard = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this special?")) return;
     try {
-      await axios.delete(`${API}/specials/${id}`);
+      await axios.delete(`${API}/specials/${id}`, { withCredentials: true });
       fetchData();
     } catch (error) {
       console.error("Error deleting special:", error);
@@ -109,7 +138,7 @@ const Dashboard = () => {
     try {
       await axios.put(`${API}/specials/${special.id}`, {
         is_active: !special.is_active
-      });
+      }, { withCredentials: true });
       fetchData();
     } catch (error) {
       console.error("Error toggling special:", error);
@@ -138,84 +167,260 @@ const Dashboard = () => {
             </Link>
             <h1 className="font-serif text-2xl md:text-3xl font-bold">Dashboard</h1>
           </div>
+          <Button 
+            variant="ghost" 
+            onClick={handleLogout}
+            className="text-cream hover:text-gold"
+            data-testid="logout-btn"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Analytics Cards */}
+        {/* Analytics Overview */}
         <section className="mb-12">
           <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-gold" />
             Website Analytics
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          
+          {/* Main Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             <Card className="bg-card border-2 border-navy/10" data-testid="analytics-total">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-sans text-muted-foreground">Total Views</CardTitle>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-sans text-muted-foreground">Total Views</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-serif font-bold text-navy">
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-serif font-bold text-navy">
                   {analytics?.total_views || 0}
                 </div>
               </CardContent>
             </Card>
             
             <Card className="bg-card border-2 border-navy/10" data-testid="analytics-today">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-sans text-muted-foreground flex items-center gap-1">
-                  <Calendar className="w-4 h-4" /> Today
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-sans text-muted-foreground flex items-center gap-1">
+                  <Calendar className="w-3 h-3" /> Today
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-serif font-bold text-forest">
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-serif font-bold text-forest">
                   {analytics?.views_today || 0}
                 </div>
               </CardContent>
             </Card>
             
             <Card className="bg-card border-2 border-navy/10" data-testid="analytics-week">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-sans text-muted-foreground flex items-center gap-1">
-                  <TrendingUp className="w-4 h-4" /> This Week
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-sans text-muted-foreground flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" /> This Week
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-serif font-bold text-gold">
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-serif font-bold text-gold">
                   {analytics?.views_this_week || 0}
                 </div>
               </CardContent>
             </Card>
             
             <Card className="bg-card border-2 border-navy/10" data-testid="analytics-month">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-sans text-muted-foreground">This Month</CardTitle>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-sans text-muted-foreground">This Month</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-serif font-bold text-navy">
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-serif font-bold text-navy">
                   {analytics?.views_this_month || 0}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-2 border-navy/10" data-testid="analytics-sessions">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-sans text-muted-foreground flex items-center gap-1">
+                  <Users className="w-3 h-3" /> Unique Visitors
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-serif font-bold text-forest">
+                  {analytics?.unique_sessions || 0}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-2 border-navy/10" data-testid="analytics-avg-pages">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-sans text-muted-foreground">Avg Pages/Visit</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-serif font-bold text-gold">
+                  {analytics?.avg_pages_per_session || 0}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Page Breakdown */}
-          {analytics?.page_breakdown && Object.keys(analytics.page_breakdown).length > 0 && (
-            <Card className="mt-6 bg-card border-2 border-navy/10">
+          {/* Detailed Analytics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Device Breakdown */}
+            <Card className="bg-card border-2 border-navy/10">
               <CardHeader>
-                <CardTitle className="font-serif text-navy">Page Views Breakdown</CardTitle>
+                <CardTitle className="font-serif text-navy flex items-center gap-2">
+                  <Monitor className="w-5 h-5 text-gold" />
+                  Devices
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {Object.entries(analytics.page_breakdown).map(([page, count]) => (
-                    <div key={page} className="flex justify-between items-center">
-                      <span className="font-sans text-muted-foreground capitalize">{page}</span>
-                      <span className="font-sans font-bold text-navy">{count}</span>
-                    </div>
-                  ))}
+                  {analytics?.device_breakdown && Object.keys(analytics.device_breakdown).length > 0 ? (
+                    Object.entries(analytics.device_breakdown).map(([device, count]) => (
+                      <div key={device} className="flex justify-between items-center">
+                        <span className="font-sans text-muted-foreground capitalize flex items-center gap-2">
+                          {device === 'desktop' && <Monitor className="w-4 h-4" />}
+                          {device === 'mobile' && <Smartphone className="w-4 h-4" />}
+                          {device === 'tablet' && <Tablet className="w-4 h-4" />}
+                          {device}
+                        </span>
+                        <span className="font-sans font-bold text-navy">{count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No data yet</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          )}
+
+            {/* Browser Breakdown */}
+            <Card className="bg-card border-2 border-navy/10">
+              <CardHeader>
+                <CardTitle className="font-serif text-navy flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-gold" />
+                  Browsers
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics?.browser_breakdown && Object.keys(analytics.browser_breakdown).length > 0 ? (
+                    Object.entries(analytics.browser_breakdown).map(([browser, count]) => (
+                      <div key={browser} className="flex justify-between items-center">
+                        <span className="font-sans text-muted-foreground">{browser}</span>
+                        <span className="font-sans font-bold text-navy">{count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No data yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Page Breakdown */}
+            <Card className="bg-card border-2 border-navy/10">
+              <CardHeader>
+                <CardTitle className="font-serif text-navy">Page Views</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics?.page_breakdown && Object.keys(analytics.page_breakdown).length > 0 ? (
+                    Object.entries(analytics.page_breakdown).map(([page, count]) => (
+                      <div key={page} className="flex justify-between items-center">
+                        <span className="font-sans text-muted-foreground capitalize">{page}</span>
+                        <span className="font-sans font-bold text-navy">{count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No data yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Daily Views This Week */}
+            <Card className="bg-card border-2 border-navy/10">
+              <CardHeader>
+                <CardTitle className="font-serif text-navy flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-gold" />
+                  Daily Views (This Week)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {analytics?.daily_views_week && Object.keys(analytics.daily_views_week).length > 0 ? (
+                    Object.entries(analytics.daily_views_week).map(([day, count]) => (
+                      <div key={day} className="flex justify-between items-center">
+                        <span className="font-sans text-muted-foreground">{day}</span>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="h-2 bg-gold rounded-full" 
+                            style={{ width: `${Math.max(count * 10, 4)}px` }}
+                          />
+                          <span className="font-sans font-bold text-navy w-8 text-right">{count}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No data yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Hourly Views Today */}
+            <Card className="bg-card border-2 border-navy/10">
+              <CardHeader>
+                <CardTitle className="font-serif text-navy flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-gold" />
+                  Today by Hour
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end justify-between h-24 gap-1">
+                  {analytics?.hourly_views_today && 
+                    Object.entries(analytics.hourly_views_today)
+                      .filter(([hour]) => parseInt(hour) >= 8 && parseInt(hour) <= 23)
+                      .map(([hour, count]) => (
+                        <div key={hour} className="flex flex-col items-center flex-1">
+                          <div 
+                            className="w-full bg-gold rounded-t"
+                            style={{ height: `${Math.max(count * 8, 2)}px` }}
+                          />
+                          <span className="text-xs text-muted-foreground mt-1">{hour}</span>
+                        </div>
+                      ))
+                  }
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top Referrers */}
+            <Card className="bg-card border-2 border-navy/10">
+              <CardHeader>
+                <CardTitle className="font-serif text-navy flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-gold" />
+                  Top Referrers
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics?.top_referrers && Object.keys(analytics.top_referrers).length > 0 ? (
+                    Object.entries(analytics.top_referrers).map(([referrer, count]) => (
+                      <div key={referrer} className="flex justify-between items-center">
+                        <span className="font-sans text-muted-foreground text-sm truncate max-w-[180px]">
+                          {referrer}
+                        </span>
+                        <span className="font-sans font-bold text-navy">{count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No referrer data yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
         {/* Specials Management */}
