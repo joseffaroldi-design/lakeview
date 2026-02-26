@@ -402,19 +402,28 @@ async def get_analytics(authorization: str = Header(None), session_token: str = 
     browser_stats = await db.page_views.aggregate(browser_pipeline).to_list(10)
     browser_breakdown = {stat["_id"]: stat["count"] for stat in browser_stats}
     
-    # Hourly views today (0-23)
+    # Hourly views today (0-23) - use aggregation pipeline for efficiency
     hourly_views_today = {str(h): 0 for h in range(24)}
-    all_today = await db.page_views.find(
-        {"timestamp": {"$gte": today_start.isoformat()}},
-        {"_id": 0, "timestamp": 1}
-    ).to_list(10000)
-    for view in all_today:
-        ts = view.get("timestamp")
-        if ts:
-            if isinstance(ts, str):
-                ts = datetime.fromisoformat(ts)
-            hour = str(ts.hour)
-            hourly_views_today[hour] = hourly_views_today.get(hour, 0) + 1
+    hourly_pipeline = [
+        {"$match": {"timestamp": {"$gte": today_start.isoformat()}}},
+        {"$addFields": {
+            "parsed_timestamp": {
+                "$cond": {
+                    "if": {"$eq": [{"$type": "$timestamp"}, "string"]},
+                    "then": {"$dateFromString": {"dateString": "$timestamp"}},
+                    "else": "$timestamp"
+                }
+            }
+        }},
+        {"$group": {
+            "_id": {"$hour": "$parsed_timestamp"},
+            "count": {"$sum": 1}
+        }}
+    ]
+    hourly_stats = await db.page_views.aggregate(hourly_pipeline).to_list(24)
+    for stat in hourly_stats:
+        if stat["_id"] is not None:
+            hourly_views_today[str(stat["_id"])] = stat["count"]
     
     # Daily views this week
     daily_views_week = {}
