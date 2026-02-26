@@ -443,6 +443,23 @@ async def get_analytics(authorization: str = Header(None), session_token: str = 
     else:
         avg_pages_per_session = 0
     
+    # Button clicks (all time)
+    button_pipeline = [
+        {"$group": {"_id": "$button_name", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    button_stats = await db.button_clicks.aggregate(button_pipeline).to_list(20)
+    button_clicks = {stat["_id"]: stat["count"] for stat in button_stats}
+    
+    # Button clicks today
+    button_today_pipeline = [
+        {"$match": {"timestamp": {"$gte": today_start.isoformat()}}},
+        {"$group": {"_id": "$button_name", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    button_today_stats = await db.button_clicks.aggregate(button_today_pipeline).to_list(20)
+    button_clicks_today = {stat["_id"]: stat["count"] for stat in button_today_stats}
+    
     return {
         "total_views": total_views,
         "views_today": views_today,
@@ -456,7 +473,9 @@ async def get_analytics(authorization: str = Header(None), session_token: str = 
         "hourly_views_today": hourly_views_today,
         "daily_views_week": daily_views_week,
         "top_referrers": top_referrers,
-        "avg_pages_per_session": avg_pages_per_session
+        "avg_pages_per_session": avg_pages_per_session,
+        "button_clicks": button_clicks,
+        "button_clicks_today": button_clicks_today
     }
 
 @api_router.post("/upload-image")
