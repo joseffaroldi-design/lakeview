@@ -434,6 +434,58 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Button Clicks */}
+            <Card className="bg-card border-2 border-navy/10">
+              <CardHeader>
+                <CardTitle className="font-serif text-navy flex items-center gap-2">
+                  <MousePointer className="w-5 h-5 text-gold" />
+                  Button Clicks (All Time)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics?.button_clicks && Object.keys(analytics.button_clicks).length > 0 ? (
+                    Object.entries(analytics.button_clicks).map(([button, count]) => (
+                      <div key={button} className="flex justify-between items-center">
+                        <span className="font-sans text-muted-foreground capitalize">
+                          {button.replace(/_/g, ' ')}
+                        </span>
+                        <span className="font-sans font-bold text-navy">{count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No button clicks yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Button Clicks Today */}
+            <Card className="bg-card border-2 border-navy/10">
+              <CardHeader>
+                <CardTitle className="font-serif text-navy flex items-center gap-2">
+                  <MousePointer className="w-5 h-5 text-gold" />
+                  Button Clicks (Today)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics?.button_clicks_today && Object.keys(analytics.button_clicks_today).length > 0 ? (
+                    Object.entries(analytics.button_clicks_today).map(([button, count]) => (
+                      <div key={button} className="flex justify-between items-center">
+                        <span className="font-sans text-muted-foreground capitalize">
+                          {button.replace(/_/g, ' ')}
+                        </span>
+                        <span className="font-sans font-bold text-forest">{count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No clicks today</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
