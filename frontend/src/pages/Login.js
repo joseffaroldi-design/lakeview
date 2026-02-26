@@ -20,12 +20,20 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API}/auth/login`, { password }, { withCredentials: true });
+      const response = await axios.post(
+        `${API}/auth/login`, 
+        { password }, 
+        { 
+          withCredentials: true,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
       if (response.data.token) {
         localStorage.setItem("admin_token", response.data.token);
         navigate("/dashboard");
       }
     } catch (err) {
+      console.error("Login error:", err);
       setError("Invalid password. Please try again.");
     } finally {
       setLoading(false);
