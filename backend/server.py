@@ -319,6 +319,18 @@ async def track_page_view(data: TrackingData):
     await db.page_views.insert_one(doc)
     return {"message": "Page view tracked"}
 
+@api_router.post("/analytics/button-click")
+async def track_button_click(data: ButtonClickData):
+    button_click = ButtonClick(
+        button_name=data.button_name,
+        session_id=data.session_id
+    )
+    
+    doc = button_click.model_dump()
+    doc['timestamp'] = doc['timestamp'].isoformat()
+    await db.button_clicks.insert_one(doc)
+    return {"message": "Button click tracked"}
+
 @api_router.get("/analytics")
 async def get_analytics(authorization: str = Header(None), session_token: str = Cookie(None)):
     verify_session(authorization, session_token)
