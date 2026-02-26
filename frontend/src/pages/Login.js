@@ -22,11 +22,7 @@ const Login = () => {
     try {
       const response = await axios.post(
         `${API}/auth/login`, 
-        { password }, 
-        { 
-          withCredentials: true,
-          headers: { 'Content-Type': 'application/json' }
-        }
+        { password }
       );
       if (response.data.token) {
         localStorage.setItem("admin_token", response.data.token);
