@@ -210,14 +210,14 @@ const Hero = () => {
           <Button
             data-testid="hero-view-menu-btn"
             onClick={scrollToMenu}
-            className="btn-vintage bg-gold text-navy hover:bg-gold/90 text-base md:text-lg px-6 md:px-10 py-4 h-auto font-semibold"
+            className="rounded-full bg-gold text-navy hover:bg-gold/90 text-base md:text-lg px-8 md:px-12 py-5 md:py-6 h-auto font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
           >
             View Our Menu
           </Button>
           <Button
             data-testid="hero-uber-eats-btn"
             asChild
-            className="btn-vintage bg-forest text-cream hover:bg-forest/90 text-base md:text-lg px-6 md:px-10 py-4 h-auto font-semibold"
+            className="rounded-full bg-forest text-cream hover:bg-forest/90 text-base md:text-lg px-8 md:px-12 py-5 md:py-6 h-auto font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
           >
             <a href="https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY" target="_blank" rel="noopener noreferrer" onClick={handleUberEatsClick}>
               Order on Uber Eats
@@ -226,7 +226,7 @@ const Hero = () => {
           <Button
             data-testid="hero-square-btn"
             asChild
-            className="btn-vintage bg-navy text-cream hover:bg-navy/80 text-base md:text-lg px-6 md:px-10 py-4 h-auto font-semibold border-2 border-cream/30"
+            className="rounded-full bg-cream text-navy hover:bg-cream/90 text-base md:text-lg px-8 md:px-12 py-5 md:py-6 h-auto font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
           >
             <a href="https://lakeview-burgers-seafood.square.site" target="_blank" rel="noopener noreferrer" onClick={handleSquareClick}>
               Order on Square
