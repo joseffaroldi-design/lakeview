@@ -425,16 +425,33 @@ async def get_analytics(authorization: str = Header(None), session_token: str = 
         if stat["_id"] is not None:
             hourly_views_today[str(stat["_id"])] = stat["count"]
     
-    # Daily views this week
+    # Daily views this week - optimized with single aggregation query
     daily_views_week = {}
-    for i in range(7):
-        day = week_start + timedelta(days=i)
-        day_end = day + timedelta(days=1)
-        day_name = day.strftime("%a")
-        count = await db.page_views.count_documents({
-            "timestamp": {"$gte": day.isoformat(), "$lt": day_end.isoformat()}
-        })
-        daily_views_week[day_name] = count
+    daily_pipeline = [
+        {"$match": {"timestamp": {"$gte": week_start.isoformat()}}},
+        {"$addFields": {
+            "parsed_timestamp": {
+                "$cond": {
+                    "if": {"$eq": [{"$type": "$timestamp"}, "string"]},
+                    "then": {"$dateFromString": {"dateString": "$timestamp"}},
+                    "else": "$timestamp"
+                }
+            }
+        }},
+        {"$group": {
+            "_id": {"$dayOfWeek": "$parsed_timestamp"},
+            "count": {"$sum": 1}
+        }}
+    ]
+    daily_stats = await db.page_views.aggregate(daily_pipeline).to_list(7)
+    day_map = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
+    for stat in daily_stats:
+        if stat["_id"] is not None:
+            daily_views_week[day_map.get(stat["_id"], "Unknown")] = stat["count"]
+    # Ensure all days are represented
+    for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
+        if day not in daily_views_week:
+            daily_views_week[day] = 0
     
     # Top referrers
     referrer_pipeline = [
