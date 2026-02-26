@@ -166,37 +166,37 @@ const Hero = () => {
     >
       <div className="absolute inset-0 bg-navy/60"></div>
       
-      <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <div className="relative z-10 text-center px-4 max-w-4xl mx-auto pt-20 md:pt-0">
         <div className="animate-fade-in-up">
           <img 
             src={LOGO} 
             alt="Lakeview Burgers & Seafood" 
             data-testid="hero-logo"
-            className="w-[650px] max-w-full mx-auto mb-4 drop-shadow-2xl"
+            className="w-[280px] md:w-[650px] max-w-full mx-auto mb-2 md:mb-4 drop-shadow-2xl"
           />
         </div>
         
-        <p className="font-accent text-3xl md:text-5xl text-gold mb-4 animate-fade-in-up animation-delay-200">
+        <p className="font-accent text-2xl md:text-5xl text-gold mb-2 md:mb-4 animate-fade-in-up animation-delay-200">
           Market • Kitchen • Catering
         </p>
         
-        <p className="font-sans text-lg md:text-xl text-cream/90 mb-8 max-w-2xl mx-auto animate-fade-in-up animation-delay-400">
+        <p className="font-sans text-sm md:text-xl text-cream/90 mb-4 md:mb-8 max-w-2xl mx-auto animate-fade-in-up animation-delay-400">
           Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 2015
         </p>
         
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up animation-delay-600">
+        <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center animate-fade-in-up animation-delay-600">
           <Button
             data-testid="hero-view-menu-btn"
             onClick={scrollToMenu}
-            className="btn-vintage bg-gold text-navy hover:bg-gold/90 text-lg px-10 py-6 h-auto font-semibold"
+            className="btn-vintage bg-gold text-navy hover:bg-gold/90 text-base md:text-lg px-6 md:px-10 py-4 md:py-6 h-auto font-semibold"
           >
             View Our Menu
           </Button>
           <Button
             data-testid="hero-uber-eats-btn"
             asChild
-            className="btn-vintage bg-forest text-cream hover:bg-forest/90 text-lg px-10 py-6 h-auto font-semibold"
+            className="btn-vintage bg-forest text-cream hover:bg-forest/90 text-base md:text-lg px-6 md:px-10 py-4 md:py-6 h-auto font-semibold"
           >
             <a href="https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY" target="_blank" rel="noopener noreferrer">
               Order on Uber Eats
@@ -205,7 +205,7 @@ const Hero = () => {
           <Button
             data-testid="hero-square-btn"
             asChild
-            className="btn-vintage bg-navy text-cream hover:bg-navy/80 text-lg px-10 py-6 h-auto font-semibold border-2 border-cream/30"
+            className="btn-vintage bg-navy text-cream hover:bg-navy/80 text-base md:text-lg px-6 md:px-10 py-4 md:py-6 h-auto font-semibold border-2 border-cream/30"
           >
             <a href="https://lakeview-burgers-seafood.square.site" target="_blank" rel="noopener noreferrer">
               Order on Square
