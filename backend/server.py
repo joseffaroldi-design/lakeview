@@ -235,8 +235,8 @@ async def get_status_checks():
 
 # Specials CRUD (protected)
 @api_router.post("/specials", response_model=Special)
-async def create_special(special: SpecialCreate, session_token: str = Cookie(None)):
-    verify_session(session_token)
+async def create_special(special: SpecialCreate, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
     special_obj = Special(**special.model_dump())
     doc = special_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
