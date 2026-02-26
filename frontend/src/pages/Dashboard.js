@@ -6,7 +6,7 @@ import {
   ArrowLeft, Plus, Trash2, Edit2, Eye, EyeOff, 
   BarChart3, TrendingUp, Calendar, Image as ImageIcon,
   Save, X, Upload, Users, Monitor, Smartphone, Tablet,
-  Globe, Clock, LogOut
+  Globe, Clock, LogOut, MousePointer
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
