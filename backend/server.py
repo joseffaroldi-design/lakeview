@@ -431,10 +431,21 @@ async def upload_image(file: UploadFile = File(...), session_token: str = Cookie
 # Include router
 app.include_router(api_router)
 
+# CORS configuration - handle credentials properly
+cors_origins = os.environ.get('CORS_ORIGINS', '*')
+if cors_origins == '*':
+    # For development, allow common origins
+    allowed_origins = [
+        "http://localhost:3000",
+        "https://lakeview-grill.preview.emergentagent.com"
+    ]
+else:
+    allowed_origins = cors_origins.split(',')
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
