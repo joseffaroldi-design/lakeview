@@ -115,6 +115,8 @@ class AnalyticsResponse(BaseModel):
     daily_views_week: dict
     top_referrers: dict
     avg_pages_per_session: float
+    button_clicks: dict
+    button_clicks_today: dict
 
 # Helper functions
 def parse_user_agent(user_agent: str) -> tuple:
