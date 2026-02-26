@@ -137,14 +137,23 @@ def parse_user_agent(user_agent: str) -> tuple:
     
     return device, browser
 
-def verify_session(session_token: str = Cookie(None)):
-    """Verify admin session"""
-    if not session_token or session_token not in active_sessions:
+def verify_session(authorization: str = None, session_token: str = Cookie(None)):
+    """Verify admin session via header or cookie"""
+    token = None
+    
+    # Try header first (Bearer token)
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    # Fall back to cookie
+    elif session_token:
+        token = session_token
+    
+    if not token or token not in active_sessions:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    session = active_sessions[session_token]
+    session = active_sessions[token]
     if datetime.now(timezone.utc) > session["expires"]:
-        del active_sessions[session_token]
+        del active_sessions[token]
         raise HTTPException(status_code=401, detail="Session expired")
     
     return True
