@@ -163,10 +163,19 @@ const Navbar = () => {
 // Hero Section
 const Hero = () => {
   const scrollToMenu = () => {
+    trackButtonClick("view_menu");
     const element = document.getElementById("menu");
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
     }
+  };
+
+  const handleUberEatsClick = () => {
+    trackButtonClick("uber_eats");
+  };
+
+  const handleSquareClick = () => {
+    trackButtonClick("square");
   };
 
   return (
@@ -210,7 +219,7 @@ const Hero = () => {
             asChild
             className="btn-vintage bg-forest text-cream hover:bg-forest/90 text-base md:text-lg px-6 md:px-10 py-4 h-auto font-semibold"
           >
-            <a href="https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY" target="_blank" rel="noopener noreferrer" onClick={handleUberEatsClick}>
               Order on Uber Eats
             </a>
           </Button>
@@ -219,7 +228,7 @@ const Hero = () => {
             asChild
             className="btn-vintage bg-navy text-cream hover:bg-navy/80 text-base md:text-lg px-6 md:px-10 py-4 h-auto font-semibold border-2 border-cream/30"
           >
-            <a href="https://lakeview-burgers-seafood.square.site" target="_blank" rel="noopener noreferrer">
+            <a href="https://lakeview-burgers-seafood.square.site" target="_blank" rel="noopener noreferrer" onClick={handleSquareClick}>
               Order on Square
             </a>
           </Button>
