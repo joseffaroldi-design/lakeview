@@ -3,44 +3,94 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
-        <meta name="description" content="A product of emergent.sh" />
+        <meta name="theme-color" content="#1d2a3b" />
+        
+        <!-- SEO Meta Tags -->
+        <title>Lakeview Burgers & Seafood | Best Burgers & Fresh Seafood in New Orleans</title>
+        <meta name="description" content="Lakeview Burgers & Seafood - Family-owned restaurant in New Orleans serving the finest burgers and fresh Gulf seafood since 2015. Located at 872 Harrison Ave. Order online or call (504) 289-1032." />
+        <meta name="keywords" content="Lakeview Burgers, New Orleans seafood, NOLA burgers, Gulf seafood, po'boys, fried shrimp, catfish, New Orleans restaurant, Lakeview restaurant, best burgers New Orleans, seafood restaurant New Orleans" />
+        <meta name="author" content="Lakeview Burgers & Seafood" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://lakeview-grill.preview.emergentagent.com" />
+        
+        <!-- Open Graph / Facebook -->
+        <meta property="og:type" content="restaurant" />
+        <meta property="og:title" content="Lakeview Burgers & Seafood | New Orleans" />
+        <meta property="og:description" content="Family-owned restaurant serving the finest burgers and fresh Gulf seafood in New Orleans since 2015. Order online for pickup or delivery!" />
+        <meta property="og:image" content="https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png" />
+        <meta property="og:url" content="https://lakeview-grill.preview.emergentagent.com" />
+        <meta property="og:site_name" content="Lakeview Burgers & Seafood" />
+        <meta property="og:locale" content="en_US" />
+        
+        <!-- Twitter -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Lakeview Burgers & Seafood | New Orleans" />
+        <meta name="twitter:description" content="Best burgers and fresh Gulf seafood in New Orleans. Family-owned since 2015." />
+        <meta name="twitter:image" content="https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png" />
+        
+        <!-- Local Business Schema -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Restaurant",
+            "name": "Lakeview Burgers & Seafood",
+            "image": "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png",
+            "url": "https://lakeview-grill.preview.emergentagent.com",
+            "telephone": "+1-504-289-1032",
+            "priceRange": "$$",
+            "servesCuisine": ["American", "Seafood", "Cajun"],
+            "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "872 Harrison Ave",
+                "addressLocality": "New Orleans",
+                "addressRegion": "LA",
+                "postalCode": "70124",
+                "addressCountry": "US"
+            },
+            "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 30.0027,
+                "longitude": -90.1053
+            },
+            "openingHoursSpecification": [
+                {
+                    "@type": "OpeningHoursSpecification",
+                    "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+                    "opens": "11:30",
+                    "closes": "23:00"
+                }
+            ],
+            "menu": "https://lakeview-grill.preview.emergentagent.com/#menu",
+            "acceptsReservations": "Yes",
+            "founder": {
+                "@type": "Person",
+                "name": "Chef Joseph Faroldi"
+            },
+            "foundingDate": "2015",
+            "sameAs": [
+                "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36",
+                "https://lakeview-burgers-seafood.square.site"
+            ]
+        }
+        </script>
+        
+        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <!--
-        manifest.json provides metadata used when your web app is installed on a
-        user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-        -->
-        <!--
-        Notice the use of %PUBLIC_URL% in the tags above.
-        It will be replaced with the URL of the `public` folder during the build.
-        Only files inside the `public` folder can be referenced from the HTML.
-
-        Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-        work correctly both with client-side routing and a non-root public URL.
-        Learn how to configure a non-root public URL by running `npm run build`.
-        -->
-        <title>Emergent | Fullstack App</title>
+        
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
-        <!--
-        These two scripts have been added for the Visual Edits, please do not edit or remove them
-        -->
         <script>
-            // Only load visual edit scripts when inside an iframe
             if (window.self !== window.top) {
-                // Load debug monitor script
                 var debugMonitorScript = document.createElement('script');
                 debugMonitorScript.src = 'https://assets.emergent.sh/scripts/debug-monitor.js';
                 document.head.appendChild(debugMonitorScript);
 
-                // Configure Tailwind
                 window.tailwind = window.tailwind || {};
                 tailwind.config = {
                     corePlugins: { preflight: false },
                 };
 
-                // Load Tailwind CDN
                 var tailwindScript = document.createElement('script');
                 tailwindScript.src = 'https://cdn.tailwindcss.com';
                 document.head.appendChild(tailwindScript);
@@ -50,16 +100,6 @@
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root"></div>
-        <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
         <a
             id="emergent-badge"
             target="_blank"
@@ -169,7 +209,7 @@
             })(document, window.posthog || []);
             posthog.init("phc_xAvL2Iq4tFmANRE7kzbKwaSqp1HJjN7x48s3vr0CMjs", {
                 api_host: "https://us.i.posthog.com",
-                person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well,
+                person_profiles: "identified_only",
                 session_recording: {
                     recordCrossOriginIframes: true,
                     capturePerformance: false,
