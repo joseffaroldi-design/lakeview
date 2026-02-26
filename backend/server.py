@@ -87,6 +87,17 @@ class TrackingData(BaseModel):
     screen_width: Optional[int] = None
     screen_height: Optional[int] = None
 
+class ButtonClick(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    button_name: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    session_id: Optional[str] = None
+
+class ButtonClickData(BaseModel):
+    button_name: str
+    session_id: Optional[str] = None
+
 class LoginRequest(BaseModel):
     password: str
 
