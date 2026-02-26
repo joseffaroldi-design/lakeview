@@ -262,8 +262,8 @@ async def get_special(special_id: str):
     return special
 
 @api_router.put("/specials/{special_id}", response_model=Special)
-async def update_special(special_id: str, update: SpecialUpdate, session_token: str = Cookie(None)):
-    verify_session(session_token)
+async def update_special(special_id: str, update: SpecialUpdate, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="No update data provided")
@@ -278,8 +278,8 @@ async def update_special(special_id: str, update: SpecialUpdate, session_token: 
     return special
 
 @api_router.delete("/specials/{special_id}")
-async def delete_special(special_id: str, session_token: str = Cookie(None)):
-    verify_session(session_token)
+async def delete_special(special_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
     result = await db.specials.delete_one({"id": special_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Special not found")
