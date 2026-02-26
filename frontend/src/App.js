@@ -117,7 +117,7 @@ const Hero = () => {
             src={LOGO} 
             alt="Lakeview Burgers & Seafood" 
             data-testid="hero-logo"
-            className="w-64 md:w-96 mx-auto mb-8 drop-shadow-2xl"
+            className="w-[650px] max-w-full mx-auto mb-8 drop-shadow-2xl"
           />
         </div>
         
