@@ -6,18 +6,36 @@ import { Phone, MapPin, Clock, ChevronDown, Settings } from "lucide-react";
 import { burgers, appetizers, friedPlates, sandwiches, tacos, soups, salads, sides, kids, familyDinners } from "@/data/menu";
 import axios from "axios";
 import Dashboard from "@/pages/Dashboard";
+import Login from "@/pages/Login";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Generate or get session ID
+const getSessionId = () => {
+  let sessionId = sessionStorage.getItem("visitor_session");
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    sessionStorage.setItem("visitor_session", sessionId);
+  }
+  return sessionId;
+};
 
 // Logo and Images
 const LOGO = "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png";
 const HERO_BG = "https://images.unsplash.com/photo-1660882089809-9fe922300699?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHw0fHxOZXclMjBPcmxlYW5zJTIwbGFrZWZyb250JTIwc3Vuc2V0JTIwd2F0ZXJ8ZW58MHx8fHwxNzcwMjc4MDg2fDA&ixlib=rb-4.1.0&q=85";
 const ABOUT_IMG = "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg";
 
-// Track page view
+// Track page view with enhanced data
 const trackPageView = async (page) => {
   try {
-    await axios.post(`${API}/analytics/track?page=${page}`);
+    await axios.post(`${API}/analytics/track`, {
+      page,
+      user_agent: navigator.userAgent,
+      referrer: document.referrer || null,
+      session_id: getSessionId(),
+      screen_width: window.screen.width,
+      screen_height: window.screen.height
+    });
   } catch (error) {
     console.error("Error tracking page view:", error);
   }
