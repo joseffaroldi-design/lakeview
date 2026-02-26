@@ -177,7 +177,7 @@ const Hero = () => {
         </div>
         
         <p className="font-accent text-2xl md:text-3xl text-gold mb-1 md:mb-2 animate-fade-in-up animation-delay-200">
-          Market • Kitchen • Catering
+          Lakeview
         </p>
         
         <p className="font-sans text-sm md:text-base text-cream/90 mb-4 md:mb-5 max-w-2xl mx-auto animate-fade-in-up animation-delay-400">
