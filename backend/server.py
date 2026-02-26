@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Depends, Response, Cookie
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,8 +9,10 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import base64
+import hashlib
+import secrets
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,13 +22,18 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
+# Admin credentials
+ADMIN_PASSWORD = "Lakeview872"
+ADMIN_PASSWORD_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
+
+# Session storage (in production, use Redis or database)
+active_sessions = {}
+
 app = FastAPI()
-
-# Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+security = HTTPBasic()
 
-# Define Models
+# Models
 class StatusCheck(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -64,15 +72,131 @@ class PageView(BaseModel):
     page: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     user_agent: Optional[str] = None
+    device_type: Optional[str] = None
+    browser: Optional[str] = None
+    referrer: Optional[str] = None
+    session_id: Optional[str] = None
+    screen_width: Optional[int] = None
+    screen_height: Optional[int] = None
+
+class TrackingData(BaseModel):
+    page: str
+    user_agent: Optional[str] = None
+    referrer: Optional[str] = None
+    session_id: Optional[str] = None
+    screen_width: Optional[int] = None
+    screen_height: Optional[int] = None
+
+class LoginRequest(BaseModel):
+    password: str
 
 class AnalyticsResponse(BaseModel):
     total_views: int
     views_today: int
     views_this_week: int
     views_this_month: int
+    unique_sessions: int
+    unique_sessions_today: int
     page_breakdown: dict
+    device_breakdown: dict
+    browser_breakdown: dict
+    hourly_views_today: dict
+    daily_views_week: dict
+    top_referrers: dict
+    avg_pages_per_session: float
 
-# Routes
+# Helper functions
+def parse_user_agent(user_agent: str) -> tuple:
+    """Parse user agent to extract device type and browser"""
+    if not user_agent:
+        return "unknown", "unknown"
+    
+    ua_lower = user_agent.lower()
+    
+    # Device type
+    if "mobile" in ua_lower or "android" in ua_lower or "iphone" in ua_lower:
+        device = "mobile"
+    elif "tablet" in ua_lower or "ipad" in ua_lower:
+        device = "tablet"
+    else:
+        device = "desktop"
+    
+    # Browser
+    if "chrome" in ua_lower and "edg" not in ua_lower:
+        browser = "Chrome"
+    elif "firefox" in ua_lower:
+        browser = "Firefox"
+    elif "safari" in ua_lower and "chrome" not in ua_lower:
+        browser = "Safari"
+    elif "edg" in ua_lower:
+        browser = "Edge"
+    elif "opera" in ua_lower or "opr" in ua_lower:
+        browser = "Opera"
+    else:
+        browser = "Other"
+    
+    return device, browser
+
+def verify_session(session_token: str = Cookie(None)):
+    """Verify admin session"""
+    if not session_token or session_token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    session = active_sessions[session_token]
+    if datetime.now(timezone.utc) > session["expires"]:
+        del active_sessions[session_token]
+        raise HTTPException(status_code=401, detail="Session expired")
+    
+    return True
+
+# Auth routes
+@api_router.post("/auth/login")
+async def login(request: LoginRequest, response: Response):
+    password_hash = hashlib.sha256(request.password.encode()).hexdigest()
+    
+    if password_hash != ADMIN_PASSWORD_HASH:
+        raise HTTPException(status_code=401, detail="Invalid password")
+    
+    # Create session token
+    session_token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    
+    active_sessions[session_token] = {
+        "created": datetime.now(timezone.utc),
+        "expires": expires
+    }
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        max_age=86400,
+        samesite="lax"
+    )
+    
+    return {"message": "Login successful", "token": session_token}
+
+@api_router.post("/auth/logout")
+async def logout(response: Response, session_token: str = Cookie(None)):
+    if session_token and session_token in active_sessions:
+        del active_sessions[session_token]
+    
+    response.delete_cookie("session_token")
+    return {"message": "Logged out"}
+
+@api_router.get("/auth/verify")
+async def verify_auth(session_token: str = Cookie(None)):
+    if not session_token or session_token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    session = active_sessions[session_token]
+    if datetime.now(timezone.utc) > session["expires"]:
+        del active_sessions[session_token]
+        raise HTTPException(status_code=401, detail="Session expired")
+    
+    return {"authenticated": True}
+
+# Basic routes
 @api_router.get("/")
 async def root():
     return {"message": "Hello World"}
@@ -83,7 +207,7 @@ async def create_status_check(input: StatusCheckCreate):
     status_obj = StatusCheck(**status_dict)
     doc = status_obj.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
-    _ = await db.status_checks.insert_one(doc)
+    await db.status_checks.insert_one(doc)
     return status_obj
 
 @api_router.get("/status", response_model=List[StatusCheck])
@@ -94,9 +218,10 @@ async def get_status_checks():
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     return status_checks
 
-# Specials CRUD
+# Specials CRUD (protected)
 @api_router.post("/specials", response_model=Special)
-async def create_special(special: SpecialCreate):
+async def create_special(special: SpecialCreate, session_token: str = Cookie(None)):
+    verify_session(session_token)
     special_obj = Special(**special.model_dump())
     doc = special_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
@@ -122,15 +247,13 @@ async def get_special(special_id: str):
     return special
 
 @api_router.put("/specials/{special_id}", response_model=Special)
-async def update_special(special_id: str, update: SpecialUpdate):
+async def update_special(special_id: str, update: SpecialUpdate, session_token: str = Cookie(None)):
+    verify_session(session_token)
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="No update data provided")
     
-    result = await db.specials.update_one(
-        {"id": special_id},
-        {"$set": update_data}
-    )
+    result = await db.specials.update_one({"id": special_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Special not found")
     
@@ -140,24 +263,37 @@ async def update_special(special_id: str, update: SpecialUpdate):
     return special
 
 @api_router.delete("/specials/{special_id}")
-async def delete_special(special_id: str):
+async def delete_special(special_id: str, session_token: str = Cookie(None)):
+    verify_session(session_token)
     result = await db.specials.delete_one({"id": special_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Special not found")
     return {"message": "Special deleted successfully"}
 
-# Analytics
+# Analytics (public tracking, protected viewing)
 @api_router.post("/analytics/track")
-async def track_page_view(page: str, user_agent: Optional[str] = None):
-    page_view = PageView(page=page, user_agent=user_agent)
+async def track_page_view(data: TrackingData):
+    device_type, browser = parse_user_agent(data.user_agent)
+    
+    page_view = PageView(
+        page=data.page,
+        user_agent=data.user_agent,
+        device_type=device_type,
+        browser=browser,
+        referrer=data.referrer,
+        session_id=data.session_id,
+        screen_width=data.screen_width,
+        screen_height=data.screen_height
+    )
+    
     doc = page_view.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
     await db.page_views.insert_one(doc)
     return {"message": "Page view tracked"}
 
-@api_router.get("/analytics", response_model=AnalyticsResponse)
-async def get_analytics():
-    from datetime import timedelta
+@api_router.get("/analytics")
+async def get_analytics(session_token: str = Cookie(None)):
+    verify_session(session_token)
     
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -182,31 +318,117 @@ async def get_analytics():
         "timestamp": {"$gte": month_start.isoformat()}
     })
     
+    # Unique sessions (all time)
+    unique_sessions_pipeline = [
+        {"$match": {"session_id": {"$ne": None}}},
+        {"$group": {"_id": "$session_id"}},
+        {"$count": "count"}
+    ]
+    unique_result = await db.page_views.aggregate(unique_sessions_pipeline).to_list(1)
+    unique_sessions = unique_result[0]["count"] if unique_result else 0
+    
+    # Unique sessions today
+    unique_today_pipeline = [
+        {"$match": {"session_id": {"$ne": None}, "timestamp": {"$gte": today_start.isoformat()}}},
+        {"$group": {"_id": "$session_id"}},
+        {"$count": "count"}
+    ]
+    unique_today_result = await db.page_views.aggregate(unique_today_pipeline).to_list(1)
+    unique_sessions_today = unique_today_result[0]["count"] if unique_today_result else 0
+    
     # Page breakdown
-    pipeline = [
+    page_pipeline = [
         {"$group": {"_id": "$page", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}}
     ]
-    page_stats = await db.page_views.aggregate(pipeline).to_list(100)
+    page_stats = await db.page_views.aggregate(page_pipeline).to_list(100)
     page_breakdown = {stat["_id"]: stat["count"] for stat in page_stats}
     
-    return AnalyticsResponse(
-        total_views=total_views,
-        views_today=views_today,
-        views_this_week=views_this_week,
-        views_this_month=views_this_month,
-        page_breakdown=page_breakdown
-    )
+    # Device breakdown
+    device_pipeline = [
+        {"$match": {"device_type": {"$ne": None}}},
+        {"$group": {"_id": "$device_type", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    device_stats = await db.page_views.aggregate(device_pipeline).to_list(10)
+    device_breakdown = {stat["_id"]: stat["count"] for stat in device_stats}
+    
+    # Browser breakdown
+    browser_pipeline = [
+        {"$match": {"browser": {"$ne": None}}},
+        {"$group": {"_id": "$browser", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    browser_stats = await db.page_views.aggregate(browser_pipeline).to_list(10)
+    browser_breakdown = {stat["_id"]: stat["count"] for stat in browser_stats}
+    
+    # Hourly views today (0-23)
+    hourly_views_today = {str(h): 0 for h in range(24)}
+    all_today = await db.page_views.find(
+        {"timestamp": {"$gte": today_start.isoformat()}},
+        {"_id": 0, "timestamp": 1}
+    ).to_list(10000)
+    for view in all_today:
+        ts = view.get("timestamp")
+        if ts:
+            if isinstance(ts, str):
+                ts = datetime.fromisoformat(ts)
+            hour = str(ts.hour)
+            hourly_views_today[hour] = hourly_views_today.get(hour, 0) + 1
+    
+    # Daily views this week
+    daily_views_week = {}
+    for i in range(7):
+        day = week_start + timedelta(days=i)
+        day_end = day + timedelta(days=1)
+        day_name = day.strftime("%a")
+        count = await db.page_views.count_documents({
+            "timestamp": {"$gte": day.isoformat(), "$lt": day_end.isoformat()}
+        })
+        daily_views_week[day_name] = count
+    
+    # Top referrers
+    referrer_pipeline = [
+        {"$match": {"referrer": {"$ne": None, "$ne": ""}}},
+        {"$group": {"_id": "$referrer", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]
+    referrer_stats = await db.page_views.aggregate(referrer_pipeline).to_list(5)
+    top_referrers = {stat["_id"]: stat["count"] for stat in referrer_stats}
+    
+    # Average pages per session
+    if unique_sessions > 0:
+        avg_pages_per_session = round(total_views / unique_sessions, 2)
+    else:
+        avg_pages_per_session = 0
+    
+    return {
+        "total_views": total_views,
+        "views_today": views_today,
+        "views_this_week": views_this_week,
+        "views_this_month": views_this_month,
+        "unique_sessions": unique_sessions,
+        "unique_sessions_today": unique_sessions_today,
+        "page_breakdown": page_breakdown,
+        "device_breakdown": device_breakdown,
+        "browser_breakdown": browser_breakdown,
+        "hourly_views_today": hourly_views_today,
+        "daily_views_week": daily_views_week,
+        "top_referrers": top_referrers,
+        "avg_pages_per_session": avg_pages_per_session
+    }
 
 @api_router.post("/upload-image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: UploadFile = File(...), session_token: str = Cookie(None)):
+    verify_session(session_token)
     contents = await file.read()
     base64_image = base64.b64encode(contents).decode('utf-8')
     content_type = file.content_type or 'image/jpeg'
     data_url = f"data:{content_type};base64,{base64_image}"
     return {"image_url": data_url}
 
-# Include the router in the main app
+# Include router
 app.include_router(api_router)
 
 app.add_middleware(
@@ -217,7 +439,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
