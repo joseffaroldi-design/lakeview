@@ -194,13 +194,19 @@ async def logout(response: Response, session_token: str = Cookie(None)):
     return {"message": "Logged out"}
 
 @api_router.get("/auth/verify")
-async def verify_auth(session_token: str = Cookie(None)):
-    if not session_token or session_token not in active_sessions:
+async def verify_auth(authorization: str = Header(None), session_token: str = Cookie(None)):
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    elif session_token:
+        token = session_token
+    
+    if not token or token not in active_sessions:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    session = active_sessions[session_token]
+    session = active_sessions[token]
     if datetime.now(timezone.utc) > session["expires"]:
-        del active_sessions[session_token]
+        del active_sessions[token]
         raise HTTPException(status_code=401, detail="Session expired")
     
     return {"authenticated": True}
