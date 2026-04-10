@@ -455,7 +455,7 @@ async def get_analytics(authorization: str = Header(None), session_token: str = 
     
     # Top referrers
     referrer_pipeline = [
-        {"$match": {"referrer": {"$ne": None, "$ne": ""}}},
+        {"$match": {"referrer": {"$nin": [None, "", "null"]}}},
         {"$group": {"_id": "$referrer", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
         {"$limit": 5}
