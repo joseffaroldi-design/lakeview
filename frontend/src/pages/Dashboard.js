@@ -6,7 +6,7 @@ import {
   ArrowLeft, Plus, Trash2, Edit2, Eye, EyeOff, 
   BarChart3, TrendingUp, Calendar, Image as ImageIcon,
   Save, X, Upload, Users, Monitor, Smartphone, Tablet,
-  Globe, Clock, LogOut, MousePointer
+  Globe, Clock, LogOut, MousePointer, Mail, UtensilsCrossed, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -16,6 +16,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const Dashboard = () => {
   const [specials, setSpecials] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [cateringInquiries, setCateringInquiries] = useState([]);
+  const [newsletterSubs, setNewsletterSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingSpecial, setEditingSpecial] = useState(null);
@@ -54,12 +56,16 @@ const Dashboard = () => {
     if (!isAuth) return;
 
     try {
-      const [specialsRes, analyticsRes] = await Promise.all([
+      const [specialsRes, analyticsRes, cateringRes, newsletterRes] = await Promise.all([
         axios.get(`${API}/specials`),
-        axios.get(`${API}/analytics`, { headers: getAuthHeader() })
+        axios.get(`${API}/analytics`, { headers: getAuthHeader() }),
+        axios.get(`${API}/catering/inquiries`, { headers: getAuthHeader() }),
+        axios.get(`${API}/newsletter/subscribers`, { headers: getAuthHeader() })
       ]);
       setSpecials(specialsRes.data);
       setAnalytics(analyticsRes.data);
+      setCateringInquiries(cateringRes.data.inquiries || []);
+      setNewsletterSubs(newsletterRes.data.subscribers || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       if (error.response?.status === 401) {
@@ -688,6 +694,99 @@ const Dashboard = () => {
                 </Card>
               ))}
             </div>
+          )}
+        </section>
+
+        {/* Catering Inquiries */}
+        <section className="mt-12">
+          <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
+            <UtensilsCrossed className="w-6 h-6 text-gold" />
+            Catering Inquiries
+            <span className="text-sm font-sans font-normal text-muted-foreground ml-2">({cateringInquiries.length})</span>
+          </h2>
+          {cateringInquiries.length === 0 ? (
+            <Card className="bg-card border-2 border-navy/10">
+              <CardContent className="py-8 text-center">
+                <UtensilsCrossed className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+                <p className="font-sans text-muted-foreground">No catering inquiries yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {cateringInquiries.map((inquiry) => (
+                <Card key={inquiry.id} className="bg-card border-2 border-navy/10" data-testid={`catering-inquiry-${inquiry.id}`}>
+                  <CardContent className="py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h4 className="font-serif text-navy font-bold">{inquiry.name}</h4>
+                          <span className={`text-xs font-sans px-2 py-0.5 rounded-full ${
+                            inquiry.status === 'new' ? 'bg-gold/20 text-gold' :
+                            inquiry.status === 'contacted' ? 'bg-blue-100 text-blue-700' :
+                            inquiry.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                            inquiry.status === 'completed' ? 'bg-gray-100 text-gray-600' :
+                            'bg-red-100 text-red-600'
+                          }`}>{inquiry.status}</span>
+                        </div>
+                        <p className="font-sans text-sm text-muted-foreground">{inquiry.email}{inquiry.phone ? ` | ${inquiry.phone}` : ''}</p>
+                        {inquiry.event_date && <p className="font-sans text-sm text-muted-foreground">Date: {inquiry.event_date}{inquiry.guest_count ? ` | ${inquiry.guest_count} guests` : ''}</p>}
+                        <p className="font-sans text-sm text-navy mt-2">{inquiry.message}</p>
+                        <p className="font-sans text-xs text-muted-foreground mt-1">{new Date(inquiry.submitted_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <select
+                          data-testid={`catering-status-${inquiry.id}`}
+                          value={inquiry.status}
+                          onChange={async (e) => {
+                            try {
+                              await axios.put(`${API}/catering/inquiries/${inquiry.id}/status`, { status: e.target.value }, { headers: getAuthHeader() });
+                              fetchData();
+                            } catch (err) { console.error(err); }
+                          }}
+                          className="text-sm border border-navy/20 rounded-sm px-2 py-1 font-sans focus:outline-none focus:ring-2 focus:ring-gold"
+                        >
+                          <option value="new">New</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Newsletter Subscribers */}
+        <section className="mt-12">
+          <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
+            <Mail className="w-6 h-6 text-gold" />
+            Newsletter Subscribers
+            <span className="text-sm font-sans font-normal text-muted-foreground ml-2">({newsletterSubs.length})</span>
+          </h2>
+          {newsletterSubs.length === 0 ? (
+            <Card className="bg-card border-2 border-navy/10">
+              <CardContent className="py-8 text-center">
+                <Mail className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+                <p className="font-sans text-muted-foreground">No subscribers yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-card border-2 border-navy/10">
+              <CardContent className="py-4">
+                <div className="space-y-2">
+                  {newsletterSubs.map((sub, idx) => (
+                    <div key={sub.id || idx} className="flex items-center justify-between py-2 border-b border-navy/5 last:border-0" data-testid={`newsletter-sub-${idx}`}>
+                      <span className="font-sans text-navy">{sub.email}</span>
+                      <span className="font-sans text-xs text-muted-foreground">{new Date(sub.subscribed_at).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </section>
       </main>

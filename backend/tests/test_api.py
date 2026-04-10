@@ -373,5 +373,205 @@ class TestNewsletter:
         print(f"✓ Get subscribers returns list with {data['total']} subscribers")
 
 
+class TestCateringInquiries:
+    """Catering inquiry endpoint tests - NEW FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_submit_catering_inquiry_valid(self):
+        """POST /api/catering/inquiry with valid data returns success message"""
+        inquiry_data = {
+            "name": f"TEST_Catering_{uuid.uuid4().hex[:8]}",
+            "email": f"test_catering_{uuid.uuid4().hex[:8]}@example.com",
+            "phone": "(504) 555-1234",
+            "event_date": "2026-03-15",
+            "guest_count": "50",
+            "message": "Test catering inquiry for automated testing"
+        }
+        response = requests.post(
+            f"{BASE_URL}/api/catering/inquiry",
+            json=inquiry_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+        assert "id" in data
+        assert "24 hours" in data["message"].lower() or "thank you" in data["message"].lower()
+        print(f"✓ Catering inquiry submitted successfully, id: {data['id']}")
+    
+    def test_submit_catering_inquiry_missing_name(self):
+        """POST /api/catering/inquiry with missing name returns 400"""
+        inquiry_data = {
+            "name": "",
+            "email": "test@example.com",
+            "message": "Test message"
+        }
+        response = requests.post(
+            f"{BASE_URL}/api/catering/inquiry",
+            json=inquiry_data
+        )
+        assert response.status_code == 400
+        print("✓ Missing name returns 400")
+    
+    def test_submit_catering_inquiry_missing_email(self):
+        """POST /api/catering/inquiry with missing email returns 400"""
+        inquiry_data = {
+            "name": "Test Name",
+            "email": "",
+            "message": "Test message"
+        }
+        response = requests.post(
+            f"{BASE_URL}/api/catering/inquiry",
+            json=inquiry_data
+        )
+        assert response.status_code == 400
+        print("✓ Missing email returns 400")
+    
+    def test_submit_catering_inquiry_missing_message(self):
+        """POST /api/catering/inquiry with missing message returns 400"""
+        inquiry_data = {
+            "name": "Test Name",
+            "email": "test@example.com",
+            "message": ""
+        }
+        response = requests.post(
+            f"{BASE_URL}/api/catering/inquiry",
+            json=inquiry_data
+        )
+        assert response.status_code == 400
+        print("✓ Missing message returns 400")
+    
+    def test_get_catering_inquiries_requires_auth(self):
+        """GET /api/catering/inquiries without auth returns 401"""
+        response = requests.get(f"{BASE_URL}/api/catering/inquiries")
+        assert response.status_code == 401
+        print("✓ Get catering inquiries requires authentication")
+    
+    def test_get_catering_inquiries_with_auth(self, auth_token):
+        """GET /api/catering/inquiries with auth returns inquiry list"""
+        response = requests.get(
+            f"{BASE_URL}/api/catering/inquiries",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "inquiries" in data
+        assert "total" in data
+        assert isinstance(data["inquiries"], list)
+        assert isinstance(data["total"], int)
+        print(f"✓ Get catering inquiries returns list with {data['total']} inquiries")
+    
+    def test_update_catering_status_valid(self, auth_token):
+        """PUT /api/catering/inquiries/{id}/status updates inquiry status"""
+        # First create an inquiry
+        inquiry_data = {
+            "name": f"TEST_Status_{uuid.uuid4().hex[:8]}",
+            "email": f"test_status_{uuid.uuid4().hex[:8]}@example.com",
+            "message": "Test inquiry for status update"
+        }
+        create_response = requests.post(
+            f"{BASE_URL}/api/catering/inquiry",
+            json=inquiry_data
+        )
+        inquiry_id = create_response.json()["id"]
+        
+        # Update status to 'contacted'
+        update_response = requests.put(
+            f"{BASE_URL}/api/catering/inquiries/{inquiry_id}/status",
+            json={"status": "contacted"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert update_response.status_code == 200
+        data = update_response.json()
+        assert "message" in data
+        print(f"✓ Updated catering inquiry status to 'contacted'")
+        
+        # Verify status was updated
+        get_response = requests.get(
+            f"{BASE_URL}/api/catering/inquiries",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        inquiries = get_response.json()["inquiries"]
+        updated_inquiry = next((i for i in inquiries if i["id"] == inquiry_id), None)
+        assert updated_inquiry is not None
+        assert updated_inquiry["status"] == "contacted"
+        print("✓ Verified status was persisted")
+    
+    def test_update_catering_status_invalid(self, auth_token):
+        """PUT /api/catering/inquiries/{id}/status with invalid status returns 400"""
+        # First create an inquiry
+        inquiry_data = {
+            "name": f"TEST_Invalid_{uuid.uuid4().hex[:8]}",
+            "email": f"test_invalid_{uuid.uuid4().hex[:8]}@example.com",
+            "message": "Test inquiry for invalid status"
+        }
+        create_response = requests.post(
+            f"{BASE_URL}/api/catering/inquiry",
+            json=inquiry_data
+        )
+        inquiry_id = create_response.json()["id"]
+        
+        # Try to update with invalid status
+        update_response = requests.put(
+            f"{BASE_URL}/api/catering/inquiries/{inquiry_id}/status",
+            json={"status": "invalid_status"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert update_response.status_code == 400
+        print("✓ Invalid status returns 400")
+    
+    def test_update_catering_status_requires_auth(self):
+        """PUT /api/catering/inquiries/{id}/status without auth returns 401"""
+        response = requests.put(
+            f"{BASE_URL}/api/catering/inquiries/some-id/status",
+            json={"status": "contacted"}
+        )
+        assert response.status_code == 401
+        print("✓ Update catering status requires authentication")
+    
+    def test_update_catering_status_not_found(self, auth_token):
+        """PUT /api/catering/inquiries/{id}/status with non-existent id returns 404"""
+        response = requests.put(
+            f"{BASE_URL}/api/catering/inquiries/non-existent-id/status",
+            json={"status": "contacted"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 404
+        print("✓ Non-existent inquiry returns 404")
+
+
+class TestSEOFiles:
+    """SEO files accessibility tests - NEW FEATURE"""
+    
+    def test_robots_txt_accessible(self):
+        """robots.txt is accessible at /robots.txt"""
+        response = requests.get(f"{BASE_URL}/robots.txt")
+        assert response.status_code == 200
+        content = response.text
+        assert "User-agent" in content
+        assert "Disallow: /login" in content
+        assert "Disallow: /dashboard" in content
+        assert "Disallow: /api/" in content
+        assert "Sitemap:" in content
+        print("✓ robots.txt accessible with correct Disallow rules")
+    
+    def test_sitemap_xml_accessible(self):
+        """sitemap.xml is accessible at /sitemap.xml"""
+        response = requests.get(f"{BASE_URL}/sitemap.xml")
+        assert response.status_code == 200
+        content = response.text
+        assert "<?xml" in content
+        assert "urlset" in content
+        assert "loc" in content
+        print("✓ sitemap.xml accessible with valid XML structure")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
