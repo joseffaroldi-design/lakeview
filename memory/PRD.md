@@ -12,10 +12,10 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, lo
 ## Architecture
 - **Frontend**: React + Tailwind CSS + Shadcn/UI
 - **Backend**: FastAPI (Python)
-- **Database**: MongoDB (collections: page_views, button_clicks, specials, status_checks, newsletter_subscribers)
-- **Auth**: JWT Bearer token (header-based), password stored in backend .env
+- **Database**: MongoDB (collections: page_views, button_clicks, specials, status_checks, newsletter_subscribers, catering_inquiries)
+- **Auth**: JWT Bearer token (header-based), password in backend .env
 
-## What's Been Implemented
+## Implemented Features
 
 ### Public Landing Page
 - Hero section with logo, tagline, View Our Menu + ordering buttons
@@ -23,14 +23,11 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, lo
 - Today's Specials section (auto-displays active specials from dashboard)
 - Full Menu (10 categories, 60+ items from official PDF)
 - Email Signup section ("Join the Lakeview Family" newsletter capture)
+- Catering Inquiry Form ("Let Us Cater Your Event" with name, email, phone, date, guests, message)
 - Contact section (address, hours, phone, reservation button, Google Maps embed)
 - Sticky Order Bar (floating Uber Eats + Square buttons on scroll)
 - New Orleans-themed design (Navy, Forest Green, Cream, Gold, Playfair Display font)
 - Mobile responsive
-
-### External Ordering Integration
-- Uber Eats: https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36
-- Square: https://lakeview-burgers-seafood.square.site
 
 ### Admin Dashboard (/login -> /dashboard)
 - Password-protected login (JWT Bearer token auth)
@@ -38,9 +35,24 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, lo
 - Device & browser breakdown, page breakdown, hourly/daily charts
 - Top referrers, button click tracking (all time + today)
 - Specials CRUD: create, edit, delete, toggle active/inactive, image upload
+- Catering Inquiries management with status tracking (new/contacted/confirmed/completed/cancelled)
+- Newsletter Subscribers list with emails and signup dates
 
-### SEO Optimization
-- Meta tags, Open Graph tags, JSON-LD schema in index.html
+### SEO Optimization (Max Coverage)
+- Enhanced meta description with long-tail keywords
+- Expanded keyword meta tag (25+ keywords)
+- Open Graph tags with image dimensions and alt text
+- Twitter Card tags with image alt
+- Geo meta tags (geo.region, geo.placename, geo.position, ICBM)
+- robots.txt (blocks /login, /dashboard, /api/)
+- sitemap.xml
+- JSON-LD schemas:
+  - Restaurant (with hasMenu, MenuSection, MenuItem, OrderAction, ReserveAction, areaServed)
+  - WebSite
+  - BreadcrumbList
+  - FAQPage (5 common questions about hours, location, delivery, catering, cuisine)
+- Preload hints for critical assets (logo image, fonts)
+- Advanced robots directive (max-image-preview:large, max-snippet:-1)
 
 ### Backend API Endpoints
 - `POST /api/auth/login` - Admin login
@@ -53,17 +65,17 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, lo
 - `GET/PUT/DELETE /api/specials/{id}` - CRUD individual special
 - `POST /api/newsletter/subscribe` - Subscribe to newsletter
 - `GET /api/newsletter/subscribers` - List subscribers (protected)
+- `POST /api/catering/inquiry` - Submit catering inquiry
+- `GET /api/catering/inquiries` - List inquiries (protected)
+- `PUT /api/catering/inquiries/{id}/status` - Update inquiry status (protected)
 - `POST /api/upload-image` - Upload image (protected)
 
-## Revenue Features (Added Feb 2026)
-1. **Sticky Order Bar** - Floating Uber Eats + Square buttons visible while browsing menu
-2. **Email Newsletter Signup** - Captures customer emails for direct marketing
-3. **Google Maps Embed** - Helps local SEO and customer directions
-4. **Specials on Landing Page** - Showcases daily specials from dashboard to drive upsells
+## Testing Status (Feb 2026)
+- Backend: 31/31 tests passed (100%)
+- Frontend: 20/20 tests passed (100%)
 
 ## Future Enhancements (Backlog)
 - P1: Upload pictures of Chef Joseph and son Josef for "Our Story" section (waiting on user images)
 - P2: Social media links
 - P2: Photo gallery of dishes
 - P2: Customer reviews/testimonials section
-- P3: Catering inquiry form with email notifications
