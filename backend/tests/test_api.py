@@ -288,5 +288,90 @@ class TestSpecials:
         print("✓ Cleaned up test special")
 
 
+class TestNewsletter:
+    """Newsletter subscription endpoint tests"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_subscribe_with_valid_email(self):
+        """POST /api/newsletter/subscribe with valid email returns success"""
+        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        response = requests.post(
+            f"{BASE_URL}/api/newsletter/subscribe",
+            json={"email": unique_email}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+        assert "already_subscribed" in data
+        assert data["already_subscribed"] == False
+        print(f"✓ Newsletter subscription successful for {unique_email}")
+    
+    def test_subscribe_duplicate_email(self):
+        """POST /api/newsletter/subscribe with duplicate email returns already_subscribed:true"""
+        # First subscribe
+        unique_email = f"test_dup_{uuid.uuid4().hex[:8]}@example.com"
+        requests.post(
+            f"{BASE_URL}/api/newsletter/subscribe",
+            json={"email": unique_email}
+        )
+        
+        # Try to subscribe again
+        response = requests.post(
+            f"{BASE_URL}/api/newsletter/subscribe",
+            json={"email": unique_email}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "already_subscribed" in data
+        assert data["already_subscribed"] == True
+        print(f"✓ Duplicate subscription returns already_subscribed:true")
+    
+    def test_subscribe_invalid_email(self):
+        """POST /api/newsletter/subscribe with invalid email returns 400"""
+        response = requests.post(
+            f"{BASE_URL}/api/newsletter/subscribe",
+            json={"email": "invalid-email-no-at-sign"}
+        )
+        assert response.status_code == 400
+        print("✓ Invalid email returns 400")
+    
+    def test_subscribe_empty_email(self):
+        """POST /api/newsletter/subscribe with empty email returns 400"""
+        response = requests.post(
+            f"{BASE_URL}/api/newsletter/subscribe",
+            json={"email": ""}
+        )
+        assert response.status_code == 400
+        print("✓ Empty email returns 400")
+    
+    def test_get_subscribers_requires_auth(self):
+        """GET /api/newsletter/subscribers without auth returns 401"""
+        response = requests.get(f"{BASE_URL}/api/newsletter/subscribers")
+        assert response.status_code == 401
+        print("✓ Get subscribers requires authentication")
+    
+    def test_get_subscribers_with_auth(self, auth_token):
+        """GET /api/newsletter/subscribers with auth returns subscriber list"""
+        response = requests.get(
+            f"{BASE_URL}/api/newsletter/subscribers",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "subscribers" in data
+        assert "total" in data
+        assert isinstance(data["subscribers"], list)
+        assert isinstance(data["total"], int)
+        print(f"✓ Get subscribers returns list with {data['total']} subscribers")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

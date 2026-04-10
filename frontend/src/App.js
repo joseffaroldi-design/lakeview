@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Phone, MapPin, Clock, ChevronDown, Settings } from "lucide-react";
+import { Phone, MapPin, Clock, ChevronDown, Settings, Mail, ExternalLink } from "lucide-react";
 import { burgers, appetizers, friedPlates, sandwiches, tacos, soups, salads, sides, kids, familyDinners } from "@/data/menu";
 import axios from "axios";
 import Dashboard from "@/pages/Dashboard";
@@ -648,6 +648,21 @@ const Contact = () => {
             </a>
           </Button>
         </div>
+
+        {/* Google Maps Embed */}
+        <div className="mt-16 rounded-sm overflow-hidden vintage-shadow" data-testid="google-maps-embed">
+          <iframe
+            title="Lakeview Burgers & Seafood Location"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3456.123!2d-90.1005!3d30.0075!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8620a5e4a7a0dd87%3A0x3e8a1e2f1c2b3d4e!2s872%20Harrison%20Ave%2C%20New%20Orleans%2C%20LA%2070124!5e0!3m2!1sen!2sus!4v1700000000000"
+            width="100%"
+            height="350"
+            style={{ border: 0 }}
+            allowFullScreen=""
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="w-full"
+          />
+        </div>
       </div>
     </section>
   );
@@ -676,6 +691,149 @@ const Footer = () => {
   );
 };
 
+// Sticky Order Bar - appears when scrolled past hero
+const StickyOrderBar = () => {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setVisible(window.scrollY > window.innerHeight * 0.8);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      data-testid="sticky-order-bar"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-navy/95 backdrop-blur-md border-t border-gold/30 py-3 px-4 transition-transform duration-300"
+      style={{ transform: visible ? "translateY(0)" : "translateY(100%)" }}
+    >
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+        <span className="hidden sm:block font-serif text-cream text-sm">
+          Ready to order?
+        </span>
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-center">
+          <Button
+            data-testid="sticky-uber-eats-btn"
+            asChild
+            className="rounded-full bg-forest text-cream hover:bg-forest/90 text-sm px-6 py-2.5 h-auto font-semibold shadow-lg transition-all duration-300 hover:scale-105"
+          >
+            <a
+              href="https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackButtonClick("uber_eats_sticky")}
+            >
+              <ExternalLink className="w-4 h-4 mr-1.5" />
+              Uber Eats
+            </a>
+          </Button>
+          <Button
+            data-testid="sticky-square-btn"
+            asChild
+            className="rounded-full bg-gold text-navy hover:bg-gold/90 text-sm px-6 py-2.5 h-auto font-semibold shadow-lg transition-all duration-300 hover:scale-105"
+          >
+            <a
+              href="https://lakeview-burgers-seafood.square.site"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackButtonClick("square_sticky")}
+            >
+              <ExternalLink className="w-4 h-4 mr-1.5" />
+              Square
+            </a>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Email Signup Section
+const EmailSignup = () => {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState(null); // 'success' | 'already' | 'error'
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSubmitting(true);
+    setStatus(null);
+    try {
+      trackButtonClick("newsletter_signup");
+      const res = await axios.post(`${API}/newsletter/subscribe`, { email });
+      setStatus(res.data.already_subscribed ? "already" : "success");
+      if (!res.data.already_subscribed) setEmail("");
+    } catch {
+      setStatus("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section data-testid="email-signup-section" className="py-20 md:py-24 bg-forest relative overflow-hidden">
+      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cream-paper.png')" }} />
+      <div className="relative max-w-2xl mx-auto px-4 sm:px-6 text-center">
+        <span className="text-gold text-2xl">⚜</span>
+        <h2 className="font-serif text-3xl md:text-4xl text-cream font-bold mt-3 mb-3">
+          Join the Lakeview Family
+        </h2>
+        <p className="font-sans text-cream/80 mb-8 text-sm md:text-base">
+          Get exclusive deals, new menu items, and event invites delivered straight to your inbox.
+        </p>
+
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
+          <div className="flex-1 relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-navy/40" />
+            <input
+              data-testid="email-signup-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              required
+              className="w-full pl-10 pr-4 py-3 rounded-full bg-cream text-navy font-sans text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+            />
+          </div>
+          <Button
+            data-testid="email-signup-btn"
+            type="submit"
+            disabled={submitting}
+            className="rounded-full bg-gold text-navy hover:bg-gold/90 px-8 py-3 h-auto font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-60"
+          >
+            {submitting ? "Joining..." : "Join the List"}
+          </Button>
+        </form>
+
+        {status === "success" && (
+          <p data-testid="signup-success-msg" className="mt-4 font-sans text-gold text-sm animate-fade-in">
+            Welcome to the Lakeview family! Watch your inbox for exclusive deals.
+          </p>
+        )}
+        {status === "already" && (
+          <p data-testid="signup-already-msg" className="mt-4 font-sans text-cream/80 text-sm animate-fade-in">
+            You're already on our list — stay tuned for great things!
+          </p>
+        )}
+        {status === "error" && (
+          <p data-testid="signup-error-msg" className="mt-4 font-sans text-red-300 text-sm animate-fade-in">
+            Something went wrong. Please try again.
+          </p>
+        )}
+
+        <p className="mt-6 font-sans text-cream/50 text-xs">
+          No spam, ever. Unsubscribe anytime.
+        </p>
+      </div>
+    </section>
+  );
+};
+
 // Home Page Component
 const Home = () => {
   useEffect(() => {
@@ -690,9 +848,11 @@ const Home = () => {
         <About />
         <Specials />
         <Menu />
+        <EmailSignup />
         <Contact />
       </main>
       <Footer />
+      <StickyOrderBar />
     </div>
   );
 };
