@@ -1034,8 +1034,8 @@ const Home = () => {
       <Navbar />
       <main>
         <Hero />
-        <About />
         <Specials />
+        <About />
         <Menu />
         <EmailSignup />
         <CateringForm />
