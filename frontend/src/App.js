@@ -182,8 +182,8 @@ const Hero = ({ content }) => {
     <section 
       id="hero" 
       data-testid="hero-section"
-      className="relative min-h-screen flex items-center justify-center hero-bg"
-      style={{ backgroundImage: `url(${HERO_BG})` }}
+      className="relative min-h-[75vh] flex items-center justify-center hero-bg"
+      style={{ backgroundImage: `url(${HERO_BG})`, backgroundPosition: "center 40%" }}
     >
       <div className="absolute inset-0 bg-navy/60"></div>
       
