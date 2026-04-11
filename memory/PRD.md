@@ -1,7 +1,7 @@
 # Lakeview Burgers & Seafood - Website PRD
 
 ## Original Problem Statement
-Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, locations, hours, and online ordering integrations (Uber Eats, Square). Additional requirements include an admin dashboard protected by login to track website analytics and manage restaurant specials, SEO optimization, and a full CMS to edit all website content from the backend.
+Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, locations, hours, online ordering integrations, admin dashboard with analytics and specials management, SEO optimization, full CMS, and a summer giveaway system.
 
 ## Business Info
 - **Address**: 872 Harrison Ave, New Orleans, LA 70124
@@ -12,57 +12,54 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, lo
 ## Architecture
 - **Frontend**: React + Tailwind CSS + Shadcn/UI
 - **Backend**: FastAPI (Python)
-- **Database**: MongoDB (collections: page_views, button_clicks, specials, status_checks, newsletter_subscribers, catering_inquiries, site_content, menu_categories)
-- **Auth**: JWT Bearer token (header-based), password in backend .env
+- **Database**: MongoDB
+- **Auth**: JWT Bearer token (header-based)
 
 ## Implemented Features
 
-### CMS (Content Management System)
-All website text is editable from the admin dashboard:
-- **Hero Section**: Tagline, subtitle
-- **About / Our Story**: Accent text, heading, 3 paragraphs, established text
-- **Contact Info**: Address lines, hours (weekday/weekend), phone, email, catering text
-- **Full Menu Editor**: 10 categories with items (name, description, price). Add/remove items, edit category names, subtitles, column layout
-
 ### Public Landing Page
-- Hero with dynamic tagline/subtitle from CMS
+- Hero with dynamic tagline/subtitle (CMS-editable)
 - Today's Specials (auto-displayed from dashboard)
-- Our Story section (dynamic from CMS)
-- Full Menu (10 categories, 60+ items - dynamic from CMS)
-- Email Signup ("Join the Lakeview Family")
+- Our Story section (CMS-editable)
+- Full Menu (10 categories, 60+ items, CMS-editable)
+- Email Signup newsletter capture
 - Catering Inquiry Form
-- Contact section (dynamic from CMS) with Google Maps embed
+- Contact section (CMS-editable) with Google Maps embed
 - Sticky Order Bar (floating Uber Eats + Square)
-- New Orleans theme, mobile responsive
+- **Spin & Win Giveaway** (activatable from dashboard)
 
-### Admin Dashboard (6 tabs)
-1. **Analytics**: Real-time pageviews, devices, browsers, hourly/daily charts, referrers, button clicks
+### Summer Spin & Win Giveaway
+- Canvas-drawn spinning wheel with 8 prize segments
+- Prizes: Free Appetizer, 10% Off, Free Side, 15% Off, Free Drink, Free Dessert, Dinner for 4, Try Again
+- One spin per email (duplicate detection)
+- Admin-controlled: activate/deactivate from dashboard
+- Customizable title, subtitle, dates, prizes, and weights
+- Entry tracking with "Mark Claimed" feature
+- Prize distribution stats
+- **Currently INACTIVE** — admin activates when ready
+
+### Admin Dashboard (7 tabs)
+1. **Analytics**: Pageviews, devices, browsers, hourly/daily charts, referrers, button clicks
 2. **Specials**: CRUD with image upload, active/inactive toggle
-3. **Site Content**: Edit hero, about, contact text with per-section Save
-4. **Menu Editor**: Collapsible categories with inline item editing
-5. **Inquiries**: Catering inquiry management with status tracking
-6. **Subscribers**: Newsletter subscriber list
+3. **Site Content**: Edit hero, about, contact text
+4. **Menu Editor**: Edit all categories with inline item editing
+5. **Giveaway**: Activate/deactivate, configure prizes, view entries, mark claimed
+6. **Inquiries**: Catering inquiry management with status tracking
+7. **Subscribers**: Newsletter subscriber list
 
-### SEO Optimization
-- 4 JSON-LD schemas (Restaurant, WebSite, BreadcrumbList, FAQPage)
-- robots.txt, sitemap.xml, geo tags, 25+ keywords, Open Graph, Twitter Cards
+### CMS
+- Hero: tagline, subtitle
+- About: accent text, heading, 3 paragraphs, established text
+- Contact: address, hours, phone, email, catering text
+- Menu: 10 categories with items (name, description, price)
 
-### Backend API Endpoints
-- Auth: POST /api/auth/login, GET /api/auth/verify, POST /api/auth/logout
-- CMS: GET /api/content, PUT /api/content/{section}
-- Menu: GET /api/menu, PUT /api/menu/{id}, POST /api/menu, DELETE /api/menu/{id}
-- Analytics: GET /api/analytics, POST /api/analytics/track, POST /api/analytics/button-click
-- Specials: GET/POST /api/specials, GET/PUT/DELETE /api/specials/{id}
-- Newsletter: POST /api/newsletter/subscribe, GET /api/newsletter/subscribers
-- Catering: POST /api/catering/inquiry, GET /api/catering/inquiries, PUT /api/catering/inquiries/{id}/status
-- Upload: POST /api/upload-image
+### SEO
+- 4 JSON-LD schemas, robots.txt, sitemap.xml, geo tags, 25+ keywords, Open Graph, Twitter Cards
 
-## Testing Status (Feb 2026)
-- Backend: 43/43 tests passed (100%)
-- Frontend: Full coverage including E2E content persistence
+## Testing Status
+- Backend: 58/58 tests passed (100%)
+- Frontend: Full coverage including E2E
 
-## Future Enhancements (Backlog)
-- P1: Upload pictures of Chef Joseph and son Josef for "Our Story" section
-- P2: Social media links
-- P2: Photo gallery of dishes
-- P2: Customer reviews/testimonials section
+## Future Enhancements
+- P1: Upload pictures of Chef Joseph and son Josef
+- P2: Social media links, photo gallery, customer reviews
