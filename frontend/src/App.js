@@ -3,7 +3,6 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, Clock, ChevronDown, Settings, Mail, ExternalLink, Users, CalendarDays, MessageSquare } from "lucide-react";
-import { burgers, appetizers, friedPlates, sandwiches, tacos, soups, salads, sides, kids, familyDinners } from "@/data/menu";
 import axios from "axios";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
@@ -161,7 +160,7 @@ const Navbar = () => {
 };
 
 // Hero Section
-const Hero = () => {
+const Hero = ({ content }) => {
   const scrollToMenu = () => {
     trackButtonClick("view_menu");
     const element = document.getElementById("menu");
@@ -198,11 +197,11 @@ const Hero = () => {
         </div>
         
         <p className="font-accent text-2xl md:text-3xl text-gold mb-1 md:mb-2 animate-fade-in-up animation-delay-200">
-          Lakeview
+          {content?.tagline || "Lakeview"}
         </p>
         
         <p className="font-sans text-sm md:text-base text-cream/90 mb-4 md:mb-5 max-w-2xl mx-auto animate-fade-in-up animation-delay-400">
-          Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 2015
+          {content?.subtitle || "Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 2015"}
         </p>
         
         {/* Action Buttons */}
@@ -243,7 +242,7 @@ const Hero = () => {
 };
 
 // About Section
-const About = () => {
+const About = ({ content }) => {
   return (
     <section 
       id="about" 
@@ -265,35 +264,23 @@ const About = () => {
           
           <div className="order-1 lg:order-2 space-y-8">
             <div>
-              <p className="font-accent text-3xl text-gold mb-2">Our Story</p>
+              <p className="font-accent text-3xl text-gold mb-2">{content?.accent_text || "Our Story"}</p>
               <h2 className="font-serif text-4xl md:text-5xl text-navy font-bold tracking-tight">
-                A New Orleans Tradition
+                {content?.heading || "A New Orleans Tradition"}
               </h2>
             </div>
             
             <div className="section-divider !mx-0"></div>
             
             <div className="space-y-6 font-sans text-muted-foreground leading-relaxed">
-              <p>
-                Founded by Chef Joseph Faroldi in 2015, Lakeview Burgers & Seafood has become a beloved 
-                fixture in the charming Lakeview neighborhood. What started as a dream to bring quality 
-                burgers and fresh Gulf seafood to the community has grown into a true family affair.
-              </p>
-              <p>
-                Today, Chef Joseph works alongside his son Josef, passing down culinary traditions and 
-                a passion for great food to the next generation. Together, they take pride in sourcing 
-                the freshest Gulf seafood daily and crafting each dish with care and expertise.
-              </p>
-              <p>
-                Whether you're craving a perfectly charred burger or authentic Louisiana seafood, 
-                the Faroldi family invites you to experience the taste of the Crescent City at 
-                Lakeview Burgers & Seafood.
-              </p>
+              <p>{content?.paragraph1 || "Founded by Chef Joseph Faroldi in 2015, Lakeview Burgers & Seafood has become a beloved fixture in the charming Lakeview neighborhood. What started as a dream to bring quality burgers and fresh Gulf seafood to the community has grown into a true family affair."}</p>
+              <p>{content?.paragraph2 || "Today, Chef Joseph works alongside his son Josef, passing down culinary traditions and a passion for great food to the next generation. Together, they take pride in sourcing the freshest Gulf seafood daily and crafting each dish with care and expertise."}</p>
+              <p>{content?.paragraph3 || "Whether you're craving a perfectly charred burger or authentic Louisiana seafood, the Faroldi family invites you to experience the taste of the Crescent City at Lakeview Burgers & Seafood."}</p>
             </div>
             
             <div className="flex items-center space-x-4 pt-4">
               <span className="text-gold text-2xl">⚜</span>
-              <span className="font-serif italic text-navy text-lg">Est. 2015 • New Orleans, LA</span>
+              <span className="font-serif italic text-navy text-lg">{content?.established_text || "Est. 2015 \u2022 New Orleans, LA"}</span>
               <span className="text-gold text-2xl">⚜</span>
             </div>
           </div>
@@ -389,7 +376,13 @@ const MenuItem = ({ name, description, price, index }) => (
 );
 
 // Menu Section
-const Menu = () => {
+const Menu = ({ categories }) => {
+  const getGridCols = (cols) => {
+    if (cols === 4) return "grid-cols-2 md:grid-cols-4 gap-x-12";
+    if (cols === 3) return "grid-cols-1 md:grid-cols-3 gap-x-12";
+    return "grid-cols-1 md:grid-cols-2 gap-x-16";
+  };
+
   return (
     <section 
       id="menu" 
@@ -406,166 +399,25 @@ const Menu = () => {
         </div>
         
         <div className="decorative-border p-8 md:p-12 bg-card paper-texture vintage-shadow">
-          {/* Appetizers */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Appetizers
-              </h3>
-              <span className="text-gold">⚜</span>
+          {categories.map((cat, catIdx) => (
+            <div key={cat.id || catIdx} className={catIdx < categories.length - 1 ? "mb-12" : ""}>
+              <div className="flex items-center justify-center mb-8">
+                <span className="text-gold">⚜</span>
+                <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
+                  {cat.display_name}
+                </h3>
+                <span className="text-gold">⚜</span>
+              </div>
+              {cat.subtitle && (
+                <p className="text-center text-muted-foreground mb-6 font-sans text-sm">{cat.subtitle}</p>
+              )}
+              <div className={`grid ${getGridCols(cat.columns)}`}>
+                {(cat.items || []).map((item, idx) => (
+                  <MenuItem key={idx} index={`${cat.slug}-${idx}`} name={item.name} description={item.description} price={item.price} />
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {appetizers.map((item, idx) => (
-                <MenuItem key={idx} index={`app-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Soups */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Soups
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12">
-              {soups.map((item, idx) => (
-                <MenuItem key={idx} index={`soup-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Salads */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Salads
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {salads.map((item, idx) => (
-                <MenuItem key={idx} index={`salad-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Burgers */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Burgers
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {burgers.map((item, idx) => (
-                <MenuItem key={idx} index={`burger-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-          
-          {/* Sandwiches & Po'Boys */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Sandwiches & Po'Boys
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {sandwiches.map((item, idx) => (
-                <MenuItem key={idx} index={`sandwich-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Tacos */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Tacos
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {tacos.map((item, idx) => (
-                <MenuItem key={idx} index={`taco-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Fried Plates */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Fried Plates
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {friedPlates.map((item, idx) => (
-                <MenuItem key={idx} index={`fried-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Family Dinners */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Family Dinners
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <p className="text-center text-muted-foreground mb-6 font-sans text-sm">Served with Bed of Fries & Garlic Bread</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
-              {familyDinners.map((item, idx) => (
-                <MenuItem key={idx} index={`family-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Sides */}
-          <div className="mb-12">
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Sides
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-12">
-              {sides.map((item, idx) => (
-                <MenuItem key={idx} index={`side-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
-
-          {/* Kids Menu */}
-          <div>
-            <div className="flex items-center justify-center mb-8">
-              <span className="text-gold">⚜</span>
-              <h3 className="font-serif text-2xl md:text-3xl text-navy font-bold mx-4 uppercase tracking-wider">
-                Kids Menu
-              </h3>
-              <span className="text-gold">⚜</span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12">
-              {kids.map((item, idx) => (
-                <MenuItem key={idx} index={`kids-${idx}`} name={item.name} description={item.description} price={item.price} />
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
         
         <p className="text-center font-sans text-sm text-muted-foreground mt-8 italic">
@@ -577,7 +429,10 @@ const Menu = () => {
 };
 
 // Contact Section
-const Contact = () => {
+const Contact = ({ content }) => {
+  const phone = content?.phone || "(504) 289-1032";
+  const phoneHref = `tel:+1${phone.replace(/\D/g, '')}`;
+  
   return (
     <section 
       id="contact" 
@@ -600,8 +455,8 @@ const Contact = () => {
             </div>
             <h3 className="font-serif text-xl font-bold mb-4 uppercase tracking-wider">Location</h3>
             <p className="font-sans text-cream/80 leading-relaxed">
-              872 Harrison Ave<br />
-              New Orleans, LA 70124
+              {content?.address_line1 || "872 Harrison Ave"}<br />
+              {content?.address_line2 || "New Orleans, LA 70124"}
             </p>
           </div>
           
@@ -611,8 +466,8 @@ const Contact = () => {
             </div>
             <h3 className="font-serif text-xl font-bold mb-4 uppercase tracking-wider">Hours</h3>
             <div className="font-sans text-cream/80 space-y-1">
-              <p>Monday - Saturday: 11:30am - 11pm</p>
-              <p>Sunday: Closed</p>
+              <p>{content?.hours_weekday || "Monday - Saturday: 11:30am - 11pm"}</p>
+              <p>{content?.hours_weekend || "Sunday: Closed"}</p>
             </div>
           </div>
           
@@ -622,12 +477,12 @@ const Contact = () => {
             </div>
             <h3 className="font-serif text-xl font-bold mb-4 uppercase tracking-wider">Contact</h3>
             <p className="font-sans text-cream/80 leading-relaxed">
-              <a href="tel:+15042891032" className="hover:text-gold transition-colors" data-testid="contact-phone">
-                (504) 289-1032
+              <a href={phoneHref} className="hover:text-gold transition-colors" data-testid="contact-phone">
+                {phone}
               </a>
               <br />
-              <a href="mailto:info@lakeviewburgers.com" className="hover:text-gold transition-colors" data-testid="contact-email">
-                info@lakeviewburgers.com
+              <a href={`mailto:${content?.email || "info@lakeviewburgers.com"}`} className="hover:text-gold transition-colors" data-testid="contact-email">
+                {content?.email || "info@lakeviewburgers.com"}
               </a>
             </p>
           </div>
@@ -635,14 +490,14 @@ const Contact = () => {
         
         <div className="text-center mt-16">
           <p className="font-sans text-cream/70 mb-6">
-            Catering available for private events and parties
+            {content?.catering_text || "Catering available for private events and parties"}
           </p>
           <Button
             data-testid="contact-call-btn"
             asChild
             className="btn-vintage bg-transparent border-gold text-gold hover:bg-gold hover:text-navy"
           >
-            <a href="tel:+15042891032">
+            <a href={phoneHref}>
               <Phone className="w-4 h-4 mr-2" />
               Call for Reservations
             </a>
@@ -1025,21 +880,37 @@ const CateringForm = () => {
 
 // Home Page Component
 const Home = () => {
+  const [content, setContent] = useState(null);
+  const [menuCategories, setMenuCategories] = useState([]);
+
   useEffect(() => {
     trackPageView("home");
+    const fetchContent = async () => {
+      try {
+        const [contentRes, menuRes] = await Promise.all([
+          axios.get(`${API}/content`),
+          axios.get(`${API}/menu`)
+        ]);
+        setContent(contentRes.data);
+        setMenuCategories(menuRes.data);
+      } catch (error) {
+        console.error("Error fetching site content:", error);
+      }
+    };
+    fetchContent();
   }, []);
 
   return (
     <div data-testid="home-page">
       <Navbar />
       <main>
-        <Hero />
+        <Hero content={content?.hero} />
         <Specials />
-        <About />
-        <Menu />
+        <About content={content?.about} />
+        <Menu categories={menuCategories} />
         <EmailSignup />
         <CateringForm />
-        <Contact />
+        <Contact content={content?.contact} />
       </main>
       <Footer />
       <StickyOrderBar />

@@ -573,5 +573,312 @@ class TestSEOFiles:
         print("✓ sitemap.xml accessible with valid XML structure")
 
 
+class TestCMSContent:
+    """CMS Site Content endpoint tests - NEW CMS FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_get_content_returns_site_content(self):
+        """GET /api/content returns site content with hero, about, contact sections"""
+        response = requests.get(f"{BASE_URL}/api/content")
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check all sections exist
+        assert "hero" in data, "Missing hero section"
+        assert "about" in data, "Missing about section"
+        assert "contact" in data, "Missing contact section"
+        
+        # Validate hero section fields
+        assert "tagline" in data["hero"], "Missing hero.tagline"
+        assert "subtitle" in data["hero"], "Missing hero.subtitle"
+        
+        # Validate about section fields
+        assert "accent_text" in data["about"], "Missing about.accent_text"
+        assert "heading" in data["about"], "Missing about.heading"
+        assert "paragraph1" in data["about"], "Missing about.paragraph1"
+        assert "paragraph2" in data["about"], "Missing about.paragraph2"
+        assert "paragraph3" in data["about"], "Missing about.paragraph3"
+        assert "established_text" in data["about"], "Missing about.established_text"
+        
+        # Validate contact section fields
+        assert "address_line1" in data["contact"], "Missing contact.address_line1"
+        assert "address_line2" in data["contact"], "Missing contact.address_line2"
+        assert "hours_weekday" in data["contact"], "Missing contact.hours_weekday"
+        assert "hours_weekend" in data["contact"], "Missing contact.hours_weekend"
+        assert "phone" in data["contact"], "Missing contact.phone"
+        assert "email" in data["contact"], "Missing contact.email"
+        
+        print("✓ GET /api/content returns complete site content with all sections")
+    
+    def test_update_hero_with_auth(self, auth_token):
+        """PUT /api/content/hero with auth updates hero tagline and subtitle"""
+        # Get current content
+        original = requests.get(f"{BASE_URL}/api/content").json()
+        original_tagline = original["hero"]["tagline"]
+        
+        # Update hero
+        new_hero = {
+            "tagline": "TEST_Tagline_" + uuid.uuid4().hex[:8],
+            "subtitle": "TEST_Subtitle for automated testing"
+        }
+        response = requests.put(
+            f"{BASE_URL}/api/content/hero",
+            json=new_hero,
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["hero"]["tagline"] == new_hero["tagline"]
+        assert data["hero"]["subtitle"] == new_hero["subtitle"]
+        print(f"✓ Updated hero tagline to: {new_hero['tagline']}")
+        
+        # Verify persistence via GET
+        verify = requests.get(f"{BASE_URL}/api/content").json()
+        assert verify["hero"]["tagline"] == new_hero["tagline"]
+        print("✓ Verified hero update persisted")
+        
+        # Restore original
+        requests.put(
+            f"{BASE_URL}/api/content/hero",
+            json={"tagline": original_tagline, "subtitle": original["hero"]["subtitle"]},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print("✓ Restored original hero content")
+    
+    def test_update_hero_requires_auth(self):
+        """PUT /api/content/hero without auth returns 401"""
+        response = requests.put(
+            f"{BASE_URL}/api/content/hero",
+            json={"tagline": "Unauthorized", "subtitle": "Should fail"}
+        )
+        assert response.status_code == 401
+        print("✓ Update hero requires authentication")
+    
+    def test_update_about_with_auth(self, auth_token):
+        """PUT /api/content/about with auth updates about section fields"""
+        # Get current content
+        original = requests.get(f"{BASE_URL}/api/content").json()
+        
+        # Update about
+        new_about = {
+            "accent_text": "TEST_Accent",
+            "heading": "TEST_Heading_" + uuid.uuid4().hex[:8],
+            "paragraph1": "TEST paragraph 1",
+            "paragraph2": "TEST paragraph 2",
+            "paragraph3": "TEST paragraph 3",
+            "established_text": "TEST Est. 2026"
+        }
+        response = requests.put(
+            f"{BASE_URL}/api/content/about",
+            json=new_about,
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["about"]["heading"] == new_about["heading"]
+        print(f"✓ Updated about heading to: {new_about['heading']}")
+        
+        # Restore original
+        requests.put(
+            f"{BASE_URL}/api/content/about",
+            json=original["about"],
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print("✓ Restored original about content")
+    
+    def test_update_contact_with_auth(self, auth_token):
+        """PUT /api/content/contact with auth updates contact info"""
+        # Get current content
+        original = requests.get(f"{BASE_URL}/api/content").json()
+        
+        # Update contact
+        new_contact = {
+            "address_line1": "TEST_123 Test St",
+            "address_line2": "Test City, TS 12345",
+            "hours_weekday": "TEST Mon-Sat: 10am-10pm",
+            "hours_weekend": "TEST Sun: Closed",
+            "phone": "(555) 123-4567",
+            "email": "test@test.com",
+            "catering_text": "TEST catering text"
+        }
+        response = requests.put(
+            f"{BASE_URL}/api/content/contact",
+            json=new_contact,
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["contact"]["phone"] == new_contact["phone"]
+        print(f"✓ Updated contact phone to: {new_contact['phone']}")
+        
+        # Restore original
+        requests.put(
+            f"{BASE_URL}/api/content/contact",
+            json=original["contact"],
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print("✓ Restored original contact content")
+    
+    def test_update_invalid_section(self, auth_token):
+        """PUT /api/content/invalid returns 400"""
+        response = requests.put(
+            f"{BASE_URL}/api/content/invalid_section",
+            json={"field": "value"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 400
+        print("✓ Invalid section returns 400")
+
+
+class TestCMSMenu:
+    """CMS Menu endpoint tests - NEW CMS FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_get_menu_returns_categories(self):
+        """GET /api/menu returns array of menu categories with items"""
+        response = requests.get(f"{BASE_URL}/api/menu")
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should be an array
+        assert isinstance(data, list), "Menu should be an array"
+        assert len(data) >= 10, f"Expected at least 10 categories, got {len(data)}"
+        
+        # Check first category structure
+        first_cat = data[0]
+        assert "id" in first_cat, "Missing category id"
+        assert "slug" in first_cat, "Missing category slug"
+        assert "display_name" in first_cat, "Missing category display_name"
+        assert "items" in first_cat, "Missing category items"
+        assert isinstance(first_cat["items"], list), "Items should be an array"
+        
+        # Check item structure if items exist
+        if len(first_cat["items"]) > 0:
+            first_item = first_cat["items"][0]
+            assert "name" in first_item, "Missing item name"
+            assert "price" in first_item, "Missing item price"
+        
+        print(f"✓ GET /api/menu returns {len(data)} categories")
+        for cat in data:
+            print(f"  - {cat['display_name']}: {len(cat.get('items', []))} items")
+    
+    def test_update_menu_category_with_auth(self, auth_token):
+        """PUT /api/menu/{category_id} with auth updates category items"""
+        # Get current menu
+        menu = requests.get(f"{BASE_URL}/api/menu").json()
+        first_cat = menu[0]
+        cat_id = first_cat["id"]
+        original_name = first_cat["display_name"]
+        original_items = first_cat["items"]
+        
+        # Update category
+        new_name = "TEST_Category_" + uuid.uuid4().hex[:8]
+        response = requests.put(
+            f"{BASE_URL}/api/menu/{cat_id}",
+            json={"display_name": new_name},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["display_name"] == new_name
+        print(f"✓ Updated category name to: {new_name}")
+        
+        # Verify persistence
+        verify = requests.get(f"{BASE_URL}/api/menu").json()
+        updated_cat = next((c for c in verify if c["id"] == cat_id), None)
+        assert updated_cat is not None
+        assert updated_cat["display_name"] == new_name
+        print("✓ Verified category update persisted")
+        
+        # Restore original
+        requests.put(
+            f"{BASE_URL}/api/menu/{cat_id}",
+            json={"display_name": original_name, "items": original_items},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print("✓ Restored original category")
+    
+    def test_update_menu_category_items(self, auth_token):
+        """PUT /api/menu/{category_id} can update items array"""
+        # Get current menu
+        menu = requests.get(f"{BASE_URL}/api/menu").json()
+        first_cat = menu[0]
+        cat_id = first_cat["id"]
+        original_items = first_cat["items"]
+        
+        # Add a test item
+        new_items = original_items + [{"name": "TEST_Item", "description": "Test item", "price": "99.99"}]
+        response = requests.put(
+            f"{BASE_URL}/api/menu/{cat_id}",
+            json={"items": new_items},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == len(new_items)
+        assert any(item["name"] == "TEST_Item" for item in data["items"])
+        print("✓ Added test item to category")
+        
+        # Restore original items
+        requests.put(
+            f"{BASE_URL}/api/menu/{cat_id}",
+            json={"items": original_items},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print("✓ Restored original items")
+    
+    def test_update_menu_category_requires_auth(self):
+        """PUT /api/menu/{category_id} without auth returns 401"""
+        # Get a category id
+        menu = requests.get(f"{BASE_URL}/api/menu").json()
+        cat_id = menu[0]["id"]
+        
+        response = requests.put(
+            f"{BASE_URL}/api/menu/{cat_id}",
+            json={"display_name": "Unauthorized"}
+        )
+        assert response.status_code == 401
+        print("✓ Update menu category requires authentication")
+    
+    def test_update_menu_category_not_found(self, auth_token):
+        """PUT /api/menu/{category_id} with non-existent id returns 404"""
+        response = requests.put(
+            f"{BASE_URL}/api/menu/non-existent-id",
+            json={"display_name": "Test"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 404
+        print("✓ Non-existent category returns 404")
+    
+    def test_update_menu_category_no_valid_fields(self, auth_token):
+        """PUT /api/menu/{category_id} with no valid fields returns 400"""
+        menu = requests.get(f"{BASE_URL}/api/menu").json()
+        cat_id = menu[0]["id"]
+        
+        response = requests.put(
+            f"{BASE_URL}/api/menu/{cat_id}",
+            json={"invalid_field": "value"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 400
+        print("✓ No valid fields returns 400")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

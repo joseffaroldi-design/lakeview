@@ -6,10 +6,12 @@ import {
   ArrowLeft, Plus, Trash2, Edit2, Eye, EyeOff, 
   BarChart3, TrendingUp, Calendar, Image as ImageIcon,
   Save, X, Upload, Users, Monitor, Smartphone, Tablet,
-  Globe, Clock, LogOut, MousePointer, Mail, UtensilsCrossed, ChevronDown, ChevronUp
+  Globe, Clock, LogOut, MousePointer, Mail, UtensilsCrossed, ChevronDown, ChevronUp,
+  FileText, Pencil
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { ContentEditor, MenuEditor } from "@/pages/ContentEditor";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -28,6 +30,7 @@ const Dashboard = () => {
     image_url: ""
   });
   const [uploading, setUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState("analytics");
   const navigate = useNavigate();
 
   const getAuthHeader = () => {
@@ -200,6 +203,36 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Tab Navigation */}
+        <div className="flex flex-wrap gap-2 mb-8 border-b-2 border-navy/10 pb-4" data-testid="dashboard-tabs">
+          {[
+            { id: "analytics", label: "Analytics", icon: BarChart3 },
+            { id: "specials", label: "Specials", icon: ImageIcon },
+            { id: "content", label: "Site Content", icon: FileText },
+            { id: "menu", label: "Menu Editor", icon: Pencil },
+            { id: "inquiries", label: "Inquiries", icon: UtensilsCrossed },
+            { id: "subscribers", label: "Subscribers", icon: Mail },
+          ].map(tab => (
+            <Button
+              key={tab.id}
+              data-testid={`tab-${tab.id}`}
+              variant={activeTab === tab.id ? "default" : "outline"}
+              onClick={() => setActiveTab(tab.id)}
+              className={activeTab === tab.id 
+                ? "bg-navy text-cream hover:bg-navy/90" 
+                : "border-navy/20 text-navy hover:bg-navy/5"
+              }
+              size="sm"
+            >
+              <tab.icon className="w-4 h-4 mr-1.5" />
+              {tab.label}
+            </Button>
+          ))}
+        </div>
+
+        {/* Analytics Tab */}
+        {activeTab === "analytics" && (
+        <>
         {/* Analytics Overview */}
         <section className="mb-12">
           <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
@@ -494,8 +527,11 @@ const Dashboard = () => {
             </Card>
           </div>
         </section>
+        </>
+        )}
 
-        {/* Specials Management */}
+        {/* Specials Tab */}
+        {activeTab === "specials" && (
         <section>
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-serif text-2xl text-navy font-bold flex items-center gap-2">
@@ -696,9 +732,35 @@ const Dashboard = () => {
             </div>
           )}
         </section>
+        )}
 
+        {/* Content Editor Tab */}
+        {activeTab === "content" && (
+          <section>
+            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
+              <FileText className="w-6 h-6 text-gold" />
+              Edit Site Content
+            </h2>
+            <ContentEditor getAuthHeader={getAuthHeader} />
+          </section>
+        )}
+
+        {/* Menu Editor Tab */}
+        {activeTab === "menu" && (
+          <section>
+            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
+              <Pencil className="w-6 h-6 text-gold" />
+              Edit Menu
+            </h2>
+            <MenuEditor getAuthHeader={getAuthHeader} />
+          </section>
+        )}
+
+        {/* Inquiries Tab */}
+        {activeTab === "inquiries" && (
+        <>
         {/* Catering Inquiries */}
-        <section className="mt-12">
+        <section className="mt-0">
           <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
             <UtensilsCrossed className="w-6 h-6 text-gold" />
             Catering Inquiries
@@ -759,9 +821,12 @@ const Dashboard = () => {
             </div>
           )}
         </section>
+        </>
+        )}
 
-        {/* Newsletter Subscribers */}
-        <section className="mt-12">
+        {/* Subscribers Tab */}
+        {activeTab === "subscribers" && (
+        <section className="mt-0">
           <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
             <Mail className="w-6 h-6 text-gold" />
             Newsletter Subscribers
@@ -789,6 +854,7 @@ const Dashboard = () => {
             </Card>
           )}
         </section>
+        )}
       </main>
     </div>
   );
