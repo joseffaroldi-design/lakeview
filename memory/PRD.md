@@ -1,7 +1,7 @@
 # Lakeview Burgers & Seafood - Website PRD
 
 ## Original Problem Statement
-Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, locations, hours, and online ordering integrations (Uber Eats, Square). Additional requirements include an admin dashboard protected by login to track website analytics (page views, unique visitors, button clicks) and manage restaurant specials, as well as SEO optimization to rank highly on Google.
+Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, locations, hours, and online ordering integrations (Uber Eats, Square). Additional requirements include an admin dashboard protected by login to track website analytics and manage restaurant specials, SEO optimization, and a full CMS to edit all website content from the backend.
 
 ## Business Info
 - **Address**: 872 Harrison Ave, New Orleans, LA 70124
@@ -12,70 +12,57 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring a menu, lo
 ## Architecture
 - **Frontend**: React + Tailwind CSS + Shadcn/UI
 - **Backend**: FastAPI (Python)
-- **Database**: MongoDB (collections: page_views, button_clicks, specials, status_checks, newsletter_subscribers, catering_inquiries)
+- **Database**: MongoDB (collections: page_views, button_clicks, specials, status_checks, newsletter_subscribers, catering_inquiries, site_content, menu_categories)
 - **Auth**: JWT Bearer token (header-based), password in backend .env
 
 ## Implemented Features
 
+### CMS (Content Management System)
+All website text is editable from the admin dashboard:
+- **Hero Section**: Tagline, subtitle
+- **About / Our Story**: Accent text, heading, 3 paragraphs, established text
+- **Contact Info**: Address lines, hours (weekday/weekend), phone, email, catering text
+- **Full Menu Editor**: 10 categories with items (name, description, price). Add/remove items, edit category names, subtitles, column layout
+
 ### Public Landing Page
-- Hero section with logo, tagline, View Our Menu + ordering buttons
-- Our Story section (Chef Joseph Faroldi and son Josef, Est. 2015)
-- Today's Specials section (auto-displays active specials from dashboard)
-- Full Menu (10 categories, 60+ items from official PDF)
-- Email Signup section ("Join the Lakeview Family" newsletter capture)
-- Catering Inquiry Form ("Let Us Cater Your Event" with name, email, phone, date, guests, message)
-- Contact section (address, hours, phone, reservation button, Google Maps embed)
-- Sticky Order Bar (floating Uber Eats + Square buttons on scroll)
-- New Orleans-themed design (Navy, Forest Green, Cream, Gold, Playfair Display font)
-- Mobile responsive
+- Hero with dynamic tagline/subtitle from CMS
+- Today's Specials (auto-displayed from dashboard)
+- Our Story section (dynamic from CMS)
+- Full Menu (10 categories, 60+ items - dynamic from CMS)
+- Email Signup ("Join the Lakeview Family")
+- Catering Inquiry Form
+- Contact section (dynamic from CMS) with Google Maps embed
+- Sticky Order Bar (floating Uber Eats + Square)
+- New Orleans theme, mobile responsive
 
-### Admin Dashboard (/login -> /dashboard)
-- Password-protected login (JWT Bearer token auth)
-- Real-time analytics: total views, today/week/month views, unique visitors, avg pages/visit
-- Device & browser breakdown, page breakdown, hourly/daily charts
-- Top referrers, button click tracking (all time + today)
-- Specials CRUD: create, edit, delete, toggle active/inactive, image upload
-- Catering Inquiries management with status tracking (new/contacted/confirmed/completed/cancelled)
-- Newsletter Subscribers list with emails and signup dates
+### Admin Dashboard (6 tabs)
+1. **Analytics**: Real-time pageviews, devices, browsers, hourly/daily charts, referrers, button clicks
+2. **Specials**: CRUD with image upload, active/inactive toggle
+3. **Site Content**: Edit hero, about, contact text with per-section Save
+4. **Menu Editor**: Collapsible categories with inline item editing
+5. **Inquiries**: Catering inquiry management with status tracking
+6. **Subscribers**: Newsletter subscriber list
 
-### SEO Optimization (Max Coverage)
-- Enhanced meta description with long-tail keywords
-- Expanded keyword meta tag (25+ keywords)
-- Open Graph tags with image dimensions and alt text
-- Twitter Card tags with image alt
-- Geo meta tags (geo.region, geo.placename, geo.position, ICBM)
-- robots.txt (blocks /login, /dashboard, /api/)
-- sitemap.xml
-- JSON-LD schemas:
-  - Restaurant (with hasMenu, MenuSection, MenuItem, OrderAction, ReserveAction, areaServed)
-  - WebSite
-  - BreadcrumbList
-  - FAQPage (5 common questions about hours, location, delivery, catering, cuisine)
-- Preload hints for critical assets (logo image, fonts)
-- Advanced robots directive (max-image-preview:large, max-snippet:-1)
+### SEO Optimization
+- 4 JSON-LD schemas (Restaurant, WebSite, BreadcrumbList, FAQPage)
+- robots.txt, sitemap.xml, geo tags, 25+ keywords, Open Graph, Twitter Cards
 
 ### Backend API Endpoints
-- `POST /api/auth/login` - Admin login
-- `GET /api/auth/verify` - Verify session
-- `POST /api/auth/logout` - Logout
-- `GET /api/analytics` - Dashboard analytics (protected)
-- `POST /api/analytics/track` - Track pageview
-- `POST /api/analytics/button-click` - Track button click
-- `GET/POST /api/specials` - List/create specials
-- `GET/PUT/DELETE /api/specials/{id}` - CRUD individual special
-- `POST /api/newsletter/subscribe` - Subscribe to newsletter
-- `GET /api/newsletter/subscribers` - List subscribers (protected)
-- `POST /api/catering/inquiry` - Submit catering inquiry
-- `GET /api/catering/inquiries` - List inquiries (protected)
-- `PUT /api/catering/inquiries/{id}/status` - Update inquiry status (protected)
-- `POST /api/upload-image` - Upload image (protected)
+- Auth: POST /api/auth/login, GET /api/auth/verify, POST /api/auth/logout
+- CMS: GET /api/content, PUT /api/content/{section}
+- Menu: GET /api/menu, PUT /api/menu/{id}, POST /api/menu, DELETE /api/menu/{id}
+- Analytics: GET /api/analytics, POST /api/analytics/track, POST /api/analytics/button-click
+- Specials: GET/POST /api/specials, GET/PUT/DELETE /api/specials/{id}
+- Newsletter: POST /api/newsletter/subscribe, GET /api/newsletter/subscribers
+- Catering: POST /api/catering/inquiry, GET /api/catering/inquiries, PUT /api/catering/inquiries/{id}/status
+- Upload: POST /api/upload-image
 
 ## Testing Status (Feb 2026)
-- Backend: 31/31 tests passed (100%)
-- Frontend: 20/20 tests passed (100%)
+- Backend: 43/43 tests passed (100%)
+- Frontend: Full coverage including E2E content persistence
 
 ## Future Enhancements (Backlog)
-- P1: Upload pictures of Chef Joseph and son Josef for "Our Story" section (waiting on user images)
+- P1: Upload pictures of Chef Joseph and son Josef for "Our Story" section
 - P2: Social media links
 - P2: Photo gallery of dishes
 - P2: Customer reviews/testimonials section
