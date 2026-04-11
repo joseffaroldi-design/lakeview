@@ -6,6 +6,7 @@ import { Phone, MapPin, Clock, ChevronDown, Settings, Mail, ExternalLink, Users,
 import axios from "axios";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
+import SpinWheel from "@/pages/SpinWheel";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -914,6 +915,7 @@ const Home = () => {
       </main>
       <Footer />
       <StickyOrderBar />
+      <SpinWheel onTrackClick={trackButtonClick} />
     </div>
   );
 };

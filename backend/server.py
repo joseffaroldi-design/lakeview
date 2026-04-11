@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 import base64
 import hashlib
 import secrets
+import random
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -183,6 +184,25 @@ DEFAULT_MENU_CATEGORIES = [
     },
 ]
 
+DEFAULT_GIVEAWAY_SETTINGS = {
+    "id": "main",
+    "is_active": False,
+    "title": "Summer Spin & Win!",
+    "subtitle": "Spin the wheel for a chance to win free food, discounts, and more!",
+    "start_date": "2026-06-01",
+    "end_date": "2026-08-31",
+    "prizes": [
+        {"label": "Free Appetizer", "weight": 15, "color": "#366343"},
+        {"label": "10% Off", "weight": 25, "color": "#a5935b"},
+        {"label": "Free Side", "weight": 20, "color": "#1d2a3b"},
+        {"label": "15% Off", "weight": 15, "color": "#366343"},
+        {"label": "Free Drink", "weight": 15, "color": "#a5935b"},
+        {"label": "Free Dessert", "weight": 5, "color": "#1d2a3b"},
+        {"label": "Dinner for 4", "weight": 2, "color": "#8B0000"},
+        {"label": "Try Again", "weight": 3, "color": "#555555"}
+    ]
+}
+
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 security = HTTPBasic()
@@ -262,6 +282,11 @@ class CateringInquiry(BaseModel):
     event_date: Optional[str] = None
     guest_count: Optional[str] = None
     message: str
+
+class SpinRequest(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = None
 
 class LoginRequest(BaseModel):
     password: str
@@ -348,6 +373,11 @@ async def seed_default_content():
     if existing_menu == 0:
         await db.menu_categories.insert_many(DEFAULT_MENU_CATEGORIES)
         logger.info("Seeded default menu categories")
+    
+    existing_giveaway = await db.giveaway_settings.find_one({}, {"_id": 0})
+    if not existing_giveaway:
+        await db.giveaway_settings.insert_one(DEFAULT_GIVEAWAY_SETTINGS)
+        logger.info("Seeded default giveaway settings")
 
 # CMS - Site Content
 @api_router.get("/content")
@@ -749,6 +779,86 @@ async def get_analytics(authorization: str = Header(None), session_token: str = 
         "button_clicks": button_clicks,
         "button_clicks_today": button_clicks_today
     }
+
+# Giveaway
+@api_router.get("/giveaway/settings")
+async def get_giveaway_settings():
+    settings = await db.giveaway_settings.find_one({}, {"_id": 0})
+    if not settings:
+        return DEFAULT_GIVEAWAY_SETTINGS
+    return settings
+
+@api_router.put("/giveaway/settings")
+async def update_giveaway_settings(data: dict, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    allowed = ["is_active", "title", "subtitle", "start_date", "end_date", "prizes"]
+    update_fields = {k: v for k, v in data.items() if k in allowed}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No valid fields")
+    result = await db.giveaway_settings.update_one({}, {"$set": update_fields})
+    if result.matched_count == 0:
+        await db.giveaway_settings.insert_one({**DEFAULT_GIVEAWAY_SETTINGS, **update_fields})
+    updated = await db.giveaway_settings.find_one({}, {"_id": 0})
+    return updated
+
+@api_router.post("/giveaway/spin")
+async def spin_wheel(data: SpinRequest):
+    settings = await db.giveaway_settings.find_one({}, {"_id": 0})
+    if not settings or not settings.get("is_active"):
+        raise HTTPException(status_code=400, detail="Giveaway is not active")
+    
+    email = data.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid email required")
+    
+    existing = await db.giveaway_entries.find_one({"email": email})
+    if existing:
+        return {"already_entered": True, "prize": existing.get("prize"), "message": "You've already spun! Your prize: " + existing.get("prize", "N/A")}
+    
+    prizes = settings.get("prizes", [])
+    if not prizes:
+        raise HTTPException(status_code=500, detail="No prizes configured")
+    
+    weights = [p.get("weight", 1) for p in prizes]
+    winner = random.choices(prizes, weights=weights, k=1)[0]
+    
+    prize_index = prizes.index(winner)
+    
+    entry = {
+        "id": str(uuid.uuid4()),
+        "name": data.name.strip(),
+        "email": email,
+        "phone": data.phone.strip() if data.phone else None,
+        "prize": winner["label"],
+        "prize_index": prize_index,
+        "claimed": False,
+        "entered_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.giveaway_entries.insert_one(entry)
+    
+    return {"already_entered": False, "prize": winner["label"], "prize_index": prize_index, "message": f"Congratulations! You won: {winner['label']}!"}
+
+@api_router.get("/giveaway/entries")
+async def get_giveaway_entries(authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    entries = await db.giveaway_entries.find({}, {"_id": 0}).sort("entered_at", -1).to_list(500)
+    return {"entries": entries, "total": len(entries)}
+
+@api_router.put("/giveaway/entries/{entry_id}/claim")
+async def mark_entry_claimed(entry_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    result = await db.giveaway_entries.update_one({"id": entry_id}, {"$set": {"claimed": True}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return {"message": "Marked as claimed"}
+
+@api_router.get("/giveaway/winners")
+async def get_giveaway_winners():
+    winners = await db.giveaway_entries.find(
+        {"prize": {"$ne": "Try Again"}},
+        {"_id": 0, "name": 1, "prize": 1, "entered_at": 1}
+    ).sort("entered_at", -1).to_list(20)
+    return {"winners": winners}
 
 # Catering inquiries
 @api_router.post("/catering/inquiry")

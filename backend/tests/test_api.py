@@ -880,5 +880,435 @@ class TestCMSMenu:
         print("✓ No valid fields returns 400")
 
 
+class TestGiveawaySettings:
+    """Giveaway settings endpoint tests - NEW GIVEAWAY FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_get_giveaway_settings_returns_settings(self):
+        """GET /api/giveaway/settings returns settings with is_active, title, prizes array"""
+        response = requests.get(f"{BASE_URL}/api/giveaway/settings")
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check required fields
+        assert "is_active" in data, "Missing is_active field"
+        assert "title" in data, "Missing title field"
+        assert "prizes" in data, "Missing prizes field"
+        assert isinstance(data["is_active"], bool), "is_active should be boolean"
+        assert isinstance(data["prizes"], list), "prizes should be array"
+        assert len(data["prizes"]) == 8, f"Expected 8 prizes, got {len(data['prizes'])}"
+        
+        # Check prize structure
+        for prize in data["prizes"]:
+            assert "label" in prize, "Prize missing label"
+            assert "weight" in prize, "Prize missing weight"
+            assert "color" in prize, "Prize missing color"
+        
+        print(f"✓ GET /api/giveaway/settings returns settings (is_active: {data['is_active']})")
+        print(f"  Prizes: {[p['label'] for p in data['prizes']]}")
+    
+    def test_update_giveaway_toggle_is_active(self, auth_token):
+        """PUT /api/giveaway/settings with auth can toggle is_active"""
+        # Get current state
+        current = requests.get(f"{BASE_URL}/api/giveaway/settings").json()
+        original_active = current["is_active"]
+        
+        # Toggle is_active
+        new_active = not original_active
+        response = requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": new_active},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_active"] == new_active
+        print(f"✓ Toggled is_active from {original_active} to {new_active}")
+        
+        # Verify persistence
+        verify = requests.get(f"{BASE_URL}/api/giveaway/settings").json()
+        assert verify["is_active"] == new_active
+        print("✓ Verified is_active toggle persisted")
+        
+        # Restore original state
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": original_active},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print(f"✓ Restored is_active to {original_active}")
+    
+    def test_update_giveaway_title_subtitle_dates(self, auth_token):
+        """PUT /api/giveaway/settings with auth can update title, subtitle, dates"""
+        # Get current state
+        current = requests.get(f"{BASE_URL}/api/giveaway/settings").json()
+        original_title = current.get("title")
+        original_subtitle = current.get("subtitle")
+        original_start = current.get("start_date")
+        original_end = current.get("end_date")
+        
+        # Update title, subtitle, dates
+        new_data = {
+            "title": "TEST_Giveaway_" + uuid.uuid4().hex[:8],
+            "subtitle": "TEST subtitle for automated testing",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-30"
+        }
+        response = requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json=new_data,
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == new_data["title"]
+        assert data["subtitle"] == new_data["subtitle"]
+        assert data["start_date"] == new_data["start_date"]
+        assert data["end_date"] == new_data["end_date"]
+        print(f"✓ Updated giveaway title to: {new_data['title']}")
+        
+        # Restore original
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={
+                "title": original_title,
+                "subtitle": original_subtitle,
+                "start_date": original_start,
+                "end_date": original_end
+            },
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print("✓ Restored original giveaway settings")
+    
+    def test_update_giveaway_prizes(self, auth_token):
+        """PUT /api/giveaway/settings with auth can update prizes array"""
+        # Get current state
+        current = requests.get(f"{BASE_URL}/api/giveaway/settings").json()
+        original_prizes = current.get("prizes")
+        
+        # Update prizes (modify first prize weight)
+        new_prizes = original_prizes.copy()
+        new_prizes[0] = {**new_prizes[0], "weight": 99}
+        
+        response = requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"prizes": new_prizes},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["prizes"][0]["weight"] == 99
+        print("✓ Updated prizes array")
+        
+        # Restore original
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"prizes": original_prizes},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        print("✓ Restored original prizes")
+    
+    def test_update_giveaway_requires_auth(self):
+        """PUT /api/giveaway/settings without auth returns 401"""
+        response = requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": True}
+        )
+        assert response.status_code == 401
+        print("✓ Update giveaway settings requires authentication")
+
+
+class TestGiveawaySpin:
+    """Giveaway spin endpoint tests - NEW GIVEAWAY FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_spin_returns_400_when_inactive(self, auth_token):
+        """POST /api/giveaway/spin returns 400 when giveaway is inactive"""
+        # Ensure giveaway is inactive
+        current = requests.get(f"{BASE_URL}/api/giveaway/settings").json()
+        if current["is_active"]:
+            requests.put(
+                f"{BASE_URL}/api/giveaway/settings",
+                json={"is_active": False},
+                headers={"Authorization": f"Bearer {auth_token}"}
+            )
+        
+        # Try to spin
+        response = requests.post(
+            f"{BASE_URL}/api/giveaway/spin",
+            json={
+                "name": "Test User",
+                "email": f"test_inactive_{uuid.uuid4().hex[:8]}@example.com"
+            }
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert "not active" in data.get("detail", "").lower() or "inactive" in data.get("detail", "").lower()
+        print("✓ Spin returns 400 when giveaway is inactive")
+    
+    def test_spin_returns_prize_when_active(self, auth_token):
+        """POST /api/giveaway/spin with name+email returns a prize when active"""
+        # Activate giveaway
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": True},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        
+        # Spin
+        unique_email = f"test_spin_{uuid.uuid4().hex[:8]}@example.com"
+        response = requests.post(
+            f"{BASE_URL}/api/giveaway/spin",
+            json={
+                "name": "Test Spinner",
+                "email": unique_email,
+                "phone": "(555) 123-4567"
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check response structure
+        assert "prize" in data, "Missing prize in response"
+        assert "already_entered" in data, "Missing already_entered in response"
+        assert data["already_entered"] == False, "Should not be already_entered for new email"
+        assert "prize_index" in data, "Missing prize_index in response"
+        assert "message" in data, "Missing message in response"
+        
+        # Verify prize is one of the valid prizes
+        valid_prizes = ["Free Appetizer", "10% Off", "Free Side", "15% Off", 
+                       "Free Drink", "Free Dessert", "Dinner for 4", "Try Again"]
+        assert data["prize"] in valid_prizes, f"Invalid prize: {data['prize']}"
+        
+        print(f"✓ Spin returned prize: {data['prize']}")
+        
+        # Deactivate giveaway
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": False},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+    
+    def test_spin_same_email_returns_already_entered(self, auth_token):
+        """POST /api/giveaway/spin with same email returns already_entered:true"""
+        # Activate giveaway
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": True},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        
+        # First spin
+        unique_email = f"test_dup_{uuid.uuid4().hex[:8]}@example.com"
+        first_response = requests.post(
+            f"{BASE_URL}/api/giveaway/spin",
+            json={"name": "Test User", "email": unique_email}
+        )
+        assert first_response.status_code == 200
+        first_prize = first_response.json()["prize"]
+        print(f"✓ First spin returned prize: {first_prize}")
+        
+        # Second spin with same email
+        second_response = requests.post(
+            f"{BASE_URL}/api/giveaway/spin",
+            json={"name": "Test User Again", "email": unique_email}
+        )
+        assert second_response.status_code == 200
+        data = second_response.json()
+        assert data["already_entered"] == True, "Should be already_entered for duplicate email"
+        assert data["prize"] == first_prize, "Should return same prize as first spin"
+        print(f"✓ Second spin returned already_entered:true with same prize: {data['prize']}")
+        
+        # Deactivate giveaway
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": False},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+    
+    def test_spin_invalid_email_returns_400(self, auth_token):
+        """POST /api/giveaway/spin with invalid email returns 400"""
+        # Activate giveaway
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": True},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        
+        # Try to spin with invalid email
+        response = requests.post(
+            f"{BASE_URL}/api/giveaway/spin",
+            json={"name": "Test User", "email": "invalid-email-no-at"}
+        )
+        assert response.status_code == 400
+        print("✓ Spin with invalid email returns 400")
+        
+        # Deactivate giveaway
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": False},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+
+
+class TestGiveawayEntries:
+    """Giveaway entries endpoint tests - NEW GIVEAWAY FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_get_entries_requires_auth(self):
+        """GET /api/giveaway/entries without auth returns 401"""
+        response = requests.get(f"{BASE_URL}/api/giveaway/entries")
+        assert response.status_code == 401
+        print("✓ Get giveaway entries requires authentication")
+    
+    def test_get_entries_with_auth(self, auth_token):
+        """GET /api/giveaway/entries with auth returns entries list"""
+        response = requests.get(
+            f"{BASE_URL}/api/giveaway/entries",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "entries" in data, "Missing entries field"
+        assert "total" in data, "Missing total field"
+        assert isinstance(data["entries"], list), "entries should be array"
+        assert isinstance(data["total"], int), "total should be integer"
+        
+        # Check entry structure if entries exist
+        if len(data["entries"]) > 0:
+            entry = data["entries"][0]
+            assert "id" in entry, "Entry missing id"
+            assert "name" in entry, "Entry missing name"
+            assert "email" in entry, "Entry missing email"
+            assert "prize" in entry, "Entry missing prize"
+            assert "claimed" in entry, "Entry missing claimed"
+            assert "entered_at" in entry, "Entry missing entered_at"
+        
+        print(f"✓ GET /api/giveaway/entries returns {data['total']} entries")
+    
+    def test_mark_entry_claimed(self, auth_token):
+        """PUT /api/giveaway/entries/{id}/claim marks entry as claimed"""
+        # First activate and create an entry
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": True},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        
+        unique_email = f"test_claim_{uuid.uuid4().hex[:8]}@example.com"
+        spin_response = requests.post(
+            f"{BASE_URL}/api/giveaway/spin",
+            json={"name": "Test Claimer", "email": unique_email}
+        )
+        
+        # Get entries to find the new entry
+        entries_response = requests.get(
+            f"{BASE_URL}/api/giveaway/entries",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        entries = entries_response.json()["entries"]
+        new_entry = next((e for e in entries if e["email"] == unique_email), None)
+        
+        if new_entry and new_entry["prize"] != "Try Again":
+            entry_id = new_entry["id"]
+            
+            # Mark as claimed
+            claim_response = requests.put(
+                f"{BASE_URL}/api/giveaway/entries/{entry_id}/claim",
+                json={},
+                headers={"Authorization": f"Bearer {auth_token}"}
+            )
+            assert claim_response.status_code == 200
+            print(f"✓ Marked entry {entry_id} as claimed")
+            
+            # Verify claimed status
+            verify_response = requests.get(
+                f"{BASE_URL}/api/giveaway/entries",
+                headers={"Authorization": f"Bearer {auth_token}"}
+            )
+            verified_entry = next((e for e in verify_response.json()["entries"] if e["id"] == entry_id), None)
+            assert verified_entry is not None
+            assert verified_entry["claimed"] == True
+            print("✓ Verified entry is marked as claimed")
+        else:
+            print("✓ Skipped claim test (entry was Try Again or not found)")
+        
+        # Deactivate giveaway
+        requests.put(
+            f"{BASE_URL}/api/giveaway/settings",
+            json={"is_active": False},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+    
+    def test_mark_entry_claimed_requires_auth(self):
+        """PUT /api/giveaway/entries/{id}/claim without auth returns 401"""
+        response = requests.put(
+            f"{BASE_URL}/api/giveaway/entries/some-id/claim",
+            json={}
+        )
+        assert response.status_code == 401
+        print("✓ Mark entry claimed requires authentication")
+    
+    def test_mark_entry_claimed_not_found(self, auth_token):
+        """PUT /api/giveaway/entries/{id}/claim with non-existent id returns 404"""
+        response = requests.put(
+            f"{BASE_URL}/api/giveaway/entries/non-existent-id/claim",
+            json={},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 404
+        print("✓ Non-existent entry returns 404")
+
+
+class TestGiveawayWinners:
+    """Giveaway winners endpoint tests - NEW GIVEAWAY FEATURE"""
+    
+    def test_get_winners_public(self):
+        """GET /api/giveaway/winners returns recent winners (excluding Try Again)"""
+        response = requests.get(f"{BASE_URL}/api/giveaway/winners")
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "winners" in data, "Missing winners field"
+        assert isinstance(data["winners"], list), "winners should be array"
+        
+        # Check winner structure if winners exist
+        if len(data["winners"]) > 0:
+            winner = data["winners"][0]
+            assert "name" in winner, "Winner missing name"
+            assert "prize" in winner, "Winner missing prize"
+            assert "entered_at" in winner, "Winner missing entered_at"
+            # Should not include Try Again
+            for w in data["winners"]:
+                assert w["prize"] != "Try Again", "Winners should not include Try Again"
+        
+        print(f"✓ GET /api/giveaway/winners returns {len(data['winners'])} winners (excluding Try Again)")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
