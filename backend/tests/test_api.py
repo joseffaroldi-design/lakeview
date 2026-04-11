@@ -1310,5 +1310,504 @@ class TestGiveawayWinners:
         print(f"✓ GET /api/giveaway/winners returns {len(data['winners'])} winners (excluding Try Again)")
 
 
+# ============================================================================
+# LOYALTY PUNCH CARD TESTS - NEW FEATURE
+# ============================================================================
+
+class TestLoyaltyJoin:
+    """Loyalty punch card join endpoint tests - NEW LOYALTY FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_join_loyalty_with_name_and_phone(self):
+        """POST /api/loyalty/join with name+phone creates loyalty member"""
+        unique_phone = f"504555{uuid.uuid4().hex[:4]}"
+        response = requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={
+                "name": f"TEST_Loyalty_{uuid.uuid4().hex[:8]}",
+                "phone": unique_phone
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check response structure
+        assert "already_member" in data, "Missing already_member field"
+        assert "visits" in data, "Missing visits field"
+        assert "reward_earned" in data, "Missing reward_earned field"
+        assert "message" in data, "Missing message field"
+        
+        # New member should have 0 visits
+        assert data["already_member"] == False, "Should not be already_member for new phone"
+        assert data["visits"] == 0, "New member should have 0 visits"
+        assert data["reward_earned"] == False, "New member should not have reward_earned"
+        
+        print(f"✓ Created loyalty member with phone: {unique_phone}")
+    
+    def test_join_loyalty_same_phone_returns_already_member(self):
+        """POST /api/loyalty/join with same phone returns already_member:true with visit count"""
+        unique_phone = f"504555{uuid.uuid4().hex[:4]}"
+        
+        # First join
+        first_response = requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Test User", "phone": unique_phone}
+        )
+        assert first_response.status_code == 200
+        assert first_response.json()["already_member"] == False
+        print(f"✓ First join successful for phone: {unique_phone}")
+        
+        # Second join with same phone
+        second_response = requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Different Name", "phone": unique_phone}
+        )
+        assert second_response.status_code == 200
+        data = second_response.json()
+        assert data["already_member"] == True, "Should be already_member for duplicate phone"
+        assert "visits" in data, "Should return visits count"
+        print(f"✓ Second join returns already_member:true with visits: {data['visits']}")
+    
+    def test_join_loyalty_missing_name(self):
+        """POST /api/loyalty/join with missing name returns 400"""
+        response = requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "", "phone": "5045551234"}
+        )
+        assert response.status_code == 400
+        print("✓ Missing name returns 400")
+    
+    def test_join_loyalty_missing_phone(self):
+        """POST /api/loyalty/join with missing phone returns 400"""
+        response = requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Test User", "phone": ""}
+        )
+        assert response.status_code == 400
+        print("✓ Missing phone returns 400")
+
+
+class TestLoyaltyLookup:
+    """Loyalty lookup endpoint tests - NEW LOYALTY FEATURE"""
+    
+    def test_lookup_existing_member(self):
+        """GET /api/loyalty/lookup?phone=xxx returns member data"""
+        # First create a member
+        unique_phone = f"504555{uuid.uuid4().hex[:4]}"
+        requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Test Lookup User", "phone": unique_phone}
+        )
+        
+        # Lookup the member
+        response = requests.get(f"{BASE_URL}/api/loyalty/lookup?phone={unique_phone}")
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check member data structure
+        assert "id" in data, "Missing id field"
+        assert "name" in data, "Missing name field"
+        assert "phone" in data, "Missing phone field"
+        assert "visits" in data, "Missing visits field"
+        assert "reward_earned" in data, "Missing reward_earned field"
+        assert "joined_at" in data, "Missing joined_at field"
+        
+        assert data["phone"] == unique_phone
+        assert data["name"] == "Test Lookup User"
+        print(f"✓ Lookup returned member data for phone: {unique_phone}")
+    
+    def test_lookup_non_existing_member(self):
+        """GET /api/loyalty/lookup?phone=xxx returns 404 for non-member"""
+        response = requests.get(f"{BASE_URL}/api/loyalty/lookup?phone=9999999999")
+        assert response.status_code == 404
+        print("✓ Lookup non-existing member returns 404")
+
+
+class TestLoyaltyMembers:
+    """Loyalty members list endpoint tests - NEW LOYALTY FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_get_members_requires_auth(self):
+        """GET /api/loyalty/members without auth returns 401"""
+        response = requests.get(f"{BASE_URL}/api/loyalty/members")
+        assert response.status_code == 401
+        print("✓ Get loyalty members requires authentication")
+    
+    def test_get_members_with_auth(self, auth_token):
+        """GET /api/loyalty/members with auth returns all members"""
+        response = requests.get(
+            f"{BASE_URL}/api/loyalty/members",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "members" in data, "Missing members field"
+        assert "total" in data, "Missing total field"
+        assert isinstance(data["members"], list), "members should be array"
+        assert isinstance(data["total"], int), "total should be integer"
+        
+        # Check member structure if members exist
+        if len(data["members"]) > 0:
+            member = data["members"][0]
+            assert "id" in member, "Member missing id"
+            assert "name" in member, "Member missing name"
+            assert "phone" in member, "Member missing phone"
+            assert "visits" in member, "Member missing visits"
+            assert "reward_earned" in member, "Member missing reward_earned"
+        
+        print(f"✓ GET /api/loyalty/members returns {data['total']} members")
+
+
+class TestLoyaltyStamp:
+    """Loyalty stamp visit endpoint tests - NEW LOYALTY FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_stamp_increments_visit_count(self, auth_token):
+        """PUT /api/loyalty/members/{id}/stamp increments visit count"""
+        # Create a member
+        unique_phone = f"504555{uuid.uuid4().hex[:4]}"
+        requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Test Stamp User", "phone": unique_phone}
+        )
+        
+        # Get member id
+        members_response = requests.get(
+            f"{BASE_URL}/api/loyalty/members",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        members = members_response.json()["members"]
+        member = next((m for m in members if m["phone"] == unique_phone), None)
+        assert member is not None, "Member not found"
+        member_id = member["id"]
+        initial_visits = member["visits"]
+        
+        # Stamp visit
+        stamp_response = requests.put(
+            f"{BASE_URL}/api/loyalty/members/{member_id}/stamp",
+            json={},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert stamp_response.status_code == 200
+        data = stamp_response.json()
+        
+        assert "visits" in data, "Missing visits in response"
+        assert "reward_earned" in data, "Missing reward_earned in response"
+        assert "message" in data, "Missing message in response"
+        assert data["visits"] == initial_visits + 1, "Visits should increment by 1"
+        
+        print(f"✓ Stamped visit, visits now: {data['visits']}")
+    
+    def test_stamp_at_10_visits_sets_reward_earned(self, auth_token):
+        """PUT /api/loyalty/members/{id}/stamp at 10 visits sets reward_earned:true"""
+        # Create a member
+        unique_phone = f"504555{uuid.uuid4().hex[:4]}"
+        requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Test 10 Visits User", "phone": unique_phone}
+        )
+        
+        # Get member id
+        members_response = requests.get(
+            f"{BASE_URL}/api/loyalty/members",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        members = members_response.json()["members"]
+        member = next((m for m in members if m["phone"] == unique_phone), None)
+        member_id = member["id"]
+        
+        # Stamp 10 times
+        for i in range(10):
+            stamp_response = requests.put(
+                f"{BASE_URL}/api/loyalty/members/{member_id}/stamp",
+                json={},
+                headers={"Authorization": f"Bearer {auth_token}"}
+            )
+            assert stamp_response.status_code == 200
+        
+        # Check final state
+        final_data = stamp_response.json()
+        assert final_data["visits"] == 10, "Should have 10 visits"
+        assert final_data["reward_earned"] == True, "Should have reward_earned:true at 10 visits"
+        
+        print(f"✓ After 10 stamps, reward_earned is True")
+    
+    def test_stamp_requires_auth(self):
+        """PUT /api/loyalty/members/{id}/stamp without auth returns 401"""
+        response = requests.put(
+            f"{BASE_URL}/api/loyalty/members/some-id/stamp",
+            json={}
+        )
+        assert response.status_code == 401
+        print("✓ Stamp visit requires authentication")
+    
+    def test_stamp_not_found(self, auth_token):
+        """PUT /api/loyalty/members/{id}/stamp with non-existent id returns 404"""
+        response = requests.put(
+            f"{BASE_URL}/api/loyalty/members/non-existent-id/stamp",
+            json={},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 404
+        print("✓ Non-existent member returns 404")
+
+
+class TestLoyaltyClaim:
+    """Loyalty claim reward endpoint tests - NEW LOYALTY FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_claim_resets_visits_and_marks_claimed(self, auth_token):
+        """PUT /api/loyalty/members/{id}/claim resets visits and marks reward claimed"""
+        # Create a member and stamp 10 times
+        unique_phone = f"504555{uuid.uuid4().hex[:4]}"
+        requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Test Claim User", "phone": unique_phone}
+        )
+        
+        # Get member id
+        members_response = requests.get(
+            f"{BASE_URL}/api/loyalty/members",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        members = members_response.json()["members"]
+        member = next((m for m in members if m["phone"] == unique_phone), None)
+        member_id = member["id"]
+        
+        # Stamp 10 times to earn reward
+        for i in range(10):
+            requests.put(
+                f"{BASE_URL}/api/loyalty/members/{member_id}/stamp",
+                json={},
+                headers={"Authorization": f"Bearer {auth_token}"}
+            )
+        
+        # Claim reward
+        claim_response = requests.put(
+            f"{BASE_URL}/api/loyalty/members/{member_id}/claim",
+            json={},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert claim_response.status_code == 200
+        data = claim_response.json()
+        assert "message" in data, "Missing message in response"
+        print(f"✓ Claimed reward: {data['message']}")
+        
+        # Verify visits reset
+        lookup_response = requests.get(f"{BASE_URL}/api/loyalty/lookup?phone={unique_phone}")
+        member_data = lookup_response.json()
+        assert member_data["visits"] == 0, "Visits should be reset to 0"
+        assert member_data["reward_earned"] == False, "reward_earned should be False after claim"
+        print("✓ Verified visits reset to 0 and reward_earned is False")
+    
+    def test_claim_without_reward_earned_returns_400(self, auth_token):
+        """PUT /api/loyalty/members/{id}/claim without reward earned returns 400"""
+        # Create a member (no stamps)
+        unique_phone = f"504555{uuid.uuid4().hex[:4]}"
+        requests.post(
+            f"{BASE_URL}/api/loyalty/join",
+            json={"name": "Test No Reward User", "phone": unique_phone}
+        )
+        
+        # Get member id
+        members_response = requests.get(
+            f"{BASE_URL}/api/loyalty/members",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        members = members_response.json()["members"]
+        member = next((m for m in members if m["phone"] == unique_phone), None)
+        member_id = member["id"]
+        
+        # Try to claim without earning reward
+        claim_response = requests.put(
+            f"{BASE_URL}/api/loyalty/members/{member_id}/claim",
+            json={},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert claim_response.status_code == 400
+        print("✓ Claim without reward earned returns 400")
+    
+    def test_claim_requires_auth(self):
+        """PUT /api/loyalty/members/{id}/claim without auth returns 401"""
+        response = requests.put(
+            f"{BASE_URL}/api/loyalty/members/some-id/claim",
+            json={}
+        )
+        assert response.status_code == 401
+        print("✓ Claim reward requires authentication")
+
+
+# ============================================================================
+# MESSAGING BLAST TESTS - NEW FEATURE
+# ============================================================================
+
+class TestMessagingSend:
+    """Messaging blast send endpoint tests - NEW MESSAGING FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_send_message_stores_blast_record(self, auth_token):
+        """POST /api/messages/send with auth stores blast record and returns result"""
+        response = requests.post(
+            f"{BASE_URL}/api/messages/send",
+            json={
+                "subject": f"TEST_Subject_{uuid.uuid4().hex[:8]}",
+                "body": "Test message body for automated testing",
+                "channel": "email",
+                "recipient_group": "newsletter"
+            },
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check response structure
+        assert "email_sent" in data, "Missing email_sent field"
+        assert "sms_sent" in data, "Missing sms_sent field"
+        assert "total_emails" in data, "Missing total_emails field"
+        assert "total_phones" in data, "Missing total_phones field"
+        assert "message" in data, "Missing message field"
+        
+        # Note: SendGrid/Twilio not configured, so errors expected
+        if "errors" in data:
+            print(f"✓ Message blast stored (expected errors due to missing config): {data['errors'][:1]}")
+        else:
+            print(f"✓ Message blast sent: {data['message']}")
+    
+    def test_send_message_sms_channel(self, auth_token):
+        """POST /api/messages/send with sms channel stores blast record"""
+        response = requests.post(
+            f"{BASE_URL}/api/messages/send",
+            json={
+                "subject": "SMS Test",
+                "body": "Test SMS message",
+                "channel": "sms",
+                "recipient_group": "loyalty"
+            },
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "sms_sent" in data
+        print(f"✓ SMS blast stored, total_phones: {data.get('total_phones', 0)}")
+    
+    def test_send_message_both_channels(self, auth_token):
+        """POST /api/messages/send with both channels stores blast record"""
+        response = requests.post(
+            f"{BASE_URL}/api/messages/send",
+            json={
+                "subject": "Both Channels Test",
+                "body": "Test message for both email and SMS",
+                "channel": "both",
+                "recipient_group": "all"
+            },
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "email_sent" in data
+        assert "sms_sent" in data
+        print(f"✓ Both channels blast stored, emails: {data.get('total_emails', 0)}, phones: {data.get('total_phones', 0)}")
+    
+    def test_send_message_requires_auth(self):
+        """POST /api/messages/send without auth returns 401"""
+        response = requests.post(
+            f"{BASE_URL}/api/messages/send",
+            json={
+                "subject": "Unauthorized",
+                "body": "Should fail",
+                "channel": "email",
+                "recipient_group": "newsletter"
+            }
+        )
+        assert response.status_code == 401
+        print("✓ Send message requires authentication")
+
+
+class TestMessagingHistory:
+    """Messaging history endpoint tests - NEW MESSAGING FEATURE"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": "Lakeview872"}
+        )
+        return response.json()["token"]
+    
+    def test_get_history_requires_auth(self):
+        """GET /api/messages/history without auth returns 401"""
+        response = requests.get(f"{BASE_URL}/api/messages/history")
+        assert response.status_code == 401
+        print("✓ Get message history requires authentication")
+    
+    def test_get_history_with_auth(self, auth_token):
+        """GET /api/messages/history with auth returns blast history"""
+        response = requests.get(
+            f"{BASE_URL}/api/messages/history",
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "blasts" in data, "Missing blasts field"
+        assert "total" in data, "Missing total field"
+        assert isinstance(data["blasts"], list), "blasts should be array"
+        assert isinstance(data["total"], int), "total should be integer"
+        
+        # Check blast structure if blasts exist
+        if len(data["blasts"]) > 0:
+            blast = data["blasts"][0]
+            assert "id" in blast, "Blast missing id"
+            assert "subject" in blast, "Blast missing subject"
+            assert "body" in blast, "Blast missing body"
+            assert "channel" in blast, "Blast missing channel"
+            assert "recipient_group" in blast, "Blast missing recipient_group"
+            assert "sent_at" in blast, "Blast missing sent_at"
+        
+        print(f"✓ GET /api/messages/history returns {data['total']} blasts")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

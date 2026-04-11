@@ -288,6 +288,16 @@ class SpinRequest(BaseModel):
     email: str
     phone: Optional[str] = None
 
+class LoyaltyJoinRequest(BaseModel):
+    name: str
+    phone: str
+
+class MessageBlastRequest(BaseModel):
+    subject: str
+    body: str
+    channel: str  # email, sms, both
+    recipient_group: str  # all, newsletter, giveaway, loyalty
+
 class LoginRequest(BaseModel):
     password: str
 
@@ -859,6 +869,163 @@ async def get_giveaway_winners():
         {"_id": 0, "name": 1, "prize": 1, "entered_at": 1}
     ).sort("entered_at", -1).to_list(20)
     return {"winners": winners}
+
+# Loyalty Punch Card
+@api_router.post("/loyalty/join")
+async def join_loyalty(data: LoyaltyJoinRequest):
+    phone = data.phone.strip()
+    name = data.name.strip()
+    if not phone or not name:
+        raise HTTPException(status_code=400, detail="Name and phone are required")
+    
+    existing = await db.loyalty_members.find_one({"phone": phone})
+    if existing:
+        return {"already_member": True, "visits": existing.get("visits", 0), "reward_earned": existing.get("reward_earned", False), "message": "Welcome back! You have " + str(existing.get("visits", 0)) + " visits."}
+    
+    member = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "phone": phone,
+        "visits": 0,
+        "reward_earned": False,
+        "reward_claimed": False,
+        "joined_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.loyalty_members.insert_one(member)
+    return {"already_member": False, "visits": 0, "reward_earned": False, "message": "Welcome to the Lakeview Loyalty Club!"}
+
+@api_router.get("/loyalty/lookup")
+async def lookup_loyalty(phone: str):
+    member = await db.loyalty_members.find_one({"phone": phone.strip()}, {"_id": 0})
+    if not member:
+        raise HTTPException(status_code=404, detail="Not a loyalty member")
+    return member
+
+@api_router.get("/loyalty/members")
+async def get_loyalty_members(authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    members = await db.loyalty_members.find({}, {"_id": 0}).sort("joined_at", -1).to_list(500)
+    return {"members": members, "total": len(members)}
+
+@api_router.put("/loyalty/members/{member_id}/stamp")
+async def stamp_loyalty(member_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    member = await db.loyalty_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    new_visits = member.get("visits", 0) + 1
+    reward_earned = new_visits >= 10
+    await db.loyalty_members.update_one({"id": member_id}, {"$set": {"visits": new_visits, "reward_earned": reward_earned}})
+    return {"visits": new_visits, "reward_earned": reward_earned, "message": "Free meal earned!" if reward_earned and not member.get("reward_earned") else "Visit stamped!"}
+
+@api_router.put("/loyalty/members/{member_id}/claim")
+async def claim_loyalty_reward(member_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    member = await db.loyalty_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if not member.get("reward_earned"):
+        raise HTTPException(status_code=400, detail="Reward not yet earned")
+    await db.loyalty_members.update_one({"id": member_id}, {"$set": {"reward_claimed": True, "visits": 0, "reward_earned": False}})
+    return {"message": "Reward claimed! Punch card reset."}
+
+# Messaging Blast
+@api_router.post("/messages/send")
+async def send_message_blast(data: MessageBlastRequest, authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    
+    recipients_emails = []
+    recipients_phones = []
+    
+    if data.recipient_group in ["all", "newsletter"]:
+        subs = await db.newsletter_subscribers.find({}, {"_id": 0, "email": 1}).to_list(1000)
+        recipients_emails.extend([s["email"] for s in subs])
+    
+    if data.recipient_group in ["all", "giveaway"]:
+        entries = await db.giveaway_entries.find({}, {"_id": 0, "email": 1, "phone": 1}).to_list(1000)
+        recipients_emails.extend([e["email"] for e in entries if e.get("email")])
+        recipients_phones.extend([e["phone"] for e in entries if e.get("phone")])
+    
+    if data.recipient_group in ["all", "loyalty"]:
+        members = await db.loyalty_members.find({}, {"_id": 0, "phone": 1}).to_list(1000)
+        recipients_phones.extend([m["phone"] for m in members if m.get("phone")])
+    
+    recipients_emails = list(set(recipients_emails))
+    recipients_phones = list(set([p for p in recipients_phones if p]))
+    
+    email_sent = 0
+    sms_sent = 0
+    errors = []
+    
+    if data.channel in ["email", "both"] and recipients_emails:
+        sendgrid_key = os.environ.get("SENDGRID_API_KEY")
+        sender_email = os.environ.get("SENDER_EMAIL")
+        if sendgrid_key and sender_email:
+            try:
+                from sendgrid import SendGridAPIClient
+                from sendgrid.helpers.mail import Mail
+                sg = SendGridAPIClient(sendgrid_key)
+                for email_addr in recipients_emails:
+                    try:
+                        message = Mail(from_email=sender_email, to_emails=email_addr, subject=data.subject, html_content=data.body)
+                        sg.send(message)
+                        email_sent += 1
+                    except Exception as e:
+                        errors.append(f"Email to {email_addr}: {str(e)}")
+            except Exception as e:
+                errors.append(f"SendGrid init error: {str(e)}")
+        else:
+            errors.append("SendGrid not configured (missing SENDGRID_API_KEY or SENDER_EMAIL)")
+    
+    if data.channel in ["sms", "both"] and recipients_phones:
+        twilio_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+        twilio_token = os.environ.get("TWILIO_AUTH_TOKEN")
+        twilio_phone = os.environ.get("TWILIO_PHONE_NUMBER")
+        if twilio_sid and twilio_token and twilio_phone:
+            try:
+                from twilio.rest import Client as TwilioClient
+                twilio_client = TwilioClient(twilio_sid, twilio_token)
+                for phone in recipients_phones:
+                    try:
+                        twilio_client.messages.create(body=data.body, from_=twilio_phone, to=phone)
+                        sms_sent += 1
+                    except Exception as e:
+                        errors.append(f"SMS to {phone}: {str(e)}")
+            except Exception as e:
+                errors.append(f"Twilio init error: {str(e)}")
+        else:
+            errors.append("Twilio not configured (missing TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_PHONE_NUMBER)")
+    
+    blast_record = {
+        "id": str(uuid.uuid4()),
+        "subject": data.subject,
+        "body": data.body,
+        "channel": data.channel,
+        "recipient_group": data.recipient_group,
+        "email_count": email_sent,
+        "sms_count": sms_sent,
+        "total_emails": len(recipients_emails),
+        "total_phones": len(recipients_phones),
+        "errors": errors,
+        "sent_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.message_blasts.insert_one(blast_record)
+    
+    return {
+        "email_sent": email_sent,
+        "sms_sent": sms_sent,
+        "total_emails": len(recipients_emails),
+        "total_phones": len(recipients_phones),
+        "errors": errors,
+        "message": f"Sent {email_sent} emails and {sms_sent} SMS messages"
+    }
+
+@api_router.get("/messages/history")
+async def get_message_history(authorization: str = Header(None), session_token: str = Cookie(None)):
+    verify_session(authorization, session_token)
+    blasts = await db.message_blasts.find({}, {"_id": 0}).sort("sent_at", -1).to_list(50)
+    return {"blasts": blasts, "total": len(blasts)}
 
 # Catering inquiries
 @api_router.post("/catering/inquiry")

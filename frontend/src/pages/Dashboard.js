@@ -7,12 +7,13 @@ import {
   BarChart3, TrendingUp, Calendar, Image as ImageIcon,
   Save, X, Upload, Users, Monitor, Smartphone, Tablet,
   Globe, Clock, LogOut, MousePointer, Mail, UtensilsCrossed, ChevronDown, ChevronUp,
-  FileText, Pencil, Gift
+  FileText, Pencil, Gift, CreditCard, Send
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ContentEditor, MenuEditor } from "@/pages/ContentEditor";
 import { GiveawayManager } from "@/pages/GiveawayManager";
+import { LoyaltyManager, MessagingDashboard } from "@/pages/LoyaltyMessaging";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -212,6 +213,8 @@ const Dashboard = () => {
             { id: "content", label: "Site Content", icon: FileText },
             { id: "menu", label: "Menu Editor", icon: Pencil },
             { id: "giveaway", label: "Giveaway", icon: Gift },
+            { id: "loyalty", label: "Loyalty", icon: CreditCard },
+            { id: "messaging", label: "Messages", icon: Send },
             { id: "inquiries", label: "Inquiries", icon: UtensilsCrossed },
             { id: "subscribers", label: "Subscribers", icon: Mail },
           ].map(tab => (
@@ -766,6 +769,28 @@ const Dashboard = () => {
               Summer Giveaway
             </h2>
             <GiveawayManager getAuthHeader={getAuthHeader} />
+          </section>
+        )}
+
+        {/* Loyalty Tab */}
+        {activeTab === "loyalty" && (
+          <section>
+            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
+              <CreditCard className="w-6 h-6 text-gold" />
+              Loyalty Program
+            </h2>
+            <LoyaltyManager getAuthHeader={getAuthHeader} />
+          </section>
+        )}
+
+        {/* Messaging Tab */}
+        {activeTab === "messaging" && (
+          <section>
+            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
+              <Send className="w-6 h-6 text-gold" />
+              Message Blasts
+            </h2>
+            <MessagingDashboard getAuthHeader={getAuthHeader} />
           </section>
         )}
 
