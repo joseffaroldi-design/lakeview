@@ -602,6 +602,19 @@ const StickyOrderBar = () => {
               Square
             </a>
           </Button>
+          <Button
+            data-testid="sticky-call-btn"
+            asChild
+            className="rounded-full bg-cream text-navy hover:bg-cream/90 text-sm px-6 py-2.5 h-auto font-semibold shadow-lg transition-all duration-300 hover:scale-105"
+          >
+            <a
+              href="tel:+15042891032"
+              onClick={() => trackButtonClick("call_now_sticky")}
+            >
+              <Phone className="w-4 h-4 mr-1.5" />
+              Call Now
+            </a>
+          </Button>
         </div>
       </div>
     </div>
