@@ -5,6 +5,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1d2a3b" />
         
+        <!-- PWA -->
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+        <link rel="apple-touch-icon" href="https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Lakeview" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        
         <!-- SEO Meta Tags -->
         <title>Lakeview Burgers & Seafood | Best Burgers & Fresh Gulf Seafood in New Orleans, LA</title>
         <meta name="description" content="Lakeview Burgers & Seafood in New Orleans' Lakeview neighborhood. Family-owned since 2015 by Chef Joseph Faroldi. Best burgers, fried shrimp, po'boys, gumbo & Gulf seafood. Dine-in, takeout, delivery via Uber Eats. Catering available. 872 Harrison Ave. Call (504) 289-1032." />
@@ -275,6 +283,13 @@
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root"></div>
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').catch(function() {});
+                });
+            }
+        </script>
         <a
             id="emergent-badge"
             target="_blank"

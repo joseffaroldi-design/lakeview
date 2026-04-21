@@ -1,0 +1,48 @@
+{
+  "name": "Lakeview Burgers & Seafood",
+  "short_name": "Lakeview",
+  "description": "Best burgers and fresh Gulf seafood in New Orleans. Order online, view our menu, and join our loyalty program.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfbf7",
+  "theme_color": "#1d2a3b",
+  "orientation": "portrait-primary",
+  "categories": ["food", "restaurant"],
+  "icons": [
+    {
+      "src": "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "View Menu",
+      "url": "/#menu",
+      "description": "Browse our full menu"
+    },
+    {
+      "name": "Order on Uber Eats",
+      "url": "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY",
+      "description": "Order delivery via Uber Eats"
+    },
+    {
+      "name": "Call Us",
+      "url": "tel:+15042891032",
+      "description": "Call for reservations"
+    }
+  ]
+}
