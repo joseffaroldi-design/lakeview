@@ -35,6 +35,12 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — Backend Modularization**:
+  - Split monolithic `server.py` (1085 lines) into modular structure: `server.py` (69L entry), `config.py`, `models.py`, `seed_data.py`, `auth.py`, and 9 routers under `/routers/` (cms, specials, analytics, giveaway, loyalty, messaging, catering, newsletter, misc). Zero behavioral changes — 123/123 backend tests pass.
+- **Feb 2026 — PWA Install Prompt + Analytics**:
+  - New `InstallPrompt` component fires after 30s engagement or 60% scroll; Android native install + iOS instructions; 7-day dismissal cooldown.
+  - New "PWA Installs" KPI card on Dashboard Analytics tab tracking accepted/dismissed/completed funnel via `appinstalled` event.
+  - New Catering nav link on desktop + mobile drawer.
 - **Feb 2026 — P0 Cleanup + P1 Session Persistence**:
   - Removed dead code: `frontend/src/data/menu.js`, unused `/api/status` routes + `StatusCheck` model, unused FastAPI imports (`HTTPBasic`, `Depends`, `Any`).
   - Removed hardcoded `ADMIN_PASSWORD='Lakeview872'` fallback in `server.py` — now loaded from `.env` only (fails fast if missing).
