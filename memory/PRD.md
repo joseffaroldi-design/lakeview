@@ -32,7 +32,17 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 - **Messaging**: Blast emails/SMS to subscribers, giveaway entries, loyalty members
 - **SEO**: 4 JSON-LD schemas, robots.txt, sitemap.xml, geo tags
 
-## Testing: 79/79 backend (100%), full frontend coverage
+## Testing: 122/123 backend (99%), full frontend coverage
+
+## Changelog
+- **Feb 2026 — P0 Cleanup + P1 Session Persistence**:
+  - Removed dead code: `frontend/src/data/menu.js`, unused `/api/status` routes + `StatusCheck` model, unused FastAPI imports (`HTTPBasic`, `Depends`, `Any`).
+  - Removed hardcoded `ADMIN_PASSWORD='Lakeview872'` fallback in `server.py` — now loaded from `.env` only (fails fast if missing).
+  - Fixed missing mobile hamburger menu in `App.js` Navbar (new `mobile-menu-toggle` + `mobile-menu-drawer` testids).
+  - Added missing CSS classes to `index.css`: `section-divider`, `decorative-border`, `img-zoom`, `btn-vintage`, `hero-bg`.
+  - Fixed stale JSON-LD menu prices in `index.html` to match real CMS menu.
+  - **P1**: Migrated admin sessions from in-memory dict to MongoDB `admin_sessions` collection — sessions now survive backend restarts. All `verify_session()` calls are now async.
+  - Fixed `/api/auth/logout` to honour `Authorization: Bearer` header in addition to cookie (was silently leaving tokens active).
 
 ## Pending
 - SendGrid API key (for email blasts)
@@ -40,4 +50,7 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 - Chef Joseph & Josef photos
 
 ## Future
+- Refactor `server.py` (1085 lines) into routers: auth, cms, loyalty, messaging, giveaway, analytics
+- Lazy-load dashboard tab data instead of fetching everything on mount
+- Rewrite `GiveawayManager.js` / `LoyaltyMessaging.js` back from `React.createElement` to JSX
 - Social media links, photo gallery, customer reviews

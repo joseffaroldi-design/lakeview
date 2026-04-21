@@ -481,9 +481,16 @@ async def login(request: LoginRequest, response: Response):
     return {"message": "Login successful", "token": session_token}
 
 @api_router.post("/auth/logout")
-async def logout(response: Response, session_token: str = Cookie(None)):
-    if session_token:
-        await db.admin_sessions.delete_one({"token": session_token})
+async def logout(response: Response, authorization: str = Header(None), session_token: str = Cookie(None)):
+    # Resolve token from Bearer header first, then cookie — mirrors verify_session
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    elif session_token:
+        token = session_token
+
+    if token:
+        await db.admin_sessions.delete_one({"token": token})
 
     response.delete_cookie("session_token")
     return {"message": "Logged out"}
