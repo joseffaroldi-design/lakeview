@@ -79,6 +79,7 @@ const Navbar = () => {
     { id: "about", label: "About", testId: "nav-about" },
     { id: "specials", label: "Specials", testId: "nav-specials" },
     { id: "menu", label: "Menu", testId: "nav-menu" },
+    { id: "catering", label: "Catering", testId: "nav-catering" },
     { id: "contact", label: "Contact", testId: "nav-contact" },
   ];
 
@@ -864,7 +865,7 @@ const CateringForm = () => {
   };
 
   return (
-    <section data-testid="catering-section" className="py-24 md:py-32 paper-texture">
+    <section id="catering" data-testid="catering-section" className="py-24 md:py-32 paper-texture">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           {/* Left: Info */}
