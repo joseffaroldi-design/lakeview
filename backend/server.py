@@ -1,5 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Depends, Response, Cookie, Header
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Response, Cookie, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -7,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Any
+from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 import base64
@@ -29,12 +28,9 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Admin credentials - load from environment
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Lakeview872')
+# Admin credentials - load from environment (required, no fallback)
+ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
 ADMIN_PASSWORD_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
-
-# Session storage (in production, use Redis or database)
-active_sessions = {}
 
 # Default site content
 DEFAULT_SITE_CONTENT = {
@@ -205,18 +201,8 @@ DEFAULT_GIVEAWAY_SETTINGS = {
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
-security = HTTPBasic()
 
 # Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class StatusCheckCreate(BaseModel):
-    client_name: str
-
 class Special(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -350,25 +336,34 @@ def parse_user_agent(user_agent: str) -> tuple:
     
     return device, browser
 
-def verify_session(authorization: str = None, session_token: str = Cookie(None)):
-    """Verify admin session via header or cookie"""
+async def verify_session(authorization: str = None, session_token: str = Cookie(None)):
+    """Verify admin session via header or cookie (MongoDB-backed)"""
     token = None
-    
+
     # Try header first (Bearer token)
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1]
     # Fall back to cookie
     elif session_token:
         token = session_token
-    
-    if not token or token not in active_sessions:
+
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    session = active_sessions[token]
-    if datetime.now(timezone.utc) > session["expires"]:
-        del active_sessions[token]
+
+    session = await db.admin_sessions.find_one({"token": token}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    expires_at = session.get("expires")
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if not expires_at or datetime.now(timezone.utc) > expires_at:
+        await db.admin_sessions.delete_one({"token": token})
         raise HTTPException(status_code=401, detail="Session expired")
-    
+
     return True
 
 # Seed default content on startup
@@ -399,7 +394,7 @@ async def get_site_content():
 
 @api_router.put("/content/{section}")
 async def update_site_content(section: str, data: dict, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     if section not in ["hero", "about", "contact"]:
         raise HTTPException(status_code=400, detail="Invalid section")
     result = await db.site_content.update_one({}, {"$set": {section: data}})
@@ -418,7 +413,7 @@ async def get_menu():
 
 @api_router.put("/menu/{category_id}")
 async def update_menu_category(category_id: str, data: dict, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     update_fields = {}
     for key in ["display_name", "subtitle", "columns", "sort_order", "items"]:
         if key in data:
@@ -433,7 +428,7 @@ async def update_menu_category(category_id: str, data: dict, authorization: str 
 
 @api_router.post("/menu")
 async def add_menu_category(data: dict, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     if not data.get("display_name"):
         raise HTTPException(status_code=400, detail="display_name is required")
     max_order = await db.menu_categories.find_one(sort=[("sort_order", -1)])
@@ -451,7 +446,7 @@ async def add_menu_category(data: dict, authorization: str = Header(None), sessi
 
 @api_router.delete("/menu/{category_id}")
 async def delete_menu_category(category_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     result = await db.menu_categories.delete_one({"id": category_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -461,19 +456,20 @@ async def delete_menu_category(category_id: str, authorization: str = Header(Non
 @api_router.post("/auth/login")
 async def login(request: LoginRequest, response: Response):
     password_hash = hashlib.sha256(request.password.encode()).hexdigest()
-    
+
     if password_hash != ADMIN_PASSWORD_HASH:
         raise HTTPException(status_code=401, detail="Invalid password")
-    
-    # Create session token
+
+    # Create session token (persisted in MongoDB)
     session_token = secrets.token_urlsafe(32)
     expires = datetime.now(timezone.utc) + timedelta(hours=24)
-    
-    active_sessions[session_token] = {
-        "created": datetime.now(timezone.utc),
-        "expires": expires
-    }
-    
+
+    await db.admin_sessions.insert_one({
+        "token": session_token,
+        "created": datetime.now(timezone.utc).isoformat(),
+        "expires": expires.isoformat()
+    })
+
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -481,33 +477,20 @@ async def login(request: LoginRequest, response: Response):
         max_age=86400,
         samesite="lax"
     )
-    
+
     return {"message": "Login successful", "token": session_token}
 
 @api_router.post("/auth/logout")
 async def logout(response: Response, session_token: str = Cookie(None)):
-    if session_token and session_token in active_sessions:
-        del active_sessions[session_token]
-    
+    if session_token:
+        await db.admin_sessions.delete_one({"token": session_token})
+
     response.delete_cookie("session_token")
     return {"message": "Logged out"}
 
 @api_router.get("/auth/verify")
 async def verify_auth(authorization: str = Header(None), session_token: str = Cookie(None)):
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ")[1]
-    elif session_token:
-        token = session_token
-    
-    if not token or token not in active_sessions:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    session = active_sessions[token]
-    if datetime.now(timezone.utc) > session["expires"]:
-        del active_sessions[token]
-        raise HTTPException(status_code=401, detail="Session expired")
-    
+    await verify_session(authorization, session_token)
     return {"authenticated": True}
 
 # Basic routes
@@ -515,27 +498,10 @@ async def verify_auth(authorization: str = Header(None), session_token: str = Co
 async def root():
     return {"message": "Hello World"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    await db.status_checks.insert_one(doc)
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    return status_checks
-
 # Specials CRUD (protected)
 @api_router.post("/specials", response_model=Special)
 async def create_special(special: SpecialCreate, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     special_obj = Special(**special.model_dump())
     doc = special_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
@@ -562,7 +528,7 @@ async def get_special(special_id: str):
 
 @api_router.put("/specials/{special_id}", response_model=Special)
 async def update_special(special_id: str, update: SpecialUpdate, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="No update data provided")
@@ -578,7 +544,7 @@ async def update_special(special_id: str, update: SpecialUpdate, authorization: 
 
 @api_router.delete("/specials/{special_id}")
 async def delete_special(special_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     result = await db.specials.delete_one({"id": special_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Special not found")
@@ -619,7 +585,7 @@ async def track_button_click(data: ButtonClickData):
 
 @api_router.get("/analytics")
 async def get_analytics(authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -800,7 +766,7 @@ async def get_giveaway_settings():
 
 @api_router.put("/giveaway/settings")
 async def update_giveaway_settings(data: dict, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     allowed = ["is_active", "title", "subtitle", "start_date", "end_date", "prizes"]
     update_fields = {k: v for k, v in data.items() if k in allowed}
     if not update_fields:
@@ -850,13 +816,13 @@ async def spin_wheel(data: SpinRequest):
 
 @api_router.get("/giveaway/entries")
 async def get_giveaway_entries(authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     entries = await db.giveaway_entries.find({}, {"_id": 0}).sort("entered_at", -1).to_list(500)
     return {"entries": entries, "total": len(entries)}
 
 @api_router.put("/giveaway/entries/{entry_id}/claim")
 async def mark_entry_claimed(entry_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     result = await db.giveaway_entries.update_one({"id": entry_id}, {"$set": {"claimed": True}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -903,13 +869,13 @@ async def lookup_loyalty(phone: str):
 
 @api_router.get("/loyalty/members")
 async def get_loyalty_members(authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     members = await db.loyalty_members.find({}, {"_id": 0}).sort("joined_at", -1).to_list(500)
     return {"members": members, "total": len(members)}
 
 @api_router.put("/loyalty/members/{member_id}/stamp")
 async def stamp_loyalty(member_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     member = await db.loyalty_members.find_one({"id": member_id})
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
@@ -921,7 +887,7 @@ async def stamp_loyalty(member_id: str, authorization: str = Header(None), sessi
 
 @api_router.put("/loyalty/members/{member_id}/claim")
 async def claim_loyalty_reward(member_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     member = await db.loyalty_members.find_one({"id": member_id})
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
@@ -933,7 +899,7 @@ async def claim_loyalty_reward(member_id: str, authorization: str = Header(None)
 # Messaging Blast
 @api_router.post("/messages/send")
 async def send_message_blast(data: MessageBlastRequest, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     
     recipients_emails = []
     recipients_phones = []
@@ -1023,7 +989,7 @@ async def send_message_blast(data: MessageBlastRequest, authorization: str = Hea
 
 @api_router.get("/messages/history")
 async def get_message_history(authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     blasts = await db.message_blasts.find({}, {"_id": 0}).sort("sent_at", -1).to_list(50)
     return {"blasts": blasts, "total": len(blasts)}
 
@@ -1049,13 +1015,13 @@ async def submit_catering_inquiry(data: CateringInquiry):
 
 @api_router.get("/catering/inquiries")
 async def get_catering_inquiries(authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     inquiries = await db.catering_inquiries.find({}, {"_id": 0}).sort("submitted_at", -1).to_list(100)
     return {"inquiries": inquiries, "total": len(inquiries)}
 
 @api_router.put("/catering/inquiries/{inquiry_id}/status")
 async def update_catering_status(inquiry_id: str, status: dict, authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     new_status = status.get("status", "").strip()
     if new_status not in ["new", "contacted", "confirmed", "completed", "cancelled"]:
         raise HTTPException(status_code=400, detail="Invalid status")
@@ -1086,13 +1052,13 @@ async def subscribe_newsletter(data: NewsletterSubscribe):
 
 @api_router.get("/newsletter/subscribers")
 async def get_newsletter_subscribers(authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     subscribers = await db.newsletter_subscribers.find({}, {"_id": 0}).to_list(1000)
     return {"subscribers": subscribers, "total": len(subscribers)}
 
 @api_router.post("/upload-image")
 async def upload_image(file: UploadFile = File(...), authorization: str = Header(None), session_token: str = Cookie(None)):
-    verify_session(authorization, session_token)
+    await verify_session(authorization, session_token)
     contents = await file.read()
     base64_image = base64.b64encode(contents).decode('utf-8')
     content_type = file.content_type or 'image/jpeg'

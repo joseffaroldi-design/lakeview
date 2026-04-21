@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Phone, MapPin, Clock, ChevronDown, Settings, Mail, ExternalLink, Users, CalendarDays, MessageSquare } from "lucide-react";
+import { Phone, MapPin, Clock, ChevronDown, Settings, Mail, ExternalLink, Users, CalendarDays, MessageSquare, Menu as MenuIcon, X } from "lucide-react";
 import axios from "axios";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
@@ -56,6 +56,7 @@ const trackButtonClick = async (buttonName) => {
 // Navbar Component
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -66,17 +67,25 @@ const Navbar = () => {
   }, []);
 
   const scrollToSection = (id) => {
+    setMobileOpen(false);
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
     }
   };
 
+  const navItems = [
+    { id: "about", label: "About", testId: "nav-about" },
+    { id: "specials", label: "Specials", testId: "nav-specials" },
+    { id: "menu", label: "Menu", testId: "nav-menu" },
+    { id: "contact", label: "Contact", testId: "nav-contact" },
+  ];
+
   return (
     <nav 
       data-testid="navbar"
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? "navbar-scrolled py-3" : "bg-transparent py-6"
+        scrolled || mobileOpen ? "navbar-scrolled py-3" : "bg-transparent py-6"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -90,42 +99,18 @@ const Navbar = () => {
           </button>
           
           <div className="hidden md:flex items-center space-x-12">
-            <button
-              data-testid="nav-about"
-              onClick={() => scrollToSection("about")}
-              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
-                scrolled ? "text-navy" : "text-white"
-              } hover:text-gold`}
-            >
-              About
-            </button>
-            <button
-              data-testid="nav-specials"
-              onClick={() => scrollToSection("specials")}
-              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
-                scrolled ? "text-navy" : "text-white"
-              } hover:text-gold`}
-            >
-              Specials
-            </button>
-            <button
-              data-testid="nav-menu"
-              onClick={() => scrollToSection("menu")}
-              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
-                scrolled ? "text-navy" : "text-white"
-              } hover:text-gold`}
-            >
-              Menu
-            </button>
-            <button
-              data-testid="nav-contact"
-              onClick={() => scrollToSection("contact")}
-              className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
-                scrolled ? "text-navy" : "text-white"
-              } hover:text-gold`}
-            >
-              Contact
-            </button>
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                data-testid={item.testId}
+                onClick={() => scrollToSection(item.id)}
+                className={`nav-link font-serif text-sm uppercase tracking-widest transition-colors ${
+                  scrolled ? "text-navy" : "text-white"
+                } hover:text-gold`}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center gap-3">
@@ -148,13 +133,54 @@ const Navbar = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className={`${scrolled ? "text-navy hover:text-gold" : "text-white hover:text-gold"}`}
+                className={`${scrolled || mobileOpen ? "text-navy hover:text-gold" : "text-white hover:text-gold"}`}
               >
                 <Settings className="w-5 h-5" />
               </Button>
             </Link>
+            {/* Mobile hamburger toggle */}
+            <Button
+              data-testid="mobile-menu-toggle"
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
+              className={`md:hidden ${scrolled || mobileOpen ? "text-navy hover:text-gold" : "text-white hover:text-gold"}`}
+            >
+              {mobileOpen ? <X className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+            </Button>
           </div>
         </div>
+
+        {/* Mobile menu drawer */}
+        {mobileOpen && (
+          <div
+            data-testid="mobile-menu-drawer"
+            className="md:hidden mt-4 pb-4 border-t border-navy/10 animate-fade-in"
+          >
+            <div className="flex flex-col space-y-1 pt-4">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  data-testid={`${item.testId}-mobile`}
+                  onClick={() => scrollToSection(item.id)}
+                  className="text-left font-serif text-base uppercase tracking-widest text-navy hover:text-gold py-3 px-2 transition-colors"
+                >
+                  {item.label}
+                </button>
+              ))}
+              <a
+                data-testid="nav-call-btn-mobile"
+                href="tel:+15042891032"
+                className="flex items-center gap-2 font-serif text-base uppercase tracking-widest text-navy hover:text-gold py-3 px-2 transition-colors"
+              >
+                <Phone className="w-4 h-4" />
+                Call Us
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

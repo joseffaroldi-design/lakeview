@@ -1,0 +1,63 @@
+{
+  "summary": "P0 cleanup + P1 session-persistence regression test. Backend: 79/79 existing tests pass. New cleanup suite (44 tests) — 43 pass, 1 fail. Critical bug found: POST /api/auth/logout ignores Authorization Bearer token (only reads session_token cookie), so frontend (which uses Bearer header) cannot actually invalidate sessions. Verified P0: /api/status GET+POST return 404, ADMIN_PASSWORD loaded from .env (no hardcoded fallback works). Verified P1: session token survives backend restart (MongoDB-backed admin_sessions collection). Frontend: desktop nav links + new mobile hamburger drawer + dashboard login flow + all new CSS classes (section-divider, decorative-border, img-zoom, btn-vintage, hero-bg) all working perfectly.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/logout",
+        "issue": "Logout only deletes session when session_token COOKIE is sent; ignores Authorization: Bearer header. Frontend stores token in localStorage and sends it as Bearer, so calling /api/auth/logout from the dashboard does NOT remove the token from MongoDB admin_sessions. Token remains valid and /api/auth/verify still returns 200 after logout. Server.py line 484: `async def logout(response: Response, session_token: str = Cookie(None))` — needs to also accept `authorization: str = Header(None)` and delete by either source.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/logout",
+        "issue": "Returns 200 even when called with no token / invalid token. Acceptable for idempotent logout but worth noting."
+      },
+      {
+        "endpoint": "POST /api/specials, POST /api/messages/send",
+        "issue": "When called with no body, returns 422 (Pydantic validation) before auth check. Functionally still blocked but prefer 401 first. Low priority."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Admin Logout",
+        "issue": "Clicking Logout in dashboard clears localStorage on client but the MongoDB session is NOT deleted (see backend bug above). If the same token were captured/replayed, it would still work for 24h. Server-side fix required.",
+        "affected_selectors": ["Logout button in dashboard header"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_api.py",
+    "/app/backend/tests/test_cleanup_p0_p1.py",
+    "/app/test_reports/pytest/pytest_results_iteration7.xml",
+    "/app/test_reports/pytest/pytest_results_iteration7_cleanup.xml"
+  ],
+  "action_items": [
+    "Fix /api/auth/logout to also accept Authorization header (Bearer token) and delete the session from db.admin_sessions, mirroring verify_session's token-resolution logic. After fix, re-run TestLogout.test_logout_invalidates_token in /app/backend/tests/test_cleanup_p0_p1.py."
+  ],
+  "critical_code_review_comments": [
+    "server.py 484-489: logout() only consults the cookie. Mirror verify_session()'s dual-source token resolution (Bearer header OR cookie) before db.admin_sessions.delete_one().",
+    "server.py is 1089 lines — exceeds 700-line guideline. Consider splitting into routers (auth, cms, loyalty, messaging, giveaway, analytics) for maintainability. Not blocking.",
+    "POST /api/specials and POST /api/messages/send accept body before checking auth, leaking a 422 schema error to unauthenticated callers. Low priority but consider auth-first ordering."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_cleanup_p0_p1.py (new)"
+  ],
+  "success_rate": {
+    "backend": "98% (122/123 — 79 existing + 43/44 cleanup)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "admin_password": "Lakeview872",
+    "auth_method": "JWT Bearer token via POST /api/auth/login, also set as session_token httpOnly cookie"
+  },
+  "seed_data_creation": "Reused existing test data from previous iterations (TEST_* loyalty members, newsletter subscribers, catering inquiries). New cleanup tests create one short-lived session per test that is left to expire naturally (24h TTL).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "P0 cleanup verified: /api/status routes are gone (404), ADMIN_PASSWORD from .env enforced (no fallback like 'admin' works). P1 session persistence verified: login → restart backend via supervisorctl → token still valid via MongoDB admin_sessions lookup. Mobile hamburger menu (testid mobile-menu-toggle / mobile-menu-drawer) opens, lists nav-about-mobile/nav-specials-mobile/nav-menu-mobile/nav-contact-mobile/nav-call-btn-mobile, and closes after link click. Desktop nav links unchanged. CSS classes section-divider/decorative-border/img-zoom/btn-vintage/hero-bg are all present in DOM. Dashboard login → /dashboard with all 9 admin tabs visible (Analytics, Specials, Site Content, Menu Editor, Giveaway, Loyalty, Messages, Inquiries=catering, Subscribers=newsletter). ONLY OUTSTANDING ISSUE: POST /api/auth/logout does not honour Bearer token — fix server.py logout() to accept Authorization header in addition to cookie.",
+  "rca of the issue": "Bug RCA — /api/auth/logout: verify_session() at server.py:339 correctly accepts both Bearer header and session_token cookie. logout() at server.py:483-489 only declares `session_token: str = Cookie(None)` and never inspects the Authorization header, so Bearer-only callers (the React dashboard) can't invalidate sessions. Reproduction: 1) POST /api/auth/login → token. 2) POST /api/auth/logout with header `Authorization: Bearer <token>` (no cookie) → 200 returned but db.admin_sessions row remains. 3) GET /api/auth/verify with same Bearer token → 200 (still authenticated). Mitigation: change signature to `async def logout(response: Response, authorization: str = Header(None), session_token: str = Cookie(None))` and resolve token using the same Bearer-or-Cookie precedence as verify_session before calling db.admin_sessions.delete_one({'token': token})."
+}
