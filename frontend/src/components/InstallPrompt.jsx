@@ -52,6 +52,7 @@ export const InstallPrompt = ({ onTrackClick }) => {
       setVisible(false);
       deferredPromptRef.current = null;
       localStorage.setItem(DISMISS_KEY, String(Date.now()));
+      if (onTrackClick) onTrackClick("pwa_install_completed");
     };
     const onScroll = () => {
       const pct = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
@@ -69,6 +70,7 @@ export const InstallPrompt = ({ onTrackClick }) => {
       window.removeEventListener("scroll", onScroll);
       clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dismiss = () => {

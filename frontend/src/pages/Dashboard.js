@@ -318,6 +318,22 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="bg-card border-2 border-gold/30" data-testid="analytics-pwa-installs">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-sans text-muted-foreground flex items-center gap-1">
+                  <Smartphone className="w-3 h-3" /> PWA Installs
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-serif font-bold text-gold">
+                  {analytics?.button_clicks?.pwa_install_completed || 0}
+                </div>
+                <p className="text-[10px] font-sans text-muted-foreground mt-1">
+                  {analytics?.button_clicks?.pwa_install_accepted || 0} accepted · {analytics?.button_clicks?.pwa_install_dismissed || 0} dismissed
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Detailed Analytics */}
