@@ -23,7 +23,7 @@ const getSessionId = () => {
 
 // Logo and Images
 const LOGO = "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png";
-const HERO_BG = "https://images.unsplash.com/photo-1660882089809-9fe922300699?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHw0fHxOZXclMjBPcmxlYW5zJTIwbGFrZWZyb250JTIwc3Vuc2V0JTIwd2F0ZXJ8ZW58MHx8fHwxNzcwMjc4MDg2fDA&ixlib=rb-4.1.0&q=85";
+const HERO_BG = "https://images.unsplash.com/photo-1660882089809-9fe922300699?w=1600&q=75&auto=format&fit=crop&fm=jpg";
 const ABOUT_IMG = "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg";
 
 // Track page view with enhanced data
@@ -222,8 +222,14 @@ const Hero = ({ content }) => {
             alt="Lakeview Burgers & Seafood" 
             data-testid="hero-logo"
             className="w-[280px] md:w-[380px] max-w-full mx-auto mb-2 drop-shadow-2xl"
+            fetchpriority="high"
           />
         </div>
+
+        {/* SEO H1 — visually hidden but read by Google + screen readers */}
+        <h1 className="sr-only">
+          Lakeview Burgers &amp; Seafood — Family-owned restaurant in New Orleans serving the finest burgers and fresh Gulf seafood since 2015
+        </h1>
         
         <p className="font-accent text-2xl md:text-3xl text-gold mb-1 md:mb-2 animate-fade-in-up animation-delay-200">
           {content?.tagline || "Lakeview"}
@@ -287,6 +293,8 @@ const About = ({ content }) => {
                 alt="Lakeview Burgers & Seafood Restaurant"
                 data-testid="about-image" 
                 className="w-full h-[400px] object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </div>
           </div>
@@ -370,6 +378,8 @@ const Specials = () => {
                     src={special.image_url} 
                     alt={special.title}
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               )}
@@ -559,7 +569,7 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
-            <img src={LOGO} alt="Lakeview" className="h-10 w-auto" />
+            <img src={LOGO} alt="Lakeview" className="h-10 w-auto" loading="lazy" decoding="async" />
           </div>
           <p className="font-sans text-sm text-cream/60 text-center">
             © {new Date().getFullYear()} Lakeview Burgers & Seafood. All rights reserved.

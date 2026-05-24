@@ -116,6 +116,8 @@ export const InstallPrompt = ({ onTrackClick }) => {
             src={LOGO}
             alt="Lakeview logo"
             className="w-14 h-14 rounded-md flex-shrink-0 object-contain"
+            loading="lazy"
+            decoding="async"
           />
           <div className="flex-1 min-w-0">
             <p className="font-accent text-xl text-gold leading-none mb-1">Get the app</p>
