@@ -35,6 +35,12 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — Dashboard JSX Cleanup**:
+  - Converted `GiveawayManager.js` (134L) and `LoyaltyMessaging.js` (228L) from legacy `React.createElement(...)` to modern JSX.
+  - Worked around an Emergent `visual-edits/babel-metadata-plugin` recursion bug (`getArrayIterationContext` ↔ `analyzeMemberExpression`) by extracting sub-components (`PunchDots`, `LoyaltyMemberRow`, `ResultBanner`, `BlastHistoryRow`, `PrizeRow`, `EntryRow`) — breaks the plugin's recursive scan boundary.
+- **Feb 2026 — Dashboard.js Refactor + Lazy-Loading**:
+  - Split `Dashboard.js` (918L → 179L) into orchestrator + per-tab components (`AnalyticsTab`, `SpecialsTab`, `CateringTab`, `SubscribersTab` under `/pages/dashboard/`).
+  - Each tab lazy-fetches its own data on mount instead of all tabs loading on dashboard open. Verified via Playwright network trace.
 - **Feb 2026 — Backend Modularization**:
   - Split monolithic `server.py` (1085 lines) into modular structure: `server.py` (69L entry), `config.py`, `models.py`, `seed_data.py`, `auth.py`, and 9 routers under `/routers/` (cms, specials, analytics, giveaway, loyalty, messaging, catering, newsletter, misc). Zero behavioral changes — 123/123 backend tests pass.
 - **Feb 2026 — PWA Install Prompt + Analytics**:
