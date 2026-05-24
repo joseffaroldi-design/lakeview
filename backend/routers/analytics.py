@@ -1,10 +1,11 @@
 """Analytics: page view + button click tracking, aggregated dashboard data."""
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Header, Cookie
+from fastapi import APIRouter, Header, Cookie, Request
 
 from config import db
 from auth import verify_session
 from models import PageView, TrackingData, ButtonClick, ButtonClickData
+from rate_limit import limiter
 
 router = APIRouter()
 
@@ -40,7 +41,8 @@ def parse_user_agent(user_agent: str) -> tuple:
 
 
 @router.post("/analytics/track")
-async def track_page_view(data: TrackingData):
+@limiter.limit("60/minute")
+async def track_page_view(request: Request, data: TrackingData):
     device_type, browser = parse_user_agent(data.user_agent)
 
     page_view = PageView(
@@ -61,7 +63,8 @@ async def track_page_view(data: TrackingData):
 
 
 @router.post("/analytics/button-click")
-async def track_button_click(data: ButtonClickData):
+@limiter.limit("60/minute")
+async def track_button_click(request: Request, data: ButtonClickData):
     button_click = ButtonClick(
         button_name=data.button_name,
         session_id=data.session_id

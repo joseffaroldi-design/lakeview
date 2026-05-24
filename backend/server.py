@@ -5,9 +5,12 @@ Route registration lives here; business logic is split across /routers/*.
 import logging
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from config import db, client, ALLOWED_ORIGINS
 from seed_data import seed_defaults
+from rate_limit import limiter
 
 import auth
 from routers import (
@@ -29,6 +32,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# Rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # All routes mount under /api
 api_router = APIRouter(prefix="/api")

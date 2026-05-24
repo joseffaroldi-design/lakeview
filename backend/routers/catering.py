@@ -1,17 +1,19 @@
 """Catering inquiries."""
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Header, Cookie
+from fastapi import APIRouter, HTTPException, Header, Cookie, Request
 
 from config import db
 from auth import verify_session
 from models import CateringInquiry
+from rate_limit import limiter
 
 router = APIRouter(prefix="/catering")
 
 
 @router.post("/inquiry")
-async def submit_catering_inquiry(data: CateringInquiry):
+@limiter.limit("5/minute")
+async def submit_catering_inquiry(request: Request, data: CateringInquiry):
     if not data.name.strip() or not data.email.strip() or not data.message.strip():
         raise HTTPException(status_code=400, detail="Name, email, and message are required")
 

@@ -35,6 +35,16 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — Part 2: Security Hardening**:
+  - **bcrypt password storage**: replaced unsalted SHA-256 with bcrypt (12 rounds + per-process salt). `verify_admin_password` uses `bcrypt.checkpw` (timing-safe). Verified hash format `$2b$12$...`.
+  - **Rate limiting via slowapi**: per-IP limits using `X-Forwarded-For` (ingress-aware). Login 10/min, public submissions (newsletter/catering/loyalty) 5/min, spin 3/min, analytics 60/min. Verified 6th rapid call returns 429.
+  - **Upload validation**: `/api/upload-image` now rejects non-image MIME types (only jpeg/png/webp/gif) and files >5 MB.
+  - **Input length caps**: All Pydantic models gained `constr(max_length=...)` + `EmailStr` validation. Forms now block 5000-char emails, oversized messages, invalid recipient/channel enums.
+- **Feb 2026 — Part 1: Performance & SEO Foundation**:
+  - Added proper SEO `<h1>` to home page (visually hidden), favicon `<link rel="icon">` + `apple-touch-icon`, removed unused Inter font.
+  - Lazy-loaded all non-hero images (`loading="lazy"` + `decoding="async"` on about, footer, specials, install prompt).
+  - Optimized hero BG URL with Unsplash `w=1600&q=75` params (≈80% smaller).
+  - Added `fetchpriority="high"` to hero logo. FCP measured 104 ms, full load 1.24 s.
 - **Feb 2026 — Dashboard JSX Cleanup**:
   - Converted `GiveawayManager.js` (134L) and `LoyaltyMessaging.js` (228L) from legacy `React.createElement(...)` to modern JSX.
   - Worked around an Emergent `visual-edits/babel-metadata-plugin` recursion bug (`getArrayIterationContext` ↔ `analyzeMemberExpression`) by extracting sub-components (`PunchDots`, `LoyaltyMemberRow`, `ResultBanner`, `BlastHistoryRow`, `PrizeRow`, `EntryRow`) — breaks the plugin's recursive scan boundary.

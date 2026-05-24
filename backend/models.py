@@ -2,7 +2,15 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, constr
+
+
+# Field type aliases with sensible caps to block abuse (10MB payloads, etc.)
+ShortStr = constr(strip_whitespace=True, min_length=1, max_length=200)
+LongStr = constr(strip_whitespace=True, min_length=1, max_length=2000)
+OptShortStr = constr(strip_whitespace=True, max_length=200)
+PhoneStr = constr(strip_whitespace=True, min_length=7, max_length=30)
+PasswordStr = constr(min_length=1, max_length=200)
 
 
 class Special(BaseModel):
@@ -17,17 +25,17 @@ class Special(BaseModel):
 
 
 class SpecialCreate(BaseModel):
-    title: str
-    description: str
-    price: Optional[str] = None
-    image_url: Optional[str] = None
+    title: ShortStr
+    description: LongStr
+    price: Optional[OptShortStr] = None
+    image_url: Optional[constr(max_length=2_000_000)] = None  # allow base64 data URLs
 
 
 class SpecialUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    price: Optional[str] = None
-    image_url: Optional[str] = None
+    title: Optional[ShortStr] = None
+    description: Optional[LongStr] = None
+    price: Optional[OptShortStr] = None
+    image_url: Optional[constr(max_length=2_000_000)] = None
     is_active: Optional[bool] = None
 
 
@@ -46,10 +54,10 @@ class PageView(BaseModel):
 
 
 class TrackingData(BaseModel):
-    page: str
-    user_agent: Optional[str] = None
-    referrer: Optional[str] = None
-    session_id: Optional[str] = None
+    page: constr(max_length=500)
+    user_agent: Optional[constr(max_length=500)] = None
+    referrer: Optional[constr(max_length=500)] = None
+    session_id: Optional[constr(max_length=100)] = None
     screen_width: Optional[int] = None
     screen_height: Optional[int] = None
 
@@ -63,40 +71,40 @@ class ButtonClick(BaseModel):
 
 
 class ButtonClickData(BaseModel):
-    button_name: str
-    session_id: Optional[str] = None
+    button_name: constr(max_length=100)
+    session_id: Optional[constr(max_length=100)] = None
 
 
 class NewsletterSubscribe(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class CateringInquiry(BaseModel):
-    name: str
-    email: str
-    phone: Optional[str] = None
-    event_date: Optional[str] = None
-    guest_count: Optional[str] = None
-    message: str
+    name: ShortStr
+    email: EmailStr
+    phone: Optional[PhoneStr] = None
+    event_date: Optional[OptShortStr] = None
+    guest_count: Optional[OptShortStr] = None
+    message: LongStr
 
 
 class SpinRequest(BaseModel):
-    name: str
-    email: str
-    phone: Optional[str] = None
+    name: ShortStr
+    email: EmailStr
+    phone: Optional[PhoneStr] = None
 
 
 class LoyaltyJoinRequest(BaseModel):
-    name: str
-    phone: str
+    name: ShortStr
+    phone: PhoneStr
 
 
 class MessageBlastRequest(BaseModel):
-    subject: str
-    body: str
-    channel: str  # email, sms, both
-    recipient_group: str  # all, newsletter, giveaway, loyalty
+    subject: OptShortStr = ""
+    body: constr(strip_whitespace=True, min_length=1, max_length=10000)
+    channel: constr(pattern=r"^(email|sms|both)$")
+    recipient_group: constr(pattern=r"^(all|newsletter|giveaway|loyalty)$")
 
 
 class LoginRequest(BaseModel):
-    password: str
+    password: PasswordStr

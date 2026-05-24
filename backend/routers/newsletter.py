@@ -1,17 +1,19 @@
 """Newsletter email subscription."""
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Header, Cookie
+from fastapi import APIRouter, HTTPException, Header, Cookie, Request
 
 from config import db
 from auth import verify_session
 from models import NewsletterSubscribe
+from rate_limit import limiter
 
 router = APIRouter(prefix="/newsletter")
 
 
 @router.post("/subscribe")
-async def subscribe_newsletter(data: NewsletterSubscribe):
+@limiter.limit("5/minute")
+async def subscribe_newsletter(request: Request, data: NewsletterSubscribe):
     email = data.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Invalid email address")

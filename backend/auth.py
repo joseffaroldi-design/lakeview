@@ -1,12 +1,12 @@
 """Admin authentication: login, logout, verify, and verify_session dependency."""
-import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException, Response, Cookie, Header
+from fastapi import APIRouter, HTTPException, Response, Cookie, Header, Request
 
-from config import db, ADMIN_PASSWORD_HASH
+from config import db, verify_admin_password
 from models import LoginRequest
+from rate_limit import limiter
 
 router = APIRouter(prefix="/auth")
 
@@ -40,10 +40,9 @@ async def verify_session(authorization: str = None, session_token: str = Cookie(
 
 
 @router.post("/login")
-async def login(request: LoginRequest, response: Response):
-    password_hash = hashlib.sha256(request.password.encode()).hexdigest()
-
-    if password_hash != ADMIN_PASSWORD_HASH:
+@limiter.limit("10/minute")
+async def login(request: Request, data: LoginRequest, response: Response):
+    if not verify_admin_password(data.password):
         raise HTTPException(status_code=401, detail="Invalid password")
 
     session_token = secrets.token_urlsafe(32)

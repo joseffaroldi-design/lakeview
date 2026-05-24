@@ -2,12 +2,13 @@
 import random
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Header, Cookie
+from fastapi import APIRouter, HTTPException, Header, Cookie, Request
 
 from config import db
 from auth import verify_session
 from models import SpinRequest
 from seed_data import DEFAULT_GIVEAWAY_SETTINGS
+from rate_limit import limiter
 
 router = APIRouter(prefix="/giveaway")
 
@@ -35,7 +36,8 @@ async def update_giveaway_settings(data: dict, authorization: str = Header(None)
 
 
 @router.post("/spin")
-async def spin_wheel(data: SpinRequest):
+@limiter.limit("3/minute")
+async def spin_wheel(request: Request, data: SpinRequest):
     settings = await db.giveaway_settings.find_one({}, {"_id": 0})
     if not settings or not settings.get("is_active"):
         raise HTTPException(status_code=400, detail="Giveaway is not active")

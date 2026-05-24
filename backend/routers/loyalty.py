@@ -1,17 +1,19 @@
 """Loyalty punch card: join, lookup, stamp, claim."""
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Header, Cookie
+from fastapi import APIRouter, HTTPException, Header, Cookie, Request
 
 from config import db
 from auth import verify_session
 from models import LoyaltyJoinRequest
+from rate_limit import limiter
 
 router = APIRouter(prefix="/loyalty")
 
 
 @router.post("/join")
-async def join_loyalty(data: LoyaltyJoinRequest):
+@limiter.limit("5/minute")
+async def join_loyalty(request: Request, data: LoyaltyJoinRequest):
     phone = data.phone.strip()
     name = data.name.strip()
     if not phone or not name:
