@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Star, Trash2, Archive, Library as LibraryIcon, Filter } from "lucide-react";
+import { Star, Trash2, Archive, Library as LibraryIcon, Filter, Copy } from "lucide-react";
 import { API, Section, EmptyState } from "./shared";
 
 const KIND_LABELS = {
@@ -19,7 +19,7 @@ const KIND_LABELS = {
   video_file: "Video",
 };
 
-const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete }) => {
+const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete, onDuplicate }) => {
   const fav = !!asset.is_favorite;
   const archived = asset.status === "archived";
   const kindLabel = KIND_LABELS[asset.kind] || asset.kind;
@@ -56,6 +56,16 @@ const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete }) => {
           title={archived ? "Restore" : "Archive"}
         >
           <Archive className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onDuplicate(asset)}
+          className="border-navy/20"
+          title="Duplicate"
+          data-testid={`ai-asset-${asset.id}-duplicate`}
+        >
+          <Copy className="w-3.5 h-3.5" />
         </Button>
         <Button
           variant="outline"
@@ -122,6 +132,10 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
     await axios.delete(`${API}/ai-ads/assets/${id}`, { headers: getAuthHeader() });
     refresh();
   };
+  const duplicate = async (a) => {
+    await axios.post(`${API}/ai-ads/assets/${a.id}/duplicate`, {}, { headers: getAuthHeader() });
+    refresh();
+  };
 
   const rows = [];
   for (let i = 0; i < assets.length; i += 1) {
@@ -132,6 +146,7 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
         onToggleFavorite={toggleFavorite}
         onArchive={archive}
         onDelete={del}
+        onDuplicate={duplicate}
       />
     );
   }

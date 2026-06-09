@@ -861,8 +861,17 @@ const babelMetadataPlugin = ({ types: t }) => {
           }
           if (!localName) return;
 
-          // Search for usages of this component
-          importPath.parentPath.parentPath.traverse({
+          // Search for usages of this component.
+          // NOTE: when the cached AST is traversed via `traverse(ast, ...)`,
+          // `importPath.parentPath` is the Program NodePath but its own
+          // `parentPath` can be null (no File wrapper context). Fall back to
+          // the program/parent path so we don't crash. Defensive null-check.
+          const searchScope =
+            (importPath.parentPath && importPath.parentPath.parentPath) ||
+            importPath.findParent(p => p.isProgram()) ||
+            importPath.parentPath;
+          if (!searchScope) return;
+          searchScope.traverse({
             JSXOpeningElement(jsxPath) {
               if (result) return;
 

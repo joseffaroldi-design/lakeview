@@ -422,6 +422,25 @@ async def delete_asset(asset_id: str, authorization: str = Header(None), session
     return {"message": "Deleted"}
 
 
+@router.post("/assets/{asset_id}/duplicate")
+async def duplicate_asset(asset_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
+    """Duplicate a creative asset (preserves payload, resets id/status/favorite/timestamps)."""
+    await verify_session(authorization, session_token)
+    original = await db.ai_assets.find_one({"id": asset_id}, {"_id": 0})
+    if not original:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    now = datetime.now(timezone.utc).isoformat()
+    clone = {**original}
+    clone["id"] = str(uuid.uuid4())
+    clone["title"] = f"{original.get('title') or 'Untitled'} (Copy)"
+    clone["status"] = "draft"
+    clone["is_favorite"] = False
+    clone["created_at"] = now
+    clone["updated_at"] = now
+    await db.ai_assets.insert_one(clone)
+    return {k: v for k, v in clone.items() if k != "_id"}
+
+
 # =====================================================
 # Phase 2 — Providers + Settings
 # =====================================================
