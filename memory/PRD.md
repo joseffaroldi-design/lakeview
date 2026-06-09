@@ -85,6 +85,34 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 9, 2026 — Final Production Launch Phase — Complete
+
+**Phase 1 — Full audit:** Reviewed every tab; zero console errors, all loading & empty states present, 14 AI Ads sub-tabs render cleanly, mobile layout intact (Tailwind responsive grid throughout).
+
+**Phase 2 — Owner workflow cleanup:** New **Owner Quick Start** band (`/app/frontend/src/pages/dashboard/AnalyticsTab.jsx`) at the top of the default Analytics tab — 6 tiles with deep-links: Edit Menu, Create Special, Promote Item, Schedule Posts, Publish Queue, Connect Providers. Tiles now navigate not just to the top-level tab but to the *exact sub-tab* (e.g. Schedule Posts → AI Ads → Calendar).
+
+**Phase 3 — Provider Connection Checklist:**
+- `GET /api/ai-ads/provider-setup/{provider}` — returns `{title, steps[≥3], docs_url}` for each of the 6 real providers (Facebook, Instagram, Google Business, Mailchimp, SendGrid, Twilio). Step-by-step instructions in plain English.
+- `POST /api/ai-ads/provider-connections/{provider}/test` — runs a **read-only auth probe** against the live provider API and persists `last_test_at`, `last_test_ok`, `last_test_message`, `last_test_latency_ms` on the connection record. Surfaces the platform's real error verbatim (verified: SendGrid 401 "unauthorized" + Facebook OAuth errors flow through unchanged → proves real network call).
+- `GET /api/ai-ads/health` — system-readiness check: database, LLM key, scheduler activity, provider connection summary. Run this before going live.
+- Frontend: each Provider card now has a **Setup Guide** expander, a **Test Connection** button (when connected), inline test-result panel, and a persistent "Last test" pill showing `✓ Auth OK` or `✗ Failed — {message} · {ms}ms`.
+
+**Phase 4 — Live readiness testing:** 51/51 backend pytests pass across 4 files (`test_final_launch.py` 11 + `test_phase1_real_providers.py` 9 + `test_phase6_publishing.py` 13 + `test_ai_ads_phase345.py` 18). Frontend 100% (test_reports/iteration_14.json).
+
+**Phase 5 — Backup & safety:**
+- `window.confirm()` on every destructive action (single + bulk deletes already in place + count-aware bulk delete).
+- Soft-delete via Archive (status=`archived`) on assets; hard delete still available but requires explicit click.
+- Audit logging in `publish_logs` for every schedule / cancel / reschedule / publish.
+- Auth brute-force protection: 5 attempts → 15 min lockout (slowapi).
+- Credentials NEVER returned to the frontend — server-side test only echoes `{ok, message, latency_ms}`.
+- React `ErrorBoundary` at root catches any uncaught render error.
+
+**Phase 6 — Final docs created:**
+- `/app/memory/OPERATOR_GUIDE.md` — non-technical owner manual + Daily / Weekly / Monthly checklists.
+- `/app/memory/DEPLOYMENT_CHECKLIST.md` — env vars, pre-launch checklist, safety features, backup commands, recovery steps.
+
+**Production polish from previous phase still in place:** 101 KB WebP logo (96% smaller than original 2.5 MB), Google Maps desktop fix, tappable address, Facebook + Instagram footer icons, ErrorBoundary fallback.
+
 ### Feb 9, 2026 — Production Readiness & Restaurant Automation — Complete
 
 **Phase 1 — Real publishing (NO MORE SIMULATION):**

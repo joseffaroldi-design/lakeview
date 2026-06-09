@@ -12,10 +12,10 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const QUICK_ACTIONS = [
   { id: "menu", icon: Pencil, label: "Edit Menu", help: "Add or update menu items", tab: "menu" },
   { id: "special", icon: ImageIcon, label: "Create Special", help: "Run a daily / weekly promo", tab: "specials" },
-  { id: "promote", icon: Sparkles, label: "Promote Item", help: "AI campaign for any menu item", tab: "ai-ads" },
-  { id: "schedule", icon: CalendarDays, label: "Schedule Posts", help: "Open the content calendar", tab: "ai-ads" },
-  { id: "queue", icon: ListChecks, label: "Publish Queue", help: "What's queued / published", tab: "ai-ads" },
-  { id: "providers", icon: Link2, label: "Connect Providers", help: "Facebook · IG · SendGrid · Twilio", tab: "ai-ads" },
+  { id: "promote", icon: Sparkles, label: "Promote Item", help: "AI campaign for any menu item", tab: "ai-ads", subTab: "automations" },
+  { id: "schedule", icon: CalendarDays, label: "Schedule Posts", help: "Open the content calendar", tab: "ai-ads", subTab: "calendar" },
+  { id: "queue", icon: ListChecks, label: "Publish Queue", help: "What's queued / published", tab: "ai-ads", subTab: "queue" },
+  { id: "providers", icon: Link2, label: "Connect Providers", help: "Facebook · IG · SendGrid · Twilio", tab: "ai-ads", subTab: "providers" },
 ];
 
 const QuickActionsStrip = ({ onJump }) => {
@@ -26,7 +26,7 @@ const QuickActionsStrip = ({ onJump }) => {
       <button
         key={a.id}
         type="button"
-        onClick={() => onJump(a.tab)}
+        onClick={() => onJump(a.tab, a.subTab)}
         className="bg-card border-2 border-navy/10 hover:border-gold rounded-lg p-3 text-left transition-colors"
         data-testid={`quick-${a.id}`}
       >

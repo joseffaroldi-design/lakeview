@@ -54,10 +54,16 @@ const StatCard = ({ label, value, accent = "text-navy", testId }) => (
   </Card>
 );
 
-export const AiAdsTab = ({ getAuthHeader }) => {
+export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
   const [activeSub, setActiveSub] = useState("automations");
   const [catalog, setCatalog] = useState({ templates: [], goals: [], platforms: [], tones: [] });
   const [stats, setStats] = useState({ total_campaigns: 0, ads_generated: 0, generations_this_month: 0, most_used_platform: null, most_used_goal: null });
+
+  useEffect(() => {
+    if (initialSubTab) setActiveSub(initialSubTab);
+    // Only re-fire when the deep-link target changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSubTab]);
 
   const loadBase = useCallback(async () => {
     try {

@@ -67,6 +67,13 @@ const Dashboard = () => {
     navigate("/login");
   };
 
+  const [aiAdsInitialSubTab, setAiAdsInitialSubTab] = useState(null);
+
+  const switchTab = (tab, subTab) => {
+    setActiveTab(tab);
+    if (tab === "ai-ads") setAiAdsInitialSubTab(subTab || null);
+  };
+
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -124,7 +131,7 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {activeTab === "analytics" && <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={setActiveTab} />}
+        {activeTab === "analytics" && <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />}
         {activeTab === "specials" && <SpecialsTab getAuthHeader={getAuthHeader} />}
         {activeTab === "content" && (
           <section>
@@ -173,7 +180,7 @@ const Dashboard = () => {
         )}
         {activeTab === "inquiries" && <CateringTab getAuthHeader={getAuthHeader} />}
         {activeTab === "subscribers" && <SubscribersTab getAuthHeader={getAuthHeader} />}
-        {activeTab === "ai-ads" && <AiAdsTab getAuthHeader={getAuthHeader} />}
+        {activeTab === "ai-ads" && <AiAdsTab getAuthHeader={getAuthHeader} initialSubTab={aiAdsInitialSubTab} />}
       </main>
     </div>
   );
