@@ -35,6 +35,19 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — AI Ad Builder (Phase 1)**:
+  - New `AI Ads` tab in dashboard. Industry-agnostic reusable engine.
+  - Backend: `/app/backend/ai_engine/` (client, prompts, templates, industries/restaurant) + `/app/backend/routers/ai_ads.py` (8 endpoints).
+  - 3 MongoDB collections: `ai_campaigns`, `ai_generations`, `ai_config`.
+  - GPT-5 via Emergent LLM key with `emergentintegrations`. Model is DB-configurable via Settings panel (provider+model stored in `ai_config`).
+  - 11 campaign templates: 8 restaurant (Promotion / Daily Special / Happy Hour / Catering / Seafood Special / Burger Special / Event Promotion / Customer Loyalty) + 3 generic (Lead Gen / Event / Loyalty).
+  - Master generation = 5 headlines + 3 primary text + 3 CTAs + 8-12 hashtags + 3 image concepts + 2 video concepts + 3 video hooks.
+  - "Generate More Variations" button increments `variation_seed` to force fresh outputs.
+  - Save/Load/Delete saved campaigns with status (draft/active/archived).
+  - Audit trail: every generation persisted with full brief + output + model + timestamp.
+  - Rate-limited (10/min per IP via slowapi).
+  - All `verify_session` protected. Input validation on every field.
+  - Worked around Emergent visual-edits Babel plugin recursion bug by precomputing JSX arrays (no inline `.map(c => c.x)` patterns in main file).
 - **Feb 2026 — Part 2: Security Hardening**:
   - **bcrypt password storage**: replaced unsalted SHA-256 with bcrypt (12 rounds + per-process salt). `verify_admin_password` uses `bcrypt.checkpw` (timing-safe). Verified hash format `$2b$12$...`.
   - **Rate limiting via slowapi**: per-IP limits using `X-Forwarded-For` (ingress-aware). Login 10/min, public submissions (newsletter/catering/loyalty) 5/min, spin 3/min, analytics 60/min. Verified 6th rapid call returns 429.

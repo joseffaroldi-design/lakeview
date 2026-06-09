@@ -23,6 +23,7 @@ from routers import (
     catering,
     newsletter,
     misc,
+    ai_ads,
 )
 
 logging.basicConfig(
@@ -49,6 +50,7 @@ api_router.include_router(loyalty.router)
 api_router.include_router(messaging.router)
 api_router.include_router(catering.router)
 api_router.include_router(newsletter.router)
+api_router.include_router(ai_ads.router)
 app.include_router(api_router)
 
 # CORS

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, BarChart3, Image as ImageIcon, LogOut, Mail,
-  UtensilsCrossed, FileText, Pencil, Gift, CreditCard, Send,
+  UtensilsCrossed, FileText, Pencil, Gift, CreditCard, Send, Sparkles,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -13,6 +13,7 @@ import AnalyticsTab from "@/pages/dashboard/AnalyticsTab";
 import SpecialsTab from "@/pages/dashboard/SpecialsTab";
 import CateringTab from "@/pages/dashboard/CateringTab";
 import SubscribersTab from "@/pages/dashboard/SubscribersTab";
+import AiAdsTab from "@/pages/dashboard/AiAdsTab";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -26,6 +27,7 @@ const TABS = [
   { id: "messaging", label: "Messages", icon: Send },
   { id: "inquiries", label: "Inquiries", icon: UtensilsCrossed },
   { id: "subscribers", label: "Subscribers", icon: Mail },
+  { id: "ai-ads", label: "AI Ads", icon: Sparkles },
 ];
 
 const Dashboard = () => {
@@ -171,6 +173,7 @@ const Dashboard = () => {
         )}
         {activeTab === "inquiries" && <CateringTab getAuthHeader={getAuthHeader} />}
         {activeTab === "subscribers" && <SubscribersTab getAuthHeader={getAuthHeader} />}
+        {activeTab === "ai-ads" && <AiAdsTab getAuthHeader={getAuthHeader} />}
       </main>
     </div>
   );
