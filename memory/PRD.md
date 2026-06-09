@@ -85,6 +85,32 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 9, 2026 — Post-Launch Optimization Pass — Complete (6/7 fully, 1 cosmetic deferred)
+
+Maintenance-only pass — no new features, no behavior change beyond bug fixes:
+
+1. **MongoDB indexes** on hot collections — idempotent `create_index` calls in `server.py:on_startup`:
+   - `ai_assets`: `(status, kind, created_at)`, `(platform, created_at)`, `(is_favorite, created_at)`, `(id, unique)`
+   - `scheduled_posts`: `(status, scheduled_at)`, `(provider, scheduled_at)`, `(id, unique)`
+   - `publish_logs`: `(scheduled_post_id, created_at)`, `(created_at)`
+   - `ai_generations`: `(created_at)`, `(brief.platform)`
+   - `provider_connections`: `(provider, business_id, unique)`
+   - **Observed latency:** hot endpoints (`/assets`, `/calendar`, `/publish-queue`, `/analytics`) 81–140 ms via ingress.
+
+2. **Mobile AI Ads sub-tab scroll** — `overflow-x-auto` + `whitespace-nowrap` + `shrink-0` on the 14 sub-tab buttons. Wraps as before on desktop (`md:flex-wrap md:overflow-x-visible`).
+
+3. **Test All Connections** — `POST /api/ai-ads/provider-connections/test-all` runs the read-only auth probe in parallel across every saved connection (`asyncio.gather`) and persists `last_test_at/ok/message/latency_ms` on each. UI: gold "Test All Connections (N)" button on the Providers tab + summary banner ("3/4 connections healthy · 1 failed").
+
+4. **401 expired-token toast** — global axios interceptor in `index.js`: any 401 (except `/auth/login`) clears `admin_token`, shows a sonner toast "Session expired" with a "Sign in" action that navigates to `/login`. Same interceptor surfaces 403 and 500 errors. Switched from the shadcn `@/components/ui/sonner` wrapper (which silently failed due to a `next-themes` dependency) to a direct `import { Toaster } from "sonner"`.
+
+5. **Library search debounce** — 350ms debounce on `filters.q` only. Other filters (kind/platform/status/favorite/date) apply instantly. Verified: 5 keystrokes now fire exactly 1 `/api/ai-ads/assets` request instead of 6.
+
+6. **Plugin catalog pre-warm** — `list_plugins()` + `get_plugin("restaurant")` called once on startup so the first Automation Center mount is a cache hit (<100 ms).
+
+7. **Recharts `width(-1)` warnings** — _cosmetic dev-only_. Improved with 2-rAF mount gate + explicit `width:100%/height:240` inline + `min-w-[200px]` on chart wrappers. Charts render perfectly (751/544/544 px widths, 240 px height). The 6 dev-mode warnings on Analytics mount remain (3 charts × StrictMode double-invoke). User-invisible — left as known low-priority polish item.
+
+**Tests — 62/62 pytests pass** (51 regression + 11 new `test_iter15_maintenance.py`). Frontend regression 100% on the 6 fixed items (`/app/test_reports/iteration_16.json`).
+
 ### Feb 9, 2026 — Final Production Launch Phase — Complete
 
 **Phase 1 — Full audit:** Reviewed every tab; zero console errors, all loading & empty states present, 14 AI Ads sub-tabs render cleanly, mobile layout intact (Tailwind responsive grid throughout).
