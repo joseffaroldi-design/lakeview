@@ -83,6 +83,163 @@ TEMPLATES = [
             "audience": "Repeat guests, loyalty members",
         },
     },
+    # ---- Restaurant Automation Center templates ----
+    {
+        "id": "review_request_sms",
+        "label": "Review Request · SMS",
+        "defaults": {
+            "goal": "Google Reviews",
+            "platform": "SMS",
+            "tone": "Warm + Brief",
+            "audience": "Recent diners (visited in last 7 days)",
+            "context": (
+                "We need a friendly 1-message SMS asking the guest to leave a Google review. "
+                "Include a short thank-you, a Google review CTA link placeholder {{REVIEW_LINK}}, "
+                "and keep total under 320 chars."
+            ),
+        },
+    },
+    {
+        "id": "review_request_email",
+        "label": "Review Request · Email",
+        "defaults": {
+            "goal": "Google Reviews",
+            "platform": "Email",
+            "tone": "Warm + Sincere",
+            "audience": "Recent diners",
+            "context": (
+                "Compose a short, warm email asking the guest to leave a Google review. "
+                "Subject line should be casual. Body includes a 1-line thank-you, what makes "
+                "their review matter, and a clear CTA button: 'Leave a Review on Google'."
+            ),
+        },
+    },
+    {
+        "id": "review_followup",
+        "label": "Review Follow-Up",
+        "defaults": {
+            "goal": "Google Reviews",
+            "platform": "Email",
+            "tone": "Light + Encouraging",
+            "audience": "Recent diners who didn't respond to first ask",
+            "context": (
+                "Friendly, low-pressure follow-up to the initial review request. "
+                "Acknowledge they're busy, restate why reviews matter, offer one tiny incentive "
+                "(e.g. 'next visit: free side of beignets')."
+            ),
+        },
+    },
+    {
+        "id": "loyalty_first_visit",
+        "label": "Loyalty · First Visit",
+        "defaults": {
+            "goal": "Customer Loyalty",
+            "platform": "Email",
+            "tone": "Welcoming + Warm",
+            "audience": "First-time guests",
+            "context": "Welcome a brand-new diner. Encourage signup to the loyalty program with a free appetizer on their second visit.",
+        },
+    },
+    {
+        "id": "loyalty_repeat",
+        "label": "Loyalty · Repeat Customer",
+        "defaults": {
+            "goal": "Customer Loyalty",
+            "platform": "Email",
+            "tone": "Familiar + Appreciative",
+            "audience": "Repeat customers (3+ visits)",
+            "context": "Thank a returning guest by name. Surprise them with a 'just because' offer they can use on their next visit.",
+        },
+    },
+    {
+        "id": "loyalty_birthday",
+        "label": "Loyalty · Birthday Offer",
+        "defaults": {
+            "goal": "Customer Loyalty",
+            "platform": "Email",
+            "tone": "Celebratory + Warm",
+            "audience": "Birthday guests",
+            "context": "Celebrate the guest's birthday with a free dessert offer valid for their birthday week.",
+        },
+    },
+    {
+        "id": "loyalty_winback",
+        "label": "Loyalty · Win Back",
+        "defaults": {
+            "goal": "Customer Loyalty",
+            "platform": "Email",
+            "tone": "Sincere + Inviting",
+            "audience": "Lapsed customers (no visit in 90+ days)",
+            "context": "Sincere 'we miss you' note to a lapsed guest with a strong, time-limited comeback offer.",
+        },
+    },
+    {
+        "id": "loyalty_vip",
+        "label": "Loyalty · VIP Customer",
+        "defaults": {
+            "goal": "Customer Loyalty",
+            "platform": "Email",
+            "tone": "Exclusive + Personal",
+            "audience": "Top 5% spenders",
+            "context": "VIP-tier acknowledgement with a private tasting or chef's-table invite.",
+        },
+    },
+    # ---- Catering Marketing Center templates ----
+    {
+        "id": "catering_office_lunch",
+        "label": "Catering · Office Lunch",
+        "defaults": {
+            "goal": "Catering Leads",
+            "platform": "Facebook",
+            "tone": "Professional + Confident",
+            "audience": "Office managers, EAs, HR ops",
+            "context": "Pitch hot lunch trays for office teams of 10-50. Highlight ease of order, on-time delivery, and Lakeview's signature po'boys/gumbo.",
+        },
+    },
+    {
+        "id": "catering_corporate",
+        "label": "Catering · Corporate Event",
+        "defaults": {
+            "goal": "Catering Leads",
+            "platform": "Email",
+            "tone": "Polished + Confident",
+            "audience": "Event planners, corporate hosts",
+            "context": "Position Lakeview catering as the no-stress choice for executive lunches, board meetings, and client receptions.",
+        },
+    },
+    {
+        "id": "catering_school",
+        "label": "Catering · School Event",
+        "defaults": {
+            "goal": "Catering Leads",
+            "platform": "Facebook",
+            "tone": "Friendly + Family",
+            "audience": "Teachers, PTA, school staff",
+            "context": "Family-style catering trays for teacher appreciation, end-of-year, and PTA events. Affordable per-head pricing.",
+        },
+    },
+    {
+        "id": "catering_holiday_party",
+        "label": "Catering · Holiday Party",
+        "defaults": {
+            "goal": "Catering Leads",
+            "platform": "Instagram",
+            "tone": "Festive + Warm",
+            "audience": "Office hosts + private hosts",
+            "context": "Holiday-themed catering packages with seafood platters and family-style smashburger sliders. Push early-booking incentive.",
+        },
+    },
+    {
+        "id": "catering_family",
+        "label": "Catering · Family Gathering",
+        "defaults": {
+            "goal": "Catering Leads",
+            "platform": "Facebook",
+            "tone": "Warm + Familial",
+            "audience": "Family hosts, reunions, milestone gatherings",
+            "context": "Make Sunday family dinners easy. Family-style trays + sides. Optional gumbo pot rental.",
+        },
+    },
 ]
 
 

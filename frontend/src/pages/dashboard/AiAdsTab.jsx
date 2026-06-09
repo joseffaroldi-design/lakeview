@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles, Share2, Mail, MessageSquare, Image as ImageIcon, Video as VideoIcon,
   Library as LibraryIcon, Settings as SettingsIcon, Wand2, BarChart3,
-  Calendar as CalendarIcon, ListChecks, Link2, Repeat,
+  Calendar as CalendarIcon, ListChecks, Link2, Repeat, UtensilsCrossed,
 } from "lucide-react";
 import { API } from "./aiads/shared";
 import CampaignBuilder from "./aiads/CampaignBuilder";
@@ -25,9 +25,11 @@ import ContentCalendar from "./aiads/ContentCalendar";
 import PublishQueue from "./aiads/PublishQueue";
 import ProviderConnections from "./aiads/ProviderConnections";
 import AutomationRules from "./aiads/AutomationRules";
+import RestaurantAutomationCenter from "./aiads/RestaurantAutomationCenter";
 import AiSettingsPanel from "./aiads/SettingsPanel";
 
 const SUB_TABS = [
+  { id: "automations", label: "Automation Center", icon: UtensilsCrossed },
   { id: "builder", label: "Campaign Builder", icon: Wand2 },
   { id: "social", label: "Social", icon: Share2 },
   { id: "email", label: "Email", icon: Mail },
@@ -37,7 +39,7 @@ const SUB_TABS = [
   { id: "library", label: "Library", icon: LibraryIcon },
   { id: "calendar", label: "Calendar", icon: CalendarIcon },
   { id: "queue", label: "Queue", icon: ListChecks },
-  { id: "automations", label: "Automations", icon: Repeat },
+  { id: "rules", label: "Rules", icon: Repeat },
   { id: "providers", label: "Providers", icon: Link2 },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: SettingsIcon },
@@ -53,7 +55,7 @@ const StatCard = ({ label, value, accent = "text-navy", testId }) => (
 );
 
 export const AiAdsTab = ({ getAuthHeader }) => {
-  const [activeSub, setActiveSub] = useState("builder");
+  const [activeSub, setActiveSub] = useState("automations");
   const [catalog, setCatalog] = useState({ templates: [], goals: [], platforms: [], tones: [] });
   const [stats, setStats] = useState({ total_campaigns: 0, ads_generated: 0, generations_this_month: 0, most_used_platform: null, most_used_goal: null });
 
@@ -157,6 +159,9 @@ export const AiAdsTab = ({ getAuthHeader }) => {
         <PublishQueue getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "automations" && (
+        <RestaurantAutomationCenter getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "rules" && (
         <AutomationRules getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "providers" && (

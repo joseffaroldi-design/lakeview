@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 13 — Production Readiness + Restaurant Automation Phase fully validated. BACKEND: 40/40 pytests pass (9 phase1_real_providers + 13 phase6_publishing + 18 phase345 regression) in 25.83s after updating 2 stale Phase 6 tests that still assumed simulation contract — they now correctly assert the NEW real-providers contract (publish without connection → status='failed' with error_message containing 'connection'/'credential'). API verified: GET /api/ai-ads/plugins/restaurant returns 20 templates (7 original + 13 new: review_request_sms/email/followup, loyalty_first_visit/repeat/birthday/winback/vip, catering_office_lunch/corporate/school/holiday_party/family). FRONTEND: AI Ads default sub-tab is 'Automation Center' (restaurant-automation-center testid present). All 4 lanes render with data-testids: automation-lane-specials/reviews/loyalty/catering, each with matching automation-{lane}-run buttons. Analytics sub-tab has the new 'Restaurant KPIs' band ABOVE existing 6 cards with all 4 testids: kpi-success-rate (100%), kpi-most-promoted (Classic Burger 8oz), kpi-best-platform (Facebook), kpi-best-type (Sms). 10 top-level dashboard tabs render. All 14 AI-Ads sub-tabs render. PRODUCTION POLISH: /logo.webp is 103,396 bytes (~101KB), referenced 3x in DOM (nav/hero/footer). Footer Facebook + Instagram icons with data-testid='footer-facebook'/'footer-instagram', correct hrefs (facebook.com/lakeviewburgers, instagram.com/lakeviewburgers), target=_blank. Tappable address with data-testid='address-tappable' → https://maps.google.com/?q=872%20Harrison%20Ave... Google Maps iframe uses new maps.google.com/maps?q=...&output=embed format (renders correctly on desktop 1920x1080). ErrorBoundary mounted in /app/frontend/src/index.js wrapping <App />; data-testid='error-boundary-fallback' NOT rendered on normal flow (correct — only triggers on thrown component error). INTEGRATION SMOKE TEST PASSED: Automation Center → Daily Specials → deselected Facebook+Instagram (SMS-only) → 'Generate 1 Assets' button text confirmed → clicked → asset generated → 'Schedule This Bundle' button enabled → clicked → popover Schedule confirmed → Calendar tab shows 4 events on June 9 including one red 'failed' event proving real-provider contract works end-to-end (no credentials → real failure, not silent simulation).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase1_real_providers.py",
+    "/app/backend/tests/test_phase6_publishing.py",
+    "/app/backend/tests/test_ai_ads_phase345.py",
+    "/app/test_reports/pytest/pytest_iter13_all.xml"
+  ],
+  "action_items": [
+    "NONE — all 14 review-request items verified passing. No bugs found.",
+    "OPTIONAL (carry-over from iter 11/12): Recharts width(-1)/height(-1) ResponsiveContainer warnings on first mount of Analytics — cosmetic dev-mode only.",
+    "FUTURE: once user supplies live FB/IG/Mailchimp/SendGrid/Twilio API credentials via Provider Connections UI, the real-provider HTTP calls will succeed instead of returning the (now correctly) expected 'No connection configured…' failure."
+  ],
+  "critical_code_review_comments": [
+    "Real-providers contract is correctly enforced: registry override of simulation entries works (register_provider called last in real_providers.py). Verified by 9/9 phase1 pytests — every channel (facebook/instagram/google_business/mailchimp/email/sms) returns status='failed' with actionable 'No connection configured' or 'Open AI Ads → Providers and connect ... before publishing' error when no credential row exists. Real Facebook Graph API contact verified via 'Invalid OAuth access token' error returned for invalid token — proves real httpx HTTP call (not stub).",
+    "Restaurant Automation Center is well-architected: 4 production-ready lanes (specials/reviews/loyalty/catering) each with template select, optional menu-item picker (specials lane), channel chip multi-select, and generate→schedule→library pipeline. Default sub-tab choice puts restaurant marketing front-and-center — strong UX call.",
+    "20 restaurant templates is a healthy catalog. Review/loyalty/catering coverage maps to the 4 lanes 1-to-1. Good naming convention (review_request_*, loyalty_*, catering_*).",
+    "ErrorBoundary mounted at the index.js root (above App) is the correct topology — catches errors anywhere in the tree. Fallback uses data-testid='error-boundary-fallback' for testability. Doesn't intercept normal renders (verified).",
+    "Logo bandwidth reduction 2.5MB → 101KB (~96%) via .webp is a meaningful production win. Referenced consistently 3x (nav/hero/footer).",
+    "Google Maps iframe migrated from old embed format to maps.google.com/maps?q=...&output=embed — properly renders on desktop. Tappable address (a[href=maps.google.com/?q=...]) is a nice mobile-deeplink touch."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase6_publishing.py — updated 2 tests (test_publish_now_simulated, test_scheduler_runs_due_post) to match the NEW real-providers contract (publish without connection → status='failed' + error_message). Old tests were written for the iter-12 simulation contract which is now correctly removed."
+  ],
+  "success_rate": {
+    "backend": "100% (40/40 pytests — 9 phase1 real_providers + 13 phase6 publishing + 18 phase345 regression)",
+    "frontend": "100% (Automation Center default sub-tab + 4 lanes + 4 KPI cards + 14 sub-tabs + 10 top tabs + logo.webp + footer FB/IG + tappable address + Maps embed + ErrorBoundary all verified)"
+  },
+  "test_credentials": {"admin_password": "Lakeview872 (from /app/memory/test_credentials.md)"},
+  "seed_data_creation": "Integration smoke test generated 1 SMS asset via Automation Center → Daily Specials and scheduled it (will appear in Calendar/Queue). 1 red 'failed' calendar event remains as evidence of correct real-provider failure-without-credentials behavior. No DB pollution beyond test artifacts.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter 13 fully green. Phase 1 real providers (9/9), Phase 6 publishing (13/13 after stale-test refresh), Phase 3/4/5 (18/18) — total 40/40. KEY CONTRACT CHANGE from iter 12: simulation is GONE. publish without connection returns status='failed' with error_message; tests now assert that. Phase 6 stale tests (test_publish_now_simulated, test_scheduler_runs_due_post) were updated to match. Automation Center is the new default AI Ads sub-tab. KPI band added above Analytics existing cards. ErrorBoundary mounted at index.js root. Logo.webp (101KB) replaces the heavy PNG. Footer/Maps/Address polish applied to public Contact section. For next iter: when user provides live FB/IG/Mailchimp/SendGrid/Twilio credentials, re-test the publish path — expecting status='published' with real external_id (not sim_*).",
+  "rca of the issue": "No bugs found. Only test-maintenance touch-up: updated 2 Phase 6 tests that were asserting the old simulation contract (success=True, sim_* external_id). The new contract correctly requires status='failed' with actionable error when no provider credentials exist — this is the explicit user requirement for this iteration. Tests rewritten to assert the new contract. All 40/40 pytests green after the update."
+}

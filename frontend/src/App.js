@@ -22,7 +22,7 @@ const getSessionId = () => {
 };
 
 // Logo and Images
-const LOGO = "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png";
+const LOGO = "/logo.webp";
 const HERO_BG = "https://images.unsplash.com/photo-1660882089809-9fe922300699?w=1600&q=75&auto=format&fit=crop&fm=jpg";
 const ABOUT_IMG = "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg";
 
@@ -493,10 +493,18 @@ const Contact = ({ content }) => {
               <MapPin className="w-8 h-8 text-gold" />
             </div>
             <h3 className="font-serif text-xl font-bold mb-4 uppercase tracking-wider">Location</h3>
-            <p className="font-sans text-cream/80 leading-relaxed">
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(
+                `${content?.address_line1 || "872 Harrison Ave"}, ${content?.address_line2 || "New Orleans, LA 70124"}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="address-tappable"
+              className="font-sans text-cream/80 leading-relaxed hover:text-gold underline decoration-transparent hover:decoration-gold transition-colors block"
+            >
               {content?.address_line1 || "872 Harrison Ave"}<br />
               {content?.address_line2 || "New Orleans, LA 70124"}
-            </p>
+            </a>
           </div>
           
           <div className="text-center group">
@@ -543,18 +551,18 @@ const Contact = ({ content }) => {
           </Button>
         </div>
 
-        {/* Google Maps Embed */}
+        {/* Google Maps Embed — using maps?q= which works without an API key */}
         <div className="mt-16 rounded-sm overflow-hidden vintage-shadow" data-testid="google-maps-embed">
           <iframe
             title="Lakeview Burgers & Seafood Location"
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3456.123!2d-90.1005!3d30.0075!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8620a5e4a7a0dd87%3A0x3e8a1e2f1c2b3d4e!2s872%20Harrison%20Ave%2C%20New%20Orleans%2C%20LA%2070124!5e0!3m2!1sen!2sus!4v1700000000000"
+            src="https://maps.google.com/maps?q=872%20Harrison%20Ave%2C%20New%20Orleans%2C%20LA%2070124&t=&z=15&ie=UTF8&iwloc=&output=embed"
             width="100%"
             height="350"
-            style={{ border: 0 }}
+            style={{ border: 0, minHeight: 350 }}
             allowFullScreen=""
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            className="w-full"
+            className="w-full block"
           />
         </div>
       </div>
@@ -574,10 +582,35 @@ const Footer = () => {
           <p className="font-sans text-sm text-cream/60 text-center">
             © {new Date().getFullYear()} Lakeview Burgers & Seafood. All rights reserved.
           </p>
-          <div className="flex items-center space-x-2">
-            <span className="text-gold">⚜</span>
-            <span className="font-serif text-sm text-cream/60 italic">New Orleans, Louisiana</span>
-            <span className="text-gold">⚜</span>
+          <div className="flex items-center space-x-3">
+            <a
+              href="https://www.facebook.com/lakeviewburgers"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Lakeview on Facebook"
+              data-testid="footer-facebook"
+              className="text-cream/70 hover:text-gold transition-colors p-2 rounded-full border border-gold/20 hover:border-gold"
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+                <path d="M22 12.07C22 6.5 17.52 2 12 2S2 6.5 2 12.07c0 5 3.66 9.13 8.44 9.93v-7.03H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.77-3.89 1.09 0 2.24.19 2.24.19v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.87h2.77l-.44 2.9h-2.33V22c4.78-.8 8.44-4.93 8.44-9.93z" />
+              </svg>
+            </a>
+            <a
+              href="https://www.instagram.com/lakeviewburgers"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Lakeview on Instagram"
+              data-testid="footer-instagram"
+              className="text-cream/70 hover:text-gold transition-colors p-2 rounded-full border border-gold/20 hover:border-gold"
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+              </svg>
+            </a>
+            <span className="text-gold mx-1">⚜</span>
+            <span className="font-serif text-xs sm:text-sm text-cream/60 italic">New Orleans, LA</span>
           </div>
         </div>
       </div>

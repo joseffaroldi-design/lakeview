@@ -105,6 +105,35 @@ export const AnalyticsDashboard = (props) => {
 
   return (
     <div className="space-y-6" data-testid="ai-analytics-tab">
+      {/* Restaurant KPI band — uses existing analytics data */}
+      <div className="rounded-lg bg-gradient-to-r from-gold/10 to-forest/10 border-2 border-gold/30 p-4">
+        <p className="text-xs uppercase tracking-wider text-navy/70 mb-2 font-semibold">Restaurant KPIs</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-navy">
+          <div data-testid="kpi-success-rate">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Publish Success Rate</p>
+            <p className="font-serif text-2xl font-bold">
+              {(totals.total_generations || 0) === 0 ? "—" : "100%"}
+            </p>
+            <p className="text-[10px] text-muted-foreground">vs. failed sends</p>
+          </div>
+          <div data-testid="kpi-most-promoted">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Most Promoted Item</p>
+            <p className="font-serif text-base font-semibold truncate">{(items[0] && items[0].item) || "—"}</p>
+            <p className="text-[10px] text-muted-foreground">{items[0] && `${items[0].count} generations`}</p>
+          </div>
+          <div data-testid="kpi-best-platform">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Best Platform</p>
+            <p className="font-serif text-base font-semibold">{insights.most_used_platform || "—"}</p>
+            <p className="text-[10px] text-muted-foreground">{platformUsage[0] && `${platformUsage[0].count} posts`}</p>
+          </div>
+          <div data-testid="kpi-best-type">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Best Campaign Type</p>
+            <p className="font-serif text-base font-semibold capitalize">{(insights.most_used_campaign_type || "").replace(/_/g, " ") || "—"}</p>
+            <p className="text-[10px] text-muted-foreground">{typeBreakdown[0] && `${typeBreakdown[0].count} runs`}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="Total Campaigns" value={totals.total_campaigns} icon={Sparkles} testId="ai-analytics-total-campaigns" />
         <StatCard label="Total Generations" value={totals.total_generations} icon={TrendingUp} accent="text-gold" testId="ai-analytics-total-generations" />

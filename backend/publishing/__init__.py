@@ -26,7 +26,8 @@ from .base import (
     list_providers,
     publish_now,
 )
-from . import providers as _providers  # noqa: F401 — registers default providers
+from . import providers as _providers  # noqa: F401 — registers stubs + coming-soon
+from . import real_providers as _real_providers  # noqa: F401 — overrides stubs with live HTTP calls
 from .scheduler import (
     schedule_publish,
     cancel_publish,

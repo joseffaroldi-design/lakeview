@@ -107,6 +107,7 @@ def test_reschedule(asset_id, headers):
 
 
 def test_publish_now_simulated(asset_id, headers):
+    # NEW CONTRACT (iter 13+): real providers — without a connection, publish must FAIL with actionable error
     r = requests.post(
         f"{API}/ai-ads/publish",
         json={"asset_id": asset_id, "provider": "facebook"},
@@ -114,10 +115,9 @@ def test_publish_now_simulated(asset_id, headers):
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    # Simulated publishes succeed via the stub provider
-    assert body["status"] in ("published", "publishing"), body
-    if body["status"] == "published":
-        assert body["external_id"].startswith("sim_facebook_") or body["external_id"].startswith("live_facebook_")
+    assert body["status"] == "failed", body
+    err = (body.get("error_message") or "").lower()
+    assert "connection" in err or "credential" in err, body
 
 
 def test_bundle_schedule(asset_id, headers):
@@ -245,9 +245,9 @@ def test_scheduler_runs_due_post(asset_id, headers):
     ids = [e["id"] for e in executed]
     assert sp_id in ids
 
-    # Re-fetch — should be published
+    # Re-fetch — NEW CONTRACT: scheduler runs the post, but without provider connection it must be 'failed'
     cal = requests.get(f"{API}/ai-ads/calendar", headers=headers, timeout=10).json()["events"]
     matching = [e for e in cal if e["id"] == sp_id]
     assert matching
-    assert matching[0]["status"] == "published"
-    assert matching[0]["external_id"]
+    assert matching[0]["status"] == "failed"
+    assert matching[0].get("error_message")
