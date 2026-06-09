@@ -1,11 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import axios from "axios";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import "@/index.css";
 import App from "@/App";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { Toaster } from "@/components/ui/sonner";
 
 // ---- Global axios interceptor: surface auth + server errors instead of silent failure ----
 axios.interceptors.response.use(

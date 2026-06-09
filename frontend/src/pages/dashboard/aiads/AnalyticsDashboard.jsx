@@ -64,10 +64,16 @@ export const AnalyticsDashboard = (props) => {
 
   useEffect(() => {
     load();
-    // Defer chart mount by one paint so ResponsiveContainer measures a real
-    // parent width instead of -1 (silences recharts warnings on first render).
-    const t = setTimeout(() => setMounted(true), 60);
-    return () => clearTimeout(t);
+    // Use requestAnimationFrame so Recharts ResponsiveContainer measures a
+    // real layout width on its first render (not -1).
+    let raf1 = 0; let raf2 = 0;
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => setMounted(true));
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+    };
   }, [load]);
 
   if (busy && !data) {
@@ -158,7 +164,7 @@ export const AnalyticsDashboard = (props) => {
                 {!mounted ? "Loading chart…" : "No generations in the last 30 days."}
               </p>
             ) : (
-              <div className="h-60 min-h-[240px] w-full">
+              <div className="h-60 min-h-[240px] min-w-[200px] w-full" style={{ width: "100%", height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trend} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e6e3dd" />
@@ -190,7 +196,7 @@ export const AnalyticsDashboard = (props) => {
               {!mounted ? "Loading chart…" : "No platform data yet."}
             </p>
           ) : (
-            <div className="h-60 min-h-[240px] w-full">
+            <div className="h-60 min-h-[240px] min-w-[200px] w-full" style={{ width: "100%", height: 240 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={platformUsage} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e6e3dd" />
@@ -209,7 +215,7 @@ export const AnalyticsDashboard = (props) => {
               {!mounted ? "Loading chart…" : "No campaign type data yet."}
             </p>
           ) : (
-            <div className="h-60 min-h-[240px] w-full">
+            <div className="h-60 min-h-[240px] min-w-[200px] w-full" style={{ width: "100%", height: 240 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={typePieData} dataKey="value" nameKey="name" outerRadius={80} label>

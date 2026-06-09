@@ -163,7 +163,21 @@ export const CreativeLibrary = (props) => {
     return () => clearTimeout(t);
   }, [filters.q]);
 
-  const effectiveFilters = useMemo(() => ({ ...filters, q: debouncedQ }), [filters, debouncedQ]);
+  const effectiveFilters = useMemo(
+    () => ({
+      kind: filters.kind,
+      platform: filters.platform,
+      status: filters.status,
+      is_favorite: filters.is_favorite,
+      date_from: filters.date_from,
+      date_to: filters.date_to,
+      q: debouncedQ,
+    }),
+    // Depend on scalar fields ONLY — depending on `filters` itself would churn
+    // the ref on every keystroke and defeat the q debounce.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters.kind, filters.platform, filters.status, filters.is_favorite, filters.date_from, filters.date_to, debouncedQ]
+  );
 
   useEffect(() => {
     let mounted = true;
