@@ -13,6 +13,9 @@ Endpoints (all under /api/media):
   POST   /video/render        — start a slideshow render job from N media_assets
   GET    /video/jobs          — list render jobs
   GET    /video/jobs/{job_id} — single job status
+  POST   /edit                — apply crop/resize/rotate/flip/adjustments/text+logo overlay/bg-removal → new asset
+  POST   /export-social       — bulk-resize one image to 1+ social presets (IG/FB/TikTok/GBP/Flyer)
+  GET    /social-formats      — list preset metadata (id, label, w, h)
   GET    /folders             — distinct folders + counts
   GET    /stats               — media analytics
 """
@@ -45,6 +48,14 @@ STORAGE_DIR = Path(os.environ.get("MEDIA_STORAGE_DIR", "/app/backend/media_stora
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 THUMBS_DIR = STORAGE_DIR / ".thumbs"
 THUMBS_DIR.mkdir(exist_ok=True)
+
+# Sanity check at import — warn loudly if ffmpeg is missing so operators see it in logs.
+if shutil.which("ffmpeg") is None:
+    import logging
+    logging.getLogger("uvicorn.error").warning(
+        "[media] ffmpeg binary not found on PATH — video rendering and video thumbnails will fail. "
+        "Install with: apt-get install -y ffmpeg"
+    )
 RENDERS_DIR = STORAGE_DIR / ".renders"
 RENDERS_DIR.mkdir(exist_ok=True)
 
@@ -484,6 +495,13 @@ async def _run_render_job(job_id: str):
             {"$set": {"status": "completed", "progress": 1.0, "output_asset_id": new_id,
                       "completed_at": _now(), "updated_at": _now()}},
         )
+    except FileNotFoundError as e:
+        await db.render_jobs.update_one(
+            {"id": job_id},
+            {"$set": {"status": "failed",
+                      "error": "ffmpeg binary not installed on the server — please run `apt-get install ffmpeg`",
+                      "updated_at": _now()}},
+        )
     except subprocess.CalledProcessError as e:
         await db.render_jobs.update_one(
             {"id": job_id}, {"$set": {"status": "failed", "error": f"ffmpeg exit {e.returncode}", "updated_at": _now()}},
@@ -801,6 +819,11 @@ async def edit_image(
         edited = await asyncio.to_thread(_apply_edits, base, body, logo_path)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Image edit failed: {e}")
+    finally:
+        try:
+            base.close()
+        except Exception:  # noqa: BLE001
+            pass
 
     # Save — PNG if alpha channel present, otherwise JPEG
     has_alpha = edited.mode == "RGBA" and edited.getextrema()[3][0] < 255
