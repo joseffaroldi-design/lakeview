@@ -324,6 +324,54 @@ Brought every long-running surface under one consistent error contract. No "Fail
 - NEW `GET /api/media/audit` endpoint with by_code aggregation
 - All Phase 8 pytest still green (11/11)
 
+## Cleanup Week — Trust, Deletion & Polish Pass — COMPLETED Feb 2026
+
+Made the dashboard *trustworthy* — Home now shows numbers an owner can act on, not noise. The 87 stale test failures that polluted Home are gone. The "Promote Something" button now opens a Top-3 picker with real reasoning instead of grabbing the first menu item.
+
+### Phase A — Failed publish cleanup (trust killer fixed)
+- **Auto-retry with exponential backoff**: scheduler now retries failed publishes at 5 / 15 / 30 minutes before marking failed. Unrecoverable codes (auth/key/safety/payload/asset-missing) skip retry.
+- **`POST /api/home/archive-failed?older_than_days=N`** — bulk-archive stale failures (default 7d).
+- **`POST /api/home/dismiss-failed/{id}`** — single-post dismiss.
+- **One-time migration ran**: 87 historical test failures archived → Home counter reset to 0.
+- `scheduled_posts` gained: `retry_count`, `last_attempt_at`, `last_error`, `archived`, `archived_at` fields.
+
+### Phase B — Promote Something fix
+- **NEW `GET /api/home/promote-suggestions?limit=N`** — ranks menu items by `days_since_promoted` from `ai_campaigns` history. Returns name + category + reason.
+- Home's "Promote Something" button now opens a **Top-3 picker modal** instead of grabbing item[0]. Each item shows its own reason ("Not promoted in 21 days" / "Never promoted — perfect first push").
+
+### Phase C — Removed duplicate workflows
+- **Campaign Builder** sub-tab moved from `promotions` → `advanced` group (no longer in primary nav)
+- **Library** sub-tab moved from `promotions` → `advanced` group (Media is now the single library)
+- Both components remain importable for any future advanced-mode toggle
+
+### Phase D — Dead UI deferred (safer than deletion)
+- 11 components remain physically in `/aiads/` but are hidden from every visible nav route (Builder, Library, Social, Email, SMS, Image Concepts, Video Concepts, Queue, Rules-legacy, Providers-legacy, Analytics-as-tab). They're only reachable via `group="advanced"` which no current UI surfaces.
+- Files NOT deleted to avoid breaking `AiAdsTab.jsx` imports. Future task: a dedicated "delete advanced" cleanup pass.
+
+### Phase E — Home as operating system
+- **Composite health pill** in the Home header (green / yellow / red) powered by **NEW `GET /api/home/health`** which rolls up ffmpeg + rembg + LLM key + provider-connections health.
+- **NEW `GET /api/home/summary`** — single aggregate replaces 7 separate fetches the Home page used to make. Faster and cleaner.
+
+### Phase F — Settings orientation copy
+- Each Settings sub-tab now shows a one-line italic blurb explaining what it's for (Providers / Automation Rules / Account / Analytics).
+
+### Phase G — Calendar already shipped in Phase 9
+- 6 status filter chips with live counts
+- Failed filter folds in what was the Queue tab
+
+### Files changed
+- **NEW**: `backend/routers/home.py` (170 lines — 5 endpoints), updated `backend/server.py` to mount it
+- **Modified**: `backend/publishing/scheduler.py` (auto-retry block, retry_count + last_error fields), `frontend/src/pages/dashboard/HomeTab.jsx` (health pill, Top-3 picker modal, `/api/home/*` integration), `frontend/src/pages/dashboard/AiAdsTab.jsx` (Builder + Library moved to advanced; Settings orientation copy)
+
+### Verification
+- `GET /api/home/summary` → real_failures=0 (was 87 before cleanup) ✓
+- `GET /api/home/health` → level=yellow with issue "No social accounts connected" (correct) ✓
+- `GET /api/home/promote-suggestions` → returns 3 ranked items with reasons ✓
+- Frontend smoke test: health pill renders as yellow, Promote Something opens picker with 3 items ✓
+- Backend + frontend lint: 0 blocking ✓
+- 6 top tabs (unchanged from Phase 9) — Home / Menu / Promotions / Customers / Insights / Settings
+- Promotions sub-tabs reduced 5 → **3** (Automations / Media / Calendar) ✓
+
 ## Phase 9 — Dashboard Simplification & Promote Workflow — COMPLETED Feb 2026
 
 Turned the platform from a collection of tools into a collection of workflows. Target owner usage: 10 minutes per day.

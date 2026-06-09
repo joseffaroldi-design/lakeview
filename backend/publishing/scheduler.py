@@ -172,6 +172,35 @@ async def execute_publish(db, scheduled_post_id: str, actor: str = "system") -> 
     # Run the publish
     result = await publish_now(provider_id=sp["provider"], asset=asset, connection=conn)
 
+    # ----- AUTO-RETRY (Phase A) -----
+    # On failure: schedule a backoff retry instead of marking failed, up to 3 attempts.
+    # Skip retry for unrecoverable errors (auth/key/permission/safety/payload too large/not connected).
+    retry_count = sp.get("retry_count", 0)
+    code = (result.structured_error or {}).get("code", "")
+    UNRECOVERABLE = {"key_invalid", "key_missing", "permission_denied", "safety_reject",
+                     "payload_too_large", "not_connected", "provider_unregistered", "asset_missing"}
+    BACKOFF_MIN = [5, 15, 30]
+    if not result.success and retry_count < 3 and code not in UNRECOVERABLE:
+        delay_min = BACKOFF_MIN[retry_count]
+        from datetime import timedelta
+        next_at = (datetime.now(timezone.utc) + timedelta(minutes=delay_min)).isoformat()
+        await db.scheduled_posts.update_one(
+            {"id": scheduled_post_id},
+            {"$set": {
+                "status": "scheduled",
+                "scheduled_at": next_at,
+                "retry_count": retry_count + 1,
+                "last_attempt_at": _now(),
+                "last_error": result.structured_error,
+                "updated_at": _now(),
+            }},
+        )
+        await _log(db, scheduled_post_id=scheduled_post_id,
+                   action=f"publish.retry_{retry_count + 1}", actor=actor,
+                   detail={"delay_minutes": delay_min, "code": code, "next_at": next_at})
+        return {**sp, "status": "scheduled", "retry_count": retry_count + 1,
+                "scheduled_at": next_at, "last_error": result.structured_error}
+
     final_status = "published" if result.success else "failed"
     update = {
         "status": final_status,
@@ -179,6 +208,7 @@ async def execute_publish(db, scheduled_post_id: str, actor: str = "system") -> 
         "error_message": result.error,
         "error": result.structured_error,  # structured payload for the UI
         "external_id": result.external_id,
+        "retry_count": retry_count,
     }
     if result.success:
         update["published_at"] = result.published_at or _now()

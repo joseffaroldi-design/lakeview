@@ -66,6 +66,9 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
   const [week, setWeek] = useState({ mostPromotedItem: null, bestPlatform: null, mostViewedCampaign: null, loyaltyGrowth: 0 });
   const [suggestions, setSuggestions] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [health, setHealth] = useState({ level: "green", issues: [] });
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [topItems, setTopItems] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,88 +78,73 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const ymd = todayYMD();
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-        const [specialsRes, subsRes, inqRes, calRes, menuRes, statsRes, healthRes] = await Promise.allSettled([
+        const [summaryRes, healthRes, suggestRes, specialsRes, inqRes, statsRes] = await Promise.allSettled([
+          axios.get(`${API}/home/summary`, { headers }),
+          axios.get(`${API}/home/health`, { headers }),
+          axios.get(`${API}/home/promote-suggestions?limit=3`, { headers }),
           axios.get(`${API}/specials`, { headers }),
-          axios.get(`${API}/newsletter-subscribers`, { headers }),
           axios.get(`${API}/catering-inquiries`, { headers }),
-          axios.get(`${API}/ai-ads/publish-queue`, { headers }),
-          axios.get(`${API}/menu`, { headers }),
           axios.get(`${API}/ai-ads/stats`, { headers }).catch(() => ({ data: {} })),
-          axios.get(`${API}/media/health`, { headers }).catch(() => ({ data: {} })),
         ]);
 
         if (cancelled) return;
 
+        const summary = summaryRes.status === "fulfilled" ? summaryRes.value.data.today || {} : {};
+        const healthData = healthRes.status === "fulfilled" ? healthRes.value.data || {} : { level: "green", issues: [] };
+        const top3 = suggestRes.status === "fulfilled" ? suggestRes.value.data.items || [] : [];
         const specials = specialsRes.status === "fulfilled" ? specialsRes.value.data || [] : [];
-        const subs = subsRes.status === "fulfilled" ? subsRes.value.data || [] : [];
         const inquiries = inqRes.status === "fulfilled" ? inqRes.value.data || [] : [];
-        const queue = calRes.status === "fulfilled" ? calRes.value.data.columns || {} : {};
-        const menu = menuRes.status === "fulfilled" ? menuRes.value.data || [] : [];
         const stats = statsRes.status === "fulfilled" ? statsRes.value.data || {} : {};
-        const health = healthRes.status === "fulfilled" ? healthRes.value.data || {} : {};
 
-        const scheduledToday = (queue.queued || []).filter((p) => (p.scheduled_at || "").startsWith(ymd)).length;
-        const activePromos = specials.filter((s) => s.active !== false).length;
-        const newSubs = subs.filter((s) => s.subscribed_at && s.subscribed_at > weekAgo).length;
-        const newInq = inquiries.filter((i) => i.created_at && i.created_at > weekAgo).length;
-        const failed = (queue.failed || []).length + ((health.render_queue || {}).failed_recent || 0);
+        setToday({
+          scheduledToday: summary.scheduled || 0,
+          activePromos: summary.active_promos || 0,
+          newSubs: summary.new_subscribers || 0,
+          newInquiries: summary.new_inquiries || 0,
+          failed: summary.real_failures || 0,
+        });
+        setHealth(healthData);
+        setTopItems(top3);
+        setMenuItems([]);  // no longer needed — using top3 instead
 
-        setToday({ scheduledToday, activePromos, newSubs, newInquiries: newInq, failed });
         setWeek({
           mostPromotedItem: stats.most_used_goal || "—",
           bestPlatform: stats.most_used_platform || "—",
           mostViewedCampaign: stats.top_campaign_name || null,
-          loyaltyGrowth: newSubs,
+          loyaltyGrowth: summary.new_subscribers || 0,
         });
-        setMenuItems(menu);
 
-        // Derive AI suggestions from data we already have
+        // Suggestions — top-3 + catering follow-ups + failures + expiring
         const sug = [];
-        const flatItems = [];
-        for (const cat of menu) {
-          for (const it of (cat.items || [])) {
-            flatItems.push({ ...it, category: cat.name });
-          }
-        }
-        // Suggestion 1: an item with no associated campaign in last 21 days
-        if (flatItems.length > 0) {
-          const candidate = flatItems[Math.floor(Math.random() * flatItems.length)];
+        if (top3.length > 0) {
           sug.push({
             id: "promote-stale",
-            icon: Megaphone,
-            tone: "gold",
-            title: `Promote ${candidate.name}`,
-            body: `Hasn't been featured recently. One click runs Facebook, Instagram, Google Business, and an SMS blast.`,
+            icon: Megaphone, tone: "gold",
+            title: `Promote ${top3[0].name}`,
+            body: top3[0].reason,
             cta: "Promote in 1 click",
-            onClick: () => onPromote && onPromote(candidate, candidate.category),
+            onClick: () => onPromote && onPromote({ name: top3[0].name, description: top3[0].description, price: top3[0].price }, top3[0].category),
           });
         }
-        // Suggestion 2: catering inquiries to follow up on
         const openInq = inquiries.filter((i) => !i.replied && i.created_at > weekAgo);
         if (openInq.length > 0) {
           sug.push({
-            id: "follow-catering",
-            icon: ChefHat,
-            tone: "navy",
+            id: "follow-catering", icon: ChefHat, tone: "navy",
             title: `${openInq.length} catering ${openInq.length === 1 ? "lead needs" : "leads need"} a reply`,
-            body: "Don't let warm leads cool. Draft personal replies from the Customers tab.",
+            body: "Don't let warm leads cool.",
             cta: "Open Inquiries",
             onClick: () => onNavigate && onNavigate("customers", "inquiries"),
           });
         }
-        // Suggestion 3: failed publishes
-        if (failed > 0) {
+        if ((summary.real_failures || 0) > 0) {
           sug.push({
-            id: "fix-failed",
-            icon: AlertTriangle,
-            tone: "navy",
-            title: `${failed} failed publish${failed === 1 ? "" : "es"}`,
-            body: "Reconnect the provider or retry from the Calendar.",
+            id: "fix-failed", icon: AlertTriangle, tone: "navy",
+            title: `${summary.real_failures} failed publish${summary.real_failures === 1 ? "" : "es"}`,
+            body: "Auto-retried 3 times. Open the Calendar to inspect or reconnect a provider.",
             cta: "Open Calendar",
             onClick: () => onNavigate && onNavigate("promotions", "calendar"),
           });
         }
-        // Suggestion 4: active special running thin
         const expiringSoon = specials.filter((s) => {
           if (!s.active || !s.ends_at) return false;
           const ends = new Date(s.ends_at).getTime();
@@ -164,22 +152,18 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         });
         if (expiringSoon.length > 0) {
           sug.push({
-            id: "expiring-special",
-            icon: TrendingUp,
-            tone: "navy",
+            id: "expiring-special", icon: TrendingUp, tone: "navy",
             title: `${expiringSoon[0].title} ends soon`,
-            body: "Boost it with one last social push before it expires.",
+            body: "Boost it with one last social push.",
             cta: "Promote it",
-            onClick: () => onNavigate && onNavigate("promotions", "active"),
+            onClick: () => onNavigate && onNavigate("promotions", "automations"),
           });
         }
         if (sug.length === 0) {
           sug.push({
-            id: "all-clear",
-            icon: Sparkles,
-            tone: "gold",
+            id: "all-clear", icon: Sparkles, tone: "gold",
             title: "You're caught up",
-            body: "No urgent items. Want to plan next week's promotions while you have a minute?",
+            body: "Nothing urgent. Want to plan next week while you have a minute?",
             cta: "Open Calendar",
             onClick: () => onNavigate && onNavigate("promotions", "calendar"),
           });
@@ -194,14 +178,16 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
     return () => { cancelled = true; };
   }, [getAuthHeader, onNavigate, onPromote]);
 
-  // First item across all categories — fallback for "Promote Something" CTA
-  let featuredItem = null;
-  for (const cat of menuItems) {
-    if ((cat.items || []).length > 0) {
-      featuredItem = { ...cat.items[0], category: cat.name };
-      break;
-    }
-  }
+  // Featured = first top-3 item (fallback null)
+  const featuredItem = topItems[0] || null;
+  void menuItems; // legacy state, no longer rendered
+
+  const HEALTH_TONES = {
+    green:  { dot: "bg-forest", text: "All systems healthy" },
+    yellow: { dot: "bg-gold",   text: "Minor issues" },
+    red:    { dot: "bg-red-600", text: "Action needed" },
+  };
+  const healthTone = HEALTH_TONES[health.level] || HEALTH_TONES.green;
 
   return (
     <section data-testid="home-tab">
@@ -212,14 +198,22 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Your 10-minute morning check-in.</p>
         </div>
-        {loading ? <Loader2 className="w-4 h-4 animate-spin text-navy/40" /> : null}
+        <div className="flex items-center gap-3">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin text-navy/40" /> : null}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${health.level === "red" ? "border-red-300 bg-red-50" : health.level === "yellow" ? "border-gold/40 bg-gold/10" : "border-forest/30 bg-forest/5"}`}
+            title={(health.issues || []).join(", ") || "All systems healthy"}
+            data-testid="home-health-pill" data-health-level={health.level}>
+            <span className={`w-2 h-2 rounded-full ${healthTone.dot}`} />
+            <span className="text-xs font-semibold text-navy">{healthTone.text}</span>
+          </div>
+        </div>
       </div>
 
       {/* QUICK ACTIONS — top of fold */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-8" data-testid="home-quick-actions">
         <Button
-          onClick={() => featuredItem && onPromote && onPromote(featuredItem, featuredItem.category)}
-          disabled={!featuredItem}
+          onClick={() => setPromoteOpen(true)}
+          disabled={topItems.length === 0}
           className="bg-gold text-navy hover:bg-gold/90 h-auto py-3 flex-col gap-1"
           data-testid="qa-promote">
           <Megaphone className="w-5 h-5" />
@@ -294,6 +288,41 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           </div>
         </div>
       </div>
+
+      {promoteOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          onClick={(e) => e.target === e.currentTarget && setPromoteOpen(false)}
+          data-testid="promote-picker-modal">
+          <div className="bg-card rounded-lg max-w-lg w-full overflow-hidden shadow-2xl border-2 border-gold/30">
+            <div className="px-5 py-3 border-b border-navy/10 bg-cream flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-gold" />
+              <h3 className="font-serif text-navy font-semibold">Pick an item to promote</h3>
+            </div>
+            <div className="p-4 space-y-2">
+              <p className="text-xs text-muted-foreground mb-3">These 3 items are most overdue for attention:</p>
+              {topItems.map((it, idx) => (
+                <button
+                  key={it.id || it.name}
+                  type="button"
+                  onClick={() => { setPromoteOpen(false); onPromote && onPromote({ name: it.name, description: it.description, price: it.price }, it.category); }}
+                  className="w-full text-left border-2 border-navy/10 hover:border-gold/40 rounded p-3 transition-colors group"
+                  data-testid={`promote-pick-${idx}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-navy">{it.name}</p>
+                      <p className="text-xs text-muted-foreground">{it.category}</p>
+                      <p className="text-xs text-gold mt-1">{it.reason}</p>
+                    </div>
+                    <Megaphone className="w-4 h-4 text-navy/30 group-hover:text-gold flex-shrink-0 mt-1" />
+                  </div>
+                </button>
+              ))}
+              <button onClick={() => setPromoteOpen(false)} className="w-full text-xs text-muted-foreground hover:text-navy py-2 mt-2"
+                data-testid="promote-picker-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 };

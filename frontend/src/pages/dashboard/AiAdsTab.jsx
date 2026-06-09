@@ -32,9 +32,9 @@ import AiSettingsPanel from "./aiads/SettingsPanel";
 const ALL_SUB_TABS = [
   { id: "automations", label: "Automations", icon: UtensilsCrossed, groups: ["promotions"] },
   { id: "media", label: "Media", icon: Film, groups: ["promotions"] },
-  { id: "builder", label: "Campaign Builder", icon: Wand2, groups: ["promotions"] },
   { id: "calendar", label: "Calendar", icon: CalendarIcon, groups: ["promotions"] },
-  { id: "library", label: "Library", icon: LibraryIcon, groups: ["promotions"] },
+  { id: "builder", label: "Campaign Builder", icon: Wand2, groups: ["advanced"] },
+  { id: "library", label: "Library", icon: LibraryIcon, groups: ["advanced"] },
   { id: "social", label: "Social", icon: Share2, groups: ["advanced"] },
   { id: "email", label: "Email", icon: Mail, groups: ["advanced"] },
   { id: "sms", label: "SMS", icon: MessageSquare, groups: ["advanced"] },
@@ -108,6 +108,14 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab, group, title, icon: Hea
     return () => { mounted = false; };
   }, [loadBase]);
 
+  // Settings orientation copy (Phase F)
+  const SETTINGS_BLURB = {
+    rules:     "Configure recurring marketing actions and triggers.",
+    providers: "Connect social and marketing accounts (Facebook, Instagram, SendGrid, Twilio).",
+    settings:  "Account and notification preferences.",
+    analytics: "AI marketing performance over time.",
+  };
+
   // Precomputed sub-tab buttons (avoids Babel plugin recursion)
   const tabBtns = [];
   for (let i = 0; i < visibleTabs.length; i += 1) {
@@ -154,6 +162,10 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab, group, title, icon: Hea
       >
         {tabBtns}
       </div>
+
+      {group === "settings" && SETTINGS_BLURB[activeSub] ? (
+        <p className="text-xs text-muted-foreground mb-4 italic" data-testid="settings-blurb">{SETTINGS_BLURB[activeSub]}</p>
+      ) : null}
 
       {activeSub === "builder" && (
         <CampaignBuilder catalog={catalog} getAuthHeader={getAuthHeader} onChange={refresh} />
