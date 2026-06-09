@@ -11,7 +11,8 @@ class PublishResult:
     success: bool
     provider: str
     external_id: Optional[str] = None
-    error: Optional[str] = None
+    error: Optional[str] = None                  # plain string (legacy / provider-raw)
+    structured_error: Optional[Dict[str, Any]] = None  # StructuredError.to_payload()
     raw: Dict[str, Any] = field(default_factory=dict)
     published_at: Optional[str] = None
 
@@ -76,13 +77,23 @@ async def publish_now(
     asset: Dict[str, Any],
     connection: Optional[Dict[str, Any]] = None,
 ) -> PublishResult:
+    from errors import classify_publish_error
     provider = get_provider(provider_id)
     if not provider:
-        return PublishResult(success=False, provider=provider_id, error=f"Provider '{provider_id}' not registered")
+        msg = f"Provider '{provider_id}' not registered"
+        err = classify_publish_error(provider_id, msg)
+        return PublishResult(success=False, provider=provider_id, error=msg,
+                             structured_error=err.to_payload())
     try:
         result = await provider.publish(asset=asset, connection=connection)
         if not result.published_at:
             result.published_at = datetime.now(timezone.utc).isoformat()
+        # If the provider returned a failure with no structured_error, classify the raw string.
+        if not result.success and not result.structured_error:
+            err = classify_publish_error(provider_id, result.error or "")
+            result.structured_error = err.to_payload()
         return result
     except Exception as e:  # noqa: BLE001
-        return PublishResult(success=False, provider=provider_id, error=str(e))
+        err = classify_publish_error(provider_id, str(e))
+        return PublishResult(success=False, provider=provider_id, error=str(e),
+                             structured_error=err.to_payload())

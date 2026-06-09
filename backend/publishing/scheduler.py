@@ -128,11 +128,24 @@ async def execute_publish(db, scheduled_post_id: str, actor: str = "system") -> 
 
     asset = await db.ai_assets.find_one({"id": sp["asset_id"]}, {"_id": 0})
     if not asset:
+        from errors import StructuredError, audit_log
+        err = StructuredError(
+            code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
+            user_message="The asset attached to this scheduled post was deleted. Pick a new asset and reschedule.",
+            technical=f"ai_assets({sp['asset_id']}) not found",
+        )
+        await audit_log(db, surface="publishing", err=err,
+                        scheduled_post_id=scheduled_post_id, provider=sp["provider"])
         await db.scheduled_posts.update_one(
             {"id": scheduled_post_id},
-            {"$set": {"status": "failed", "error_message": "Asset deleted", "updated_at": _now()}},
+            {"$set": {"status": "failed",
+                      "error_message": err.user_message,
+                      "error": err.to_payload(),
+                      "updated_at": _now()}},
         )
-        return {**sp, "status": "failed", "error_message": "Asset deleted"}
+        await _log(db, scheduled_post_id=scheduled_post_id, action="publish.failed", actor=actor,
+                   detail={"code": err.code, "reason": "asset_missing"})
+        return {**sp, "status": "failed", "error_message": err.user_message, "error": err.to_payload()}
 
     # Pull connection if exists (may be None — provider stubs simulate)
     conn = await db.provider_connections.find_one({"provider": sp["provider"]}, {"_id": 0})
@@ -164,6 +177,7 @@ async def execute_publish(db, scheduled_post_id: str, actor: str = "system") -> 
         "status": final_status,
         "updated_at": _now(),
         "error_message": result.error,
+        "error": result.structured_error,  # structured payload for the UI
         "external_id": result.external_id,
     }
     if result.success:
@@ -176,6 +190,7 @@ async def execute_publish(db, scheduled_post_id: str, actor: str = "system") -> 
             "status": final_status,
             "result": result.raw,
             "error": result.error,
+            "structured_error": result.structured_error,
             "finished_at": _now(),
         }},
     )
@@ -184,8 +199,21 @@ async def execute_publish(db, scheduled_post_id: str, actor: str = "system") -> 
         scheduled_post_id=scheduled_post_id,
         action=f"publish.{final_status}",
         actor=actor,
-        detail={"job_id": job_id, "external_id": result.external_id, "error": result.error},
+        detail={
+            "job_id": job_id,
+            "external_id": result.external_id,
+            "error": result.error,
+            "error_code": (result.structured_error or {}).get("code"),
+        },
     )
+
+    # Audit log every failure so the operator can see patterns across providers
+    if not result.success and result.structured_error:
+        from errors import StructuredError, audit_log
+        err_obj = StructuredError(**{k: v for k, v in result.structured_error.items() if k != "context"})
+        await audit_log(db, surface="publishing", err=err_obj,
+                        scheduled_post_id=scheduled_post_id,
+                        provider=sp["provider"], asset_id=sp["asset_id"])
 
     # Update parent asset to mirror state
     if result.success:
@@ -217,6 +245,14 @@ async def run_due_publishes(db, *, limit: int = 25) -> List[Dict[str, Any]]:
         try:
             out.append(await execute_publish(db, sp["id"]))
         except Exception as e:  # noqa: BLE001
+            from errors import StructuredError, audit_log
+            err = StructuredError(
+                code="unknown", status=500, retryable=True, retry_action="retry_publish",
+                user_message="The publishing worker crashed while processing this post. It will retry on the next scheduler tick.",
+                technical=str(e)[:400],
+            )
+            await audit_log(db, surface="publishing", err=err,
+                            scheduled_post_id=sp["id"], provider=sp.get("provider"))
             await _log(db, scheduled_post_id=sp["id"], action="publish.crash", actor="system",
-                       detail={"error": str(e)})
+                       detail={"error": str(e), "code": err.code})
     return out

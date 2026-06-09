@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { API, Section, EmptyState } from "./shared";
 import { ImageEditor } from "./ImageEditor";
 import { SocialExporter } from "./SocialExporter";
+import { StructuredErrorCard, parseAxiosError } from "./StructuredErrorCard";
 
 const FOLDERS = ["Menu Items", "Promotions", "Catering", "Events", "Logos", "Social Media", "Custom"];
 const ASPECTS = ["1:1", "4:5", "9:16", "16:9"];
@@ -109,45 +110,6 @@ const UploadDropzone = (props) => {
 };
 
 // --------------- AI Image Generator ---------------
-const ERROR_PRESENTATION = {
-  budget_exhausted: {
-    icon: "wallet",
-    title: "Out of AI credits",
-    cta: "Open Universal Key",
-  },
-  key_invalid:        { icon: "key",      title: "Provider key rejected" },
-  safety_reject:      { icon: "shield",   title: "Prompt blocked by safety filter" },
-  rate_limited:       { icon: "clock",    title: "Provider rate limit hit" },
-  prompt_invalid:     { icon: "alert",    title: "Prompt rejected" },
-  provider_unavailable:{ icon: "wifi",    title: "Can't reach AI provider" },
-  provider_empty:     { icon: "alert",    title: "Provider returned no images" },
-  timeout:            { icon: "clock",    title: "Timed out" },
-  key_missing:        { icon: "key",      title: "Server not configured" },
-  network:            { icon: "wifi",     title: "Network error" },
-  unknown:            { icon: "alert",    title: "Unexpected error" },
-};
-
-const parseErrorResponse = (e) => {
-  // Frontend-side classification first (axios layer)
-  if (e.code === "ECONNABORTED" || (e.message || "").toLowerCase().includes("timeout")) {
-    return { code: "timeout", user_message: "Generation timed out after 90 seconds. Try a shorter prompt, lower quality, or fewer images.", technical: e.message };
-  }
-  if (!e.response) {
-    return { code: "network", user_message: "Couldn't reach the server. Check your internet connection.", technical: e.message };
-  }
-  const d = e.response.data && e.response.data.detail;
-  // Structured backend payload
-  if (d && typeof d === "object" && d.code) {
-    return d;
-  }
-  // Legacy / unstructured string
-  return {
-    code: "unknown",
-    user_message: typeof d === "string" ? d : "Image generation failed.",
-    technical: typeof d === "string" ? d : `HTTP ${e.response.status}`,
-  };
-};
-
 const AiImageGenerator = (props) => {
   const { getAuthHeader, onGenerated } = props;
   const [prompt, setPrompt] = useState("");
@@ -157,31 +119,26 @@ const AiImageGenerator = (props) => {
   const [quality, setQuality] = useState("medium");
   const [folder, setFolder] = useState("Promotions");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);  // { code, user_message, technical }
-  const [showTechnical, setShowTechnical] = useState(false);
+  const [error, setError] = useState(null);  // structured error or null
 
   const run = async () => {
-    setBusy(true); setError(null); setShowTechnical(false);
+    setBusy(true); setError(null);
     try {
       await axios.post(`${API}/media/ai-image`,
         { prompt, headline: headline || null, style, count, quality, folder },
         { headers: getAuthHeader(), timeout: 90000 });
       onGenerated();
     } catch (e) {
-      setError(parseErrorResponse(e));
+      setError(parseAxiosError(e));
     } finally {
       setBusy(false);
     }
   };
 
-  const present = error ? ERROR_PRESENTATION[error.code] || ERROR_PRESENTATION.unknown : null;
-  const ErrIcon =
-    present && present.icon === "wallet" ? AlertTriangle
-    : present && present.icon === "key" ? AlertTriangle
-    : present && present.icon === "shield" ? AlertTriangle
-    : present && present.icon === "clock" ? Loader2
-    : present && present.icon === "wifi" ? AlertTriangle
-    : AlertTriangle;
+  const focusPrompt = () => {
+    const el = document.querySelector('[data-testid="ai-image-prompt"]');
+    if (el) el.focus();
+  };
 
   return (
     <Section title="AI Image Generator" icon={Sparkles} testId="ai-image-gen">
@@ -220,35 +177,8 @@ const AiImageGenerator = (props) => {
       </div>
 
       {error ? (
-        <div className="mt-3 border-2 border-red-300 bg-red-50 rounded p-3 space-y-2" data-testid="ai-image-error" data-error-code={error.code}>
-          <div className="flex items-start gap-2">
-            <ErrIcon className="w-4 h-4 text-red-700 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-red-900">{present.title}</p>
-              <p className="text-xs text-red-800 mt-0.5">{error.user_message}</p>
-              {error.technical ? (
-                <button type="button" onClick={() => setShowTechnical((s) => !s)}
-                  className="text-[10px] text-red-700 hover:underline mt-1" data-testid="ai-image-toggle-technical">
-                  {showTechnical ? "Hide" : "Show"} technical details
-                </button>
-              ) : null}
-              {showTechnical && error.technical ? (
-                <pre className="text-[10px] text-red-900 bg-red-100 rounded p-1.5 mt-1 break-all whitespace-pre-wrap font-mono max-h-32 overflow-auto" data-testid="ai-image-technical">{error.technical}</pre>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Button onClick={run} disabled={busy || prompt.length < 3}
-              className="bg-red-700 text-white hover:bg-red-800 h-8 text-xs" data-testid="ai-image-retry">
-              <RefreshCcw className="w-3 h-3 mr-1" /> Try again
-            </Button>
-            {error.code === "budget_exhausted" ? (
-              <a href="https://app.emergent.sh/profile" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center px-3 h-8 text-xs bg-navy text-cream rounded hover:bg-navy/90" data-testid="ai-image-add-balance">
-                Add balance
-              </a>
-            ) : null}
-          </div>
+        <div className="mt-3">
+          <StructuredErrorCard error={error} testId="ai-image-error" onRetry={run} onEditSource={focusPrompt} />
         </div>
       ) : null}
 
@@ -310,11 +240,12 @@ const VideoRenderWizard = (props) => {
   const [cta, setCta] = useState("Order Now");
   const [template, setTemplate] = useState("menu_item_spotlight");
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const togglePick = (id) => setPicked((p) => (p.indexOf(id) === -1 ? [...p, id] : p.filter((x) => x !== id)));
 
   const submit = async () => {
-    setBusy(true);
+    setBusy(true); setSubmitError(null);
     try {
       await axios.post(`${API}/media/video/render`, {
         asset_ids: picked, duration_seconds: duration, aspect,
@@ -322,6 +253,8 @@ const VideoRenderWizard = (props) => {
       }, { headers: getAuthHeader() });
       setPicked([]); setTitle("");
       onStarted();
+    } catch (e) {
+      setSubmitError(parseAxiosError(e));
     } finally {
       setBusy(false);
     }
@@ -365,7 +298,11 @@ const VideoRenderWizard = (props) => {
           </div>
         ) : null}
         {isFailed && j.error ? (
-          <p className="text-[11px] text-red-700 bg-red-100 rounded p-1.5 font-mono break-all" data-testid={`render-job-${j.id}-error`}>{j.error}</p>
+          typeof j.error === "string" ? (
+            <p className="text-[11px] text-red-700 bg-red-100 rounded p-1.5 font-mono break-all" data-testid={`render-job-${j.id}-error`}>{j.error}</p>
+          ) : (
+            <StructuredErrorCard error={j.error} compact testId={`render-job-${j.id}-error`} onRetry={submit} />
+          )
         ) : null}
         {isDone && j.output_asset_id ? (
           <a href={`${API}/media/file/${j.output_asset_id}`} target="_blank" rel="noopener noreferrer"
@@ -415,6 +352,11 @@ const VideoRenderWizard = (props) => {
       <Button onClick={submit} disabled={busy || picked.length < 2} className="bg-gold text-navy hover:bg-gold/90" data-testid="render-start">
         {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Video className="w-4 h-4 mr-2" />} Render Video
       </Button>
+      {submitError ? (
+        <div className="mt-3">
+          <StructuredErrorCard error={submitError} testId="render-submit-error" onRetry={submit} />
+        </div>
+      ) : null}
       {jobRows.length > 0 ? (
         <div className="mt-4 space-y-2" data-testid="render-jobs">
           <p className="text-xs font-semibold text-navy">Render Queue</p>

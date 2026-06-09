@@ -302,6 +302,79 @@ Comprehensive media-management module inside the AI Ads tab. Six sub-sections:
 Made Media Studio survive container restarts/rebuilds without manual intervention.
 
 ### Container/runtime self-healing (NEW `/app/backend/bootstrap.py`)
+- **`ensure_ffmpeg()`** — at backend startup, `shutil.which("ffmpeg")` is checked; if missing, runs `apt-get update && apt-get install -y --no-install-recommends ffmpeg`. ~25s on cold restart.
+- **`prewarm_rembg()`** — fires off `asyncio.create_task(prewarm_rembg())` at startup. Loads u2net session so first BG removal drops from 30-90s → 5-8s.
+
+### Extended health endpoint `GET /api/media/health`
+Returns: `healthy` (composite) + `ffmpeg_available/path` + `rembg_available/model_ready/error` + `storage_mb` + `render_queue: {queued, processing, completed_recent, failed_recent}`
+
+### Verification
+- Removed ffmpeg → restarted backend → auto-reinstalled in ~25s ✓
+- rembg u2net pre-warmed at startup ✓
+- Live render after rebuild: 16s ✓
+- Background removal post-rebuild (warm model): 6s ✓
+
+## Phase 8 — Structured Error Consistency Pass — COMPLETED Feb 2026
+
+Brought every long-running surface under one consistent error contract — no part of the platform shows a generic "Failed" or "Something went wrong" anymore. Every failure tells the owner what happened, why, and what to do next.
+
+### NEW `/app/backend/errors.py` — single source of truth
+- `StructuredError` dataclass: `{code, status, user_message, technical, retryable, retry_action, context}`
+- Three classifiers (string-based, stable across versions):
+  - `classify_llm_error(exc)` — AI image + future LLM calls
+  - `classify_render_error(exc, returncode, stderr)` — FFmpeg video pipeline
+  - `classify_publish_error(provider, raw_error)` — Meta / SendGrid / Twilio / Mailchimp
+- `log_failure(surface, err, **ctx)` — uniform backend log line for every failure
+- `audit_log(db, surface, err, **ctx)` — append-only `failure_audit_log` collection
+- `report_failure(db, surface, err, **ctx)` — one-call helper that logs + audits + returns
+
+### 18 stable error codes (frontend maps each to an icon + title + retry CTA)
+`budget_exhausted · key_invalid · key_missing · safety_reject · rate_limited · prompt_invalid · provider_unavailable · provider_empty · timeout · ffmpeg_missing · ffmpeg_failed · asset_missing · asset_invalid · provider_unregistered · not_connected · permission_denied · payload_too_large · network · unknown`
+
+### Surfaces refactored (all share the same payload shape now)
+1. **AI Image Generation** (`POST /api/media/ai-image`) — already structured in iter19, now uses shared classifier
+2. **Video Rendering** — render_jobs.error field stores StructuredError payload; ffmpeg stderr captured via `capture_output=True` and passed to `classify_render_error`
+3. **Image Editor** (`POST /api/media/edit`) — source missing, file gone, bg-removal crash, edit pipeline crash all classified
+4. **Social Exports** (`POST /api/media/export-social`) — asset missing, unsupported format, corrupted source all classified
+5. **Publishing scheduler** (`publishing/scheduler.py`) — scheduled_posts.error stores structured payload; worker-level crash + execute-time failures + missing asset all audited
+6. **Provider publish** (`publishing/base.py`) — `PublishResult.structured_error` populated automatically for every provider failure
+7. **Generic publishing worker crash** — `run_due_publishes` catches and audits
+
+### NEW `GET /api/media/audit` endpoint
+Lists last N failure_audit_log entries with `by_code` aggregation for admin triage. Filter by `surface=` or `code=`.
+
+### NEW shared frontend component `StructuredErrorCard.jsx`
+- Renders icon + title + plain-English message + collapsible technical details
+- Action button auto-selected from `retry_action`:
+  - `retry / retry_render / retry_publish` → "Try again" (calls `onRetry`)
+  - `wait_and_retry` → "Try again in 30s"
+  - `add_balance` → deep link to app.emergent.sh/profile
+  - `reconnect_provider / open_provider_connections` → "Open Provider Connections"
+  - `edit_prompt / edit_post` → "Edit and retry" (calls `onEditSource`)
+  - `pick_assets` → "Pick different assets" (calls `onPickAssets`)
+- `parseAxiosError(e)` helper converts network/timeout/HTTP errors into the same shape
+- Supports `compact` mode for inline cards (queue rows, calendar event popovers)
+
+### Frontend surfaces using the shared card
+- `MediaStudio.jsx` AI Image Generator (full card)
+- `MediaStudio.jsx` Video Render queue card (compact)
+- `MediaStudio.jsx` Video Render submit-time errors
+- `SocialExporter.jsx` export errors
+- `PublishQueue.jsx` failed-post cards (compact)
+- `ContentCalendar.jsx` event popovers
+
+### Verification
+- Unit-tested `classify_llm_error` — **8/8** categories correct
+- Force-failure render with non-existent asset → **status=failed code=asset_missing retry_action=pick_assets retryable=true** ✓
+- Audit log endpoint returns categorized failures with `by_code` aggregation ✓
+- `/api/media/health` still reports `healthy=true` ✓
+- Full Phase 8 pytest regression: **11/11 PASS** ✓
+- Backend + frontend lint: 0 blocking ✓
+
+
+Made Media Studio survive container restarts/rebuilds without manual intervention.
+
+### Container/runtime self-healing (NEW `/app/backend/bootstrap.py`)
 - **`ensure_ffmpeg()`** — at backend startup, `shutil.which("ffmpeg")` is checked; if missing, runs `apt-get update && apt-get install -y --no-install-recommends ffmpeg`. Idempotent. ~25s on cold restart. Logs `[bootstrap] ffmpeg installed: True` on success.
 - **`prewarm_rembg()`** — fires off `asyncio.create_task(prewarm_rembg())` at startup. Loads u2net session in a worker thread so the model (~170 MB) is ready before any user clicks "Remove background". First-user latency drops from 30-90s → 5-8s.
 

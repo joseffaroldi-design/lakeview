@@ -7,9 +7,10 @@
  */
 import React, { useState } from "react";
 import axios from "axios";
-import { Share2, Loader2, Check, ImageIcon as Img, AlertTriangle } from "lucide-react";
+import { Share2, Loader2, Check, ImageIcon as Img } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API, Section, EmptyState } from "./shared";
+import { StructuredErrorCard, parseAxiosError } from "./StructuredErrorCard";
 
 const PRESETS = [
   { id: "ig_post_1_1",     label: "Instagram Post",        ratio: "1:1",  size: "1080×1080" },
@@ -29,7 +30,7 @@ export const SocialExporter = ({ assets, getAuthHeader, onExported }) => {
   const [bgColor, setBgColor] = useState("#FFFFFF");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);   // {count, formats}
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);  // structured
 
   const images = (assets || []).filter((a) => a.kind === "image");
   // Effective source: explicit pick, otherwise first available image.
@@ -42,7 +43,7 @@ export const SocialExporter = ({ assets, getAuthHeader, onExported }) => {
   };
 
   const submit = async () => {
-    setBusy(true); setError(""); setDone(null);
+    setBusy(true); setError(null); setDone(null);
     try {
       const r = await axios.post(`${API}/media/export-social`, {
         source_asset_id: effectiveSourceId,
@@ -52,8 +53,7 @@ export const SocialExporter = ({ assets, getAuthHeader, onExported }) => {
       setDone({ count: r.data.count, formats: Array.from(picked) });
       onExported && onExported();
     } catch (e) {
-      const d = e.response && e.response.data && e.response.data.detail;
-      setError(typeof d === "string" ? d : "Export failed");
+      setError(parseAxiosError(e));
     } finally {
       setBusy(false);
     }
@@ -127,8 +127,8 @@ export const SocialExporter = ({ assets, getAuthHeader, onExported }) => {
       </div>
 
       {error ? (
-        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2 mb-3 flex items-start gap-2" data-testid="social-error">
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /><span>{error}</span>
+        <div className="mb-3">
+          <StructuredErrorCard error={error} testId="social-error" onRetry={submit} />
         </div>
       ) : null}
       {done ? (

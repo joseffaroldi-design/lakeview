@@ -330,11 +330,14 @@ async def generate_ai_image(
     await verify_session(authorization, session_token)
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
-        raise HTTPException(status_code=500, detail={
-            "code": "key_missing",
-            "user_message": "AI image generation isn't configured on this server. Ask your admin to set EMERGENT_LLM_KEY.",
-            "technical": "EMERGENT_LLM_KEY env var is empty",
-        })
+        from errors import StructuredError, report_failure
+        err = StructuredError(
+            code="key_missing", status=500, retryable=False,
+            user_message="AI image generation isn't configured on this server. Ask your admin to set EMERGENT_LLM_KEY.",
+            technical="EMERGENT_LLM_KEY env var is empty",
+        )
+        await report_failure(db, surface="ai_image", err=err)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
 
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     import logging
@@ -358,32 +361,32 @@ async def generate_ai_image(
             timeout=85.0,
         )
     except asyncio.TimeoutError:
-        img_log.warning("[ai-image] timeout after 85s — prompt=%r quality=%s count=%s",
-                        full_prompt[:120], body.quality, body.count)
-        raise HTTPException(status_code=504, detail={
-            "code": "timeout",
-            "user_message": "Image generation took too long (over 85 seconds). Try a shorter prompt, lower quality, or fewer images.",
-            "technical": "client.generate_images timed out",
-        })
-    except Exception as e:  # noqa: BLE001
-        classification = _classify_image_error(e)
-        img_log.exception(
-            "[ai-image] generation failed: code=%s prompt=%r quality=%s count=%s",
-            classification["code"], full_prompt[:120], body.quality, body.count,
+        from errors import StructuredError, report_failure
+        err = StructuredError(
+            code="timeout", status=504, retryable=True, retry_action="retry",
+            user_message="Image generation took too long (over 85 seconds). Try a shorter prompt, lower quality, or fewer images.",
+            technical="client.generate_images timed out after 85s",
         )
-        raise HTTPException(status_code=classification["status"], detail={
-            "code": classification["code"],
-            "user_message": classification["user_message"],
-            "technical": str(e)[:400],
-        })
+        await report_failure(db, surface="ai_image", err=err,
+                             prompt=full_prompt[:120], quality=body.quality, count=body.count)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
+    except Exception as e:  # noqa: BLE001
+        from errors import classify_llm_error, report_failure
+        err = classify_llm_error(e, surface="image generation")
+        img_log.exception("[ai-image] generation raised — code=%s", err.code)
+        await report_failure(db, surface="ai_image", err=err,
+                             prompt=full_prompt[:120], quality=body.quality, count=body.count)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
 
     if not image_bytes_list:
-        img_log.error("[ai-image] provider returned 0 images — prompt=%r", full_prompt[:120])
-        raise HTTPException(status_code=502, detail={
-            "code": "provider_empty",
-            "user_message": "The AI provider returned no images. Please try again.",
-            "technical": "empty image_bytes_list from provider",
-        })
+        from errors import StructuredError, report_failure
+        err = StructuredError(
+            code="provider_empty", status=502, retryable=True, retry_action="retry",
+            user_message="The AI provider returned no images. Please try again.",
+            technical="empty image_bytes_list from provider",
+        )
+        await report_failure(db, surface="ai_image", err=err, prompt=full_prompt[:120])
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
 
     saved = []
     for img_bytes in image_bytes_list:
@@ -419,66 +422,11 @@ async def generate_ai_image(
 
 
 def _classify_image_error(exc: Exception) -> Dict[str, Any]:
-    """Map a litellm/openai/network exception to a structured, owner-friendly error.
-
-    Returns: {code, status, user_message}
-    """
-    msg = str(exc).lower()
-
-    # Budget / quota — the most common owner-facing failure
-    if any(k in msg for k in ("insufficient", "budget", "balance", "quota", "billing", "payment required", "402")):
-        return {
-            "code": "budget_exhausted",
-            "status": 402,
-            "user_message": "Your AI image credit balance is empty. Open your Profile → Universal Key → Add Balance to top up, then try again.",
-        }
-
-    # Auth / key invalid
-    if any(k in msg for k in ("unauthorized", "401", "invalid api key", "authentication", "auth")):
-        return {
-            "code": "key_invalid",
-            "status": 401,
-            "user_message": "The AI provider rejected the API key. Ask your admin to verify EMERGENT_LLM_KEY.",
-        }
-
-    # Content moderation / safety
-    if any(k in msg for k in ("content_policy", "safety", "moderation", "rejected", "harmful", "violation")):
-        return {
-            "code": "safety_reject",
-            "status": 422,
-            "user_message": "Your prompt was rejected by the AI safety filter. Try rewording it without anything that could be read as violent, sexual, or political — or remove brand/celebrity names.",
-        }
-
-    # Rate limit
-    if any(k in msg for k in ("rate limit", "ratelimit", "too many requests", "429")):
-        return {
-            "code": "rate_limited",
-            "status": 429,
-            "user_message": "AI provider rate limit hit. Wait 30-60 seconds and try again.",
-        }
-
-    # Prompt validation
-    if any(k in msg for k in ("invalid prompt", "prompt too long", "bad request", "400", "validation")):
-        return {
-            "code": "prompt_invalid",
-            "status": 400,
-            "user_message": "The prompt was rejected as invalid (probably too long or empty). Shorten it and retry.",
-        }
-
-    # Network / timeout
-    if any(k in msg for k in ("timeout", "timed out", "connection", "network", "504", "503", "service unavailable")):
-        return {
-            "code": "provider_unavailable",
-            "status": 503,
-            "user_message": "Couldn't reach the AI provider. Check your internet connection and try again in a minute.",
-        }
-
-    # Unknown — surface the raw message in technical, generic message to owner
-    return {
-        "code": "unknown",
-        "status": 502,
-        "user_message": "Image generation failed for an unexpected reason. Try again, or check the technical details below.",
-    }
+    """Deprecated — kept only for the test fixture in test_phase8_media_studio.py.
+    All production code paths now use errors.classify_llm_error directly."""
+    from errors import classify_llm_error
+    err = classify_llm_error(exc, surface="image generation")
+    return {"code": err.code, "status": err.status, "user_message": err.user_message}
 
 
 # ===================== Video Rendering =====================
@@ -520,7 +468,7 @@ def _render_sync(job: Dict[str, Any], ordered: list, W: int, H: int) -> Path:
                    "-vf", f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},format=yuv420p",
                    "-t", f"{per:.2f}", "-r", "30", "-an", "-c:v", "libx264",
                    str(clip)]
-        subprocess.run(cmd, check=True, timeout=60)
+        subprocess.run(cmd, check=True, timeout=60, capture_output=True)
         clip_paths.append(clip)
 
     concat_file = RENDERS_DIR / f"{job['id']}_list.txt"
@@ -529,7 +477,7 @@ def _render_sync(job: Dict[str, Any], ordered: list, W: int, H: int) -> Path:
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
          "-i", str(concat_file), "-c", "copy", str(out_path)],
-        check=True, timeout=120,
+        check=True, timeout=120, capture_output=True,
     )
 
     if job.get("title"):
@@ -599,20 +547,31 @@ async def _run_render_job(job_id: str):
             {"$set": {"status": "completed", "progress": 1.0, "output_asset_id": new_id,
                       "completed_at": _now(), "updated_at": _now()}},
         )
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        from errors import classify_render_error, report_failure
+        err = await report_failure(db, surface="video_render",
+                                   err=classify_render_error(e),
+                                   job_id=job_id)
         await db.render_jobs.update_one(
             {"id": job_id},
-            {"$set": {"status": "failed",
-                      "error": "ffmpeg binary not installed on the server — please run `apt-get install ffmpeg`",
-                      "updated_at": _now()}},
+            {"$set": {"status": "failed", "error": err.to_payload(), "updated_at": _now()}},
         )
     except subprocess.CalledProcessError as e:
+        from errors import classify_render_error, report_failure
+        stderr = (e.stderr or b"").decode("utf-8", "replace") if isinstance(e.stderr, (bytes, bytearray)) else (e.stderr or "")
+        err = await report_failure(db, surface="video_render",
+                                   err=classify_render_error(returncode=e.returncode, stderr=stderr),
+                                   job_id=job_id, returncode=e.returncode)
         await db.render_jobs.update_one(
-            {"id": job_id}, {"$set": {"status": "failed", "error": f"ffmpeg exit {e.returncode}", "updated_at": _now()}},
+            {"id": job_id}, {"$set": {"status": "failed", "error": err.to_payload(), "updated_at": _now()}},
         )
     except Exception as e:  # noqa: BLE001
+        from errors import classify_render_error, report_failure
+        err = await report_failure(db, surface="video_render",
+                                   err=classify_render_error(e),
+                                   job_id=job_id)
         await db.render_jobs.update_one(
-            {"id": job_id}, {"$set": {"status": "failed", "error": str(e), "updated_at": _now()}},
+            {"id": job_id}, {"$set": {"status": "failed", "error": err.to_payload(), "updated_at": _now()}},
         )
 
 
@@ -624,10 +583,15 @@ async def start_render(
 ):
     await verify_session(authorization, session_token)
     if shutil.which("ffmpeg") is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Video rendering is unavailable: ffmpeg is not installed on the server. Ask your admin to run `apt-get install -y ffmpeg`.",
-        )
+        from errors import StructuredError, report_failure
+        err = await report_failure(db, surface="video_render",
+                                   err=StructuredError(
+                                       code="ffmpeg_missing", status=503, retryable=True,
+                                       retry_action="restart_backend",
+                                       user_message="Video rendering is unavailable: ffmpeg isn't installed on the server. The backend will auto-install it on the next restart. Try again in 30 seconds.",
+                                       technical="shutil.which('ffmpeg') returned None at request time",
+                                   ))
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
     job_id = str(uuid.uuid4())
     job = {
         "id": job_id, "asset_ids": body.asset_ids,
@@ -896,12 +860,23 @@ async def edit_image(
 ):
     """Apply crop/rotate/resize/adjustments/text/logo/background-removal. Saves a NEW asset."""
     await verify_session(authorization, session_token)
+    from errors import StructuredError, report_failure
     src_asset = await db.media_assets.find_one({"id": body.source_asset_id}, {"_id": 0})
     if not src_asset or src_asset.get("kind") != "image":
-        raise HTTPException(status_code=404, detail="Source image not found")
+        err = await report_failure(db, surface="image_edit", err=StructuredError(
+            code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
+            user_message="The image you tried to edit was deleted or isn't an image. Pick a different source from the Asset Library.",
+            technical=f"media_assets({body.source_asset_id}) not found or wrong kind",
+        ), source_asset_id=body.source_asset_id)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
     src_path = STORAGE_DIR / src_asset["storage_path"]
     if not src_path.exists():
-        raise HTTPException(status_code=404, detail="Source file missing on disk")
+        err = await report_failure(db, surface="image_edit", err=StructuredError(
+            code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
+            user_message="The image file is missing on the server. Re-upload it and try again.",
+            technical=f"file not found: {src_path}",
+        ), source_asset_id=body.source_asset_id)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
 
     logo_path: Optional[Path] = None
     if body.logo_overlay:
@@ -915,7 +890,12 @@ async def edit_image(
             png_bytes = await asyncio.to_thread(_remove_background, src_path)
             base = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=f"Background removal failed: {e}")
+            err = await report_failure(db, surface="image_edit", err=StructuredError(
+                code="provider_unavailable", status=502, retryable=True, retry_action="retry",
+                user_message="Background removal failed. The AI model may still be downloading — wait 30 seconds and try again. (First-ever run can take 60s.)",
+                technical=str(e)[:400],
+            ), source_asset_id=body.source_asset_id)
+            raise HTTPException(status_code=err.status, detail=err.to_payload())
         # Fill background color if requested
         if body.bg_color:
             bg = Image.new("RGBA", base.size, _hex_to_rgb(body.bg_color, (255, 255, 255)) + (255,))
@@ -928,7 +908,12 @@ async def edit_image(
     try:
         edited = await asyncio.to_thread(_apply_edits, base, body, logo_path)
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Image edit failed: {e}")
+        err = await report_failure(db, surface="image_edit", err=StructuredError(
+            code="asset_invalid", status=500, retryable=True, retry_action="retry",
+            user_message="The image editor crashed while applying changes. Try simpler adjustments (smaller crop, less text) or use a different source image.",
+            technical=str(e)[:400],
+        ), source_asset_id=body.source_asset_id)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
     finally:
         # Only close the source if _apply_edits returned a different image,
         # otherwise we'd close the image we still need to save.
@@ -1027,21 +1012,45 @@ async def export_social(
 ):
     """Generate sized copies of one image for IG/FB/TikTok/GBP/Flyer."""
     await verify_session(authorization, session_token)
+    from errors import StructuredError, report_failure
     src_asset = await db.media_assets.find_one({"id": body.source_asset_id}, {"_id": 0})
     if not src_asset or src_asset.get("kind") != "image":
-        raise HTTPException(status_code=404, detail="Source image not found")
+        err = await report_failure(db, surface="social_export", err=StructuredError(
+            code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
+            user_message="The source image was deleted or isn't an image. Pick a different one from the Asset Library.",
+            technical=f"media_assets({body.source_asset_id}) not found or wrong kind",
+        ), source_asset_id=body.source_asset_id)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
     src_path = STORAGE_DIR / src_asset["storage_path"]
     if not src_path.exists():
-        raise HTTPException(status_code=404, detail="Source file missing on disk")
+        err = await report_failure(db, surface="social_export", err=StructuredError(
+            code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
+            user_message="The image file is missing on the server. Re-upload it and try again.",
+            technical=f"file not found: {src_path}",
+        ), source_asset_id=body.source_asset_id)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
 
     bg = _hex_to_rgb(body.bg_color, (255, 255, 255))
     unknown = [f for f in body.formats if f not in SOCIAL_FORMATS]
     if unknown:
-        raise HTTPException(status_code=400, detail=f"Unknown format(s): {', '.join(unknown)}")
+        err = await report_failure(db, surface="social_export", err=StructuredError(
+            code="prompt_invalid", status=400, retryable=False,
+            user_message=f"These social format names aren't supported: {', '.join(unknown)}. Use the preset chips in the UI.",
+            technical=f"unknown formats requested: {unknown}",
+        ), formats=body.formats)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
 
     saved: List[Dict[str, Any]] = []
-    base = Image.open(src_path).convert("RGB")
-    base.load()
+    try:
+        base = Image.open(src_path).convert("RGB")
+        base.load()
+    except Exception as e:  # noqa: BLE001
+        err = await report_failure(db, surface="social_export", err=StructuredError(
+            code="asset_invalid", status=422, retryable=False, retry_action="pick_assets",
+            user_message="The source image is corrupted or in an unsupported format. Re-upload it or pick a different one.",
+            technical=str(e)[:300],
+        ), source_asset_id=body.source_asset_id)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
 
     for fmt in body.formats:
         tw, th = SOCIAL_FORMATS[fmt]
@@ -1142,10 +1151,16 @@ async def media_health(authorization: str = Header(None), session_token: str = C
 
 async def cleanup_orphan_render_jobs():
     """Mark queued/processing jobs as failed at startup — they're from a previous worker process."""
+    orphan_err = {
+        "code": "unknown", "status": 500, "retryable": True, "retry_action": "retry_render",
+        "user_message": "This render was interrupted by a server restart. Click Try again to re-queue it.",
+        "technical": "backend restarted with job in queued/processing state",
+        "context": {},
+    }
     r = await db.render_jobs.update_many(
         {"status": {"$in": ["queued", "processing"]}},
         {"$set": {"status": "failed",
-                  "error": "Aborted: backend restarted during render",
+                  "error": orphan_err,
                   "updated_at": _now()}},
     )
     if r.modified_count > 0:
@@ -1153,4 +1168,32 @@ async def cleanup_orphan_render_jobs():
         logging.getLogger("uvicorn.error").info(
             f"[media] Marked {r.modified_count} orphan render job(s) as failed at startup"
         )
+
+
+@router.get("/audit")
+async def list_audit_failures(
+    surface: Optional[str] = None,
+    code: Optional[str] = None,
+    limit: int = 50,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Recent failures across all surfaces — for the admin to spot patterns."""
+    await verify_session(authorization, session_token)
+    q: Dict[str, Any] = {}
+    if surface:
+        q["surface"] = surface
+    if code:
+        q["code"] = code
+    cursor = db.failure_audit_log.find(q, {"_id": 0}).sort("created_at", -1).limit(min(limit, 200))
+    entries = await cursor.to_list(min(limit, 200))
+    # Aggregate by code for quick triage
+    by_code: Dict[str, int] = {}
+    for e in entries:
+        by_code[e.get("code", "unknown")] = by_code.get(e.get("code", "unknown"), 0) + 1
+    return {
+        "entries": entries,
+        "count": len(entries),
+        "by_code": by_code,
+    }
 

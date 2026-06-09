@@ -12,7 +12,7 @@
  * Drag-and-drop reschedules via POST /api/ai-ads/reschedule/{id}.
  * Click an event to open a small detail popover with Cancel / Reschedule.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, X,
@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API, Section } from "./shared";
+import { StructuredErrorCard } from "./StructuredErrorCard";
 
 const STATUS_COLOR = {
   scheduled: "bg-gold text-navy border-gold",
@@ -92,7 +93,9 @@ const EventDetail = (props) => {
           <p className="text-xs">
             Status: <span className="font-mono font-semibold uppercase">{event.status}</span>
           </p>
-          {event.error_message ? (
+          {event.error ? (
+            <StructuredErrorCard error={event.error} testId={`calendar-event-${event.id}-error`} />
+          ) : event.error_message ? (
             <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{event.error_message}</p>
           ) : null}
           {event.published_at ? (
@@ -183,7 +186,9 @@ export const ContentCalendar = (props) => {
     }
   }, [range, getAuthHeader]);
 
-  useEffect(() => { load(); }, [load]);
+  const calendarRefs = useRef({ load });
+  useEffect(() => { calendarRefs.current = { load }; });
+  useEffect(() => { calendarRefs.current.load(); }, [range]);
 
   const eventsByDay = useMemo(() => {
     const map = {};
@@ -248,10 +253,11 @@ export const ContentCalendar = (props) => {
     const last = endOfMonth(cursor);
     const gridStart = startOfWeek(first);
     const cells = [];
-    let cur = new Date(gridStart);
-    while (cur <= last || cur.getDay() !== 1) {
-      const key = ymd(cur);
-      const inMonth = cur.getMonth() === cursor.getMonth();
+    let curDay = new Date(gridStart);
+    while ((curDay <= last || curDay.getDay() !== 1) && cells.length < 42) {
+      const nextCur = curDay;  // hoisted into block so React-Compiler immutability rule passes
+      const key = ymd(nextCur);
+      const inMonth = nextCur.getMonth() === cursor.getMonth();
       const todayCell = ymd(new Date()) === key;
       const dayEvents = eventsByDay[key] || [];
       const chips = [];
@@ -269,12 +275,12 @@ export const ContentCalendar = (props) => {
         <div
           key={key}
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => handleDropOnDay(e, new Date(cur))}
+          onDrop={(e) => handleDropOnDay(e, new Date(nextCur))}
           className={`min-h-[110px] border border-navy/10 p-1 ${inMonth ? "bg-card" : "bg-background"} ${todayCell ? "ring-2 ring-gold" : ""}`}
           data-testid={`calendar-day-${key}`}
         >
           <p className={`text-[10px] font-mono mb-1 ${inMonth ? "text-navy" : "text-navy/30"}`}>
-            {cur.getDate()}
+            {nextCur.getDate()}
           </p>
           <div className="space-y-1">{chips}</div>
           {dayEvents.length > 4 ? (
@@ -282,8 +288,7 @@ export const ContentCalendar = (props) => {
           ) : null}
         </div>
       );
-      cur = addDays(cur, 1);
-      if (cells.length >= 42) break;
+      curDay = addDays(curDay, 1);
     }
 
     return (
