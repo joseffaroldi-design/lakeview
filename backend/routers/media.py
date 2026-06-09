@@ -519,6 +519,11 @@ async def start_render(
     session_token: str = Cookie(None),
 ):
     await verify_session(authorization, session_token)
+    if shutil.which("ffmpeg") is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Video rendering is unavailable: ffmpeg is not installed on the server. Ask your admin to run `apt-get install -y ffmpeg`.",
+        )
     job_id = str(uuid.uuid4())
     job = {
         "id": job_id, "asset_ids": body.asset_ids,
@@ -977,3 +982,36 @@ async def list_social_formats(authorization: str = Header(None), session_token: 
             for k, (w, h) in SOCIAL_FORMATS.items()
         ]
     }
+
+
+# ===================== Health & Maintenance =====================
+
+@router.get("/health")
+async def media_health(authorization: str = Header(None), session_token: str = Cookie(None)):
+    """Operational health probe — exposes ffmpeg + storage availability."""
+    await verify_session(authorization, session_token)
+    ffmpeg_path = shutil.which("ffmpeg")
+    storage_used = sum(p.stat().st_size for p in STORAGE_DIR.glob("*") if p.is_file())
+    return {
+        "ffmpeg_available": ffmpeg_path is not None,
+        "ffmpeg_path": ffmpeg_path,
+        "storage_dir": str(STORAGE_DIR),
+        "storage_bytes": storage_used,
+        "storage_mb": round(storage_used / 1024 / 1024, 1),
+    }
+
+
+async def cleanup_orphan_render_jobs():
+    """Mark queued/processing jobs as failed at startup — they're from a previous worker process."""
+    r = await db.render_jobs.update_many(
+        {"status": {"$in": ["queued", "processing"]}},
+        {"$set": {"status": "failed",
+                  "error": "Aborted: backend restarted during render",
+                  "updated_at": _now()}},
+    )
+    if r.modified_count > 0:
+        import logging
+        logging.getLogger("uvicorn.error").info(
+            f"[media] Marked {r.modified_count} orphan render job(s) as failed at startup"
+        )
+

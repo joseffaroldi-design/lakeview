@@ -116,6 +116,13 @@ async def on_startup():
     except Exception:  # noqa: BLE001
         pass
 
+    # ---- 7. Clean up orphan media render jobs left behind by a previous worker
+    try:
+        from routers.media import cleanup_orphan_render_jobs
+        await cleanup_orphan_render_jobs()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Orphan render-job cleanup skipped: %s", e)
+
     global _scheduler_task
     _scheduler_task = asyncio.create_task(_scheduler_loop())
     logger.info("Publishing scheduler started (interval=%ss)", SCHEDULER_INTERVAL_SECONDS)

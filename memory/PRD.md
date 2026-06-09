@@ -251,3 +251,49 @@ Maintenance-only pass — no new features, no behavior change beyond bug fixes:
 
 ## Future
 - SendGrid + Twilio live wiring once keys provided
+
+
+---
+
+## AI Marketing Studio — Phase 8 (Media Studio) — COMPLETED Feb 2026
+
+Comprehensive media-management module inside the AI Ads tab. Six sub-sections:
+
+1. **Uploads** — drag & drop JPG/PNG/WEBP/MP4/MOV/WEBM with folder organization.
+2. **AI Images** — generate restaurant marketing visuals via OpenAI gpt-image-1 (Emergent LLM Key).
+3. **Image Editor** (NEW) — non-destructive edit modal with 5 tabs:
+   - Adjust: brightness / contrast / saturation / sharpness sliders + rotate 0/90/180/270 + horizontal flip
+   - Crop: %-based with quick presets (Full, Center 80%, Wide 16:9) + optional output resize
+   - Text Overlay: positioned text with color + optional background box + size + alignment
+   - Logo Overlay: pick logo from library, position/size/opacity
+   - Background Removal: rembg (u2net) AI — first call downloads model (~170 MB / 30-90 s); optional replacement BG color
+4. **Social Exports** (NEW) — bulk-resize one image to 8 platform presets in one click:
+   - Instagram Post (1:1) · Portrait (4:5) · Reel/Story (9:16)
+   - Facebook Post (1200×630) · Story (9:16)
+   - TikTok Vertical (9:16) · Google Business (4:3) · Flyer 8.5×11" @ 300 DPI
+   - Cover or Contain fit mode with custom pad color
+5. **Video Studio** — FFmpeg-rendered slideshows (15/30/60s, 1:1 / 4:5 / 9:16 / 16:9) with title + CTA slide + optional logo. Background worker with poll-based progress. Error messages now surfaced clearly in queue cards.
+6. **Asset Library** — search/filter/favorite/edit/download/delete with source-type badges (AI / Edited / Rendered / Social).
+
+### New endpoints (POST/GET under /api/media)
+- `POST /edit` — image editor pipeline (PIL + rembg)
+- `POST /export-social` — multi-format bulk export
+- `GET /social-formats` — preset metadata
+- `GET /health` — ffmpeg + storage probe
+
+### Operational guardrails added
+- Startup logger warns if `shutil.which("ffmpeg")` is None
+- `POST /video/render` returns 503 (with actionable message) instead of queueing a doomed job when ffmpeg is missing
+- Orphan render jobs (queued/processing without a worker) are marked failed at server startup
+- FileNotFoundError on the render path stores a clear ops-friendly message
+- PIL source images wrapped in try/finally to avoid file-descriptor leaks
+
+### Tech additions
+- `ffmpeg` system package (apt)
+- `rembg==2.0.76` + `onnxruntime==1.26.0` for background removal
+
+## P1 Backlog (next)
+- Split `/app/backend/routers/media.py` (~995 lines) into `media/{upload,edit,export,ai,render,health}.py`
+- Drag-handle crop overlay (currently slider-based)
+- Background-removal model preload at first server startup (avoid first-user latency)
+- Container image rebuild with ffmpeg + rembg baked in (currently apt-installed at runtime)
