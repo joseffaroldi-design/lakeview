@@ -48,6 +48,7 @@ export const AnalyticsDashboard = (props) => {
   const { getAuthHeader } = props;
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -63,6 +64,10 @@ export const AnalyticsDashboard = (props) => {
 
   useEffect(() => {
     load();
+    // Defer chart mount by one paint so ResponsiveContainer measures a real
+    // parent width instead of -1 (silences recharts warnings on first render).
+    const t = setTimeout(() => setMounted(true), 60);
+    return () => clearTimeout(t);
   }, [load]);
 
   if (busy && !data) {
@@ -119,8 +124,10 @@ export const AnalyticsDashboard = (props) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Section title="Generation Trend · Last 30 Days" icon={TrendingUp} testId="ai-analytics-trend">
-            {trend.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">No generations in the last 30 days.</p>
+            {trend.length === 0 || !mounted ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                {!mounted ? "Loading chart…" : "No generations in the last 30 days."}
+              </p>
             ) : (
               <div className="h-60 min-h-[240px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -149,8 +156,10 @@ export const AnalyticsDashboard = (props) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Section title="Platform Usage" icon={BarChart3} testId="ai-analytics-platforms">
-          {platformUsage.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">No platform data yet.</p>
+          {platformUsage.length === 0 || !mounted ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              {!mounted ? "Loading chart…" : "No platform data yet."}
+            </p>
           ) : (
             <div className="h-60 min-h-[240px] w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -166,8 +175,10 @@ export const AnalyticsDashboard = (props) => {
           )}
         </Section>
         <Section title="Campaign Type Breakdown" icon={PieIcon} testId="ai-analytics-types">
-          {typePieData.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">No campaign type data yet.</p>
+          {typePieData.length === 0 || !mounted ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              {!mounted ? "Loading chart…" : "No campaign type data yet."}
+            </p>
           ) : (
             <div className="h-60 min-h-[240px] w-full">
               <ResponsiveContainer width="100%" height="100%">
