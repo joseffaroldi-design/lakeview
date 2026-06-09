@@ -45,6 +45,7 @@ const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete, onDuplicate })
           onClick={() => onToggleFavorite(asset)}
           className={`border-navy/20 ${fav ? "text-gold" : "text-navy"}`}
           title="Favorite"
+          data-testid={`ai-asset-${asset.id}-favorite`}
         >
           <Star className="w-3.5 h-3.5" fill={fav ? "currentColor" : "none"} />
         </Button>
@@ -54,6 +55,7 @@ const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete, onDuplicate })
           onClick={() => onArchive(asset)}
           className="border-navy/20"
           title={archived ? "Restore" : "Archive"}
+          data-testid={`ai-asset-${asset.id}-archive`}
         >
           <Archive className="w-3.5 h-3.5" />
         </Button>
@@ -73,6 +75,7 @@ const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete, onDuplicate })
           onClick={() => onDelete(asset.id)}
           className="border-destructive text-destructive hover:bg-destructive hover:text-white"
           title="Delete"
+          data-testid={`ai-asset-${asset.id}-delete`}
         >
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
