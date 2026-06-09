@@ -89,7 +89,8 @@ async def _ensure_thumb(asset: Dict[str, Any]) -> Path:
                 img = img.convert("RGB")
                 w, h = img.size
                 if w > 360:
-                    h = int(h * 360 / w); w = 360
+                    h = int(h * 360 / w)
+                    w = 360
                 img.thumbnail((w, h), Image.LANCZOS)
                 img.save(thumb_path, "JPEG", quality=82, optimize=True)
         else:  # video — extract frame at 1s
@@ -118,9 +119,11 @@ async def upload_media(
     await verify_session(authorization, session_token)
     mime = (file.content_type or "").lower()
     if mime in ALLOWED_IMAGE:
-        kind = "image"; max_bytes = MAX_IMAGE_BYTES
+        kind = "image"
+        max_bytes = MAX_IMAGE_BYTES
     elif mime in ALLOWED_VIDEO:
-        kind = "video"; max_bytes = MAX_VIDEO_BYTES
+        kind = "video"
+        max_bytes = MAX_VIDEO_BYTES
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported content_type '{mime}'. Allowed: JPG/PNG/WEBP/MP4/MOV/WEBM.")
 
@@ -160,7 +163,8 @@ async def upload_media(
             )
             parts = r.stdout.strip().split(",")
             if len(parts) >= 2:
-                width = int(parts[0]); height = int(parts[1])
+                width = int(parts[0])
+                height = int(parts[1])
             if len(parts) >= 3 and parts[2] not in ("N/A", ""):
                 duration_seconds = float(parts[2])
         except Exception:  # noqa: BLE001
@@ -326,9 +330,15 @@ async def generate_ai_image(
     await verify_session(authorization, session_token)
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
-        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured.")
+        raise HTTPException(status_code=500, detail={
+            "code": "key_missing",
+            "user_message": "AI image generation isn't configured on this server. Ask your admin to set EMERGENT_LLM_KEY.",
+            "technical": "EMERGENT_LLM_KEY env var is empty",
+        })
 
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    import logging
+    img_log = logging.getLogger("uvicorn.error")
 
     full_prompt = body.prompt
     if body.style:
@@ -338,12 +348,42 @@ async def generate_ai_image(
 
     client = OpenAIImageGeneration(api_key=key)
     try:
-        image_bytes_list = await client.generate_images(
-            prompt=full_prompt, model="gpt-image-1",
-            number_of_images=body.count, quality=body.quality,
+        # 85s outer timeout matches our 90s frontend axios timeout. The underlying
+        # litellm HTTP call has its own connect/read timeouts as a second safety net.
+        image_bytes_list = await asyncio.wait_for(
+            client.generate_images(
+                prompt=full_prompt, model="gpt-image-1",
+                number_of_images=body.count, quality=body.quality,
+            ),
+            timeout=85.0,
         )
+    except asyncio.TimeoutError:
+        img_log.warning("[ai-image] timeout after 85s — prompt=%r quality=%s count=%s",
+                        full_prompt[:120], body.quality, body.count)
+        raise HTTPException(status_code=504, detail={
+            "code": "timeout",
+            "user_message": "Image generation took too long (over 85 seconds). Try a shorter prompt, lower quality, or fewer images.",
+            "technical": "client.generate_images timed out",
+        })
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"AI image generation failed: {e}")
+        classification = _classify_image_error(e)
+        img_log.exception(
+            "[ai-image] generation failed: code=%s prompt=%r quality=%s count=%s",
+            classification["code"], full_prompt[:120], body.quality, body.count,
+        )
+        raise HTTPException(status_code=classification["status"], detail={
+            "code": classification["code"],
+            "user_message": classification["user_message"],
+            "technical": str(e)[:400],
+        })
+
+    if not image_bytes_list:
+        img_log.error("[ai-image] provider returned 0 images — prompt=%r", full_prompt[:120])
+        raise HTTPException(status_code=502, detail={
+            "code": "provider_empty",
+            "user_message": "The AI provider returned no images. Please try again.",
+            "technical": "empty image_bytes_list from provider",
+        })
 
     saved = []
     for img_bytes in image_bytes_list:
@@ -374,7 +414,71 @@ async def generate_ai_image(
         }
         await db.media_assets.insert_one(doc)
         saved.append({k: v for k, v in doc.items() if k != "_id"})
+    img_log.info("[ai-image] generated %s image(s) for prompt=%r", len(saved), full_prompt[:120])
     return {"assets": saved, "count": len(saved)}
+
+
+def _classify_image_error(exc: Exception) -> Dict[str, Any]:
+    """Map a litellm/openai/network exception to a structured, owner-friendly error.
+
+    Returns: {code, status, user_message}
+    """
+    msg = str(exc).lower()
+
+    # Budget / quota — the most common owner-facing failure
+    if any(k in msg for k in ("insufficient", "budget", "balance", "quota", "billing", "payment required", "402")):
+        return {
+            "code": "budget_exhausted",
+            "status": 402,
+            "user_message": "Your AI image credit balance is empty. Open your Profile → Universal Key → Add Balance to top up, then try again.",
+        }
+
+    # Auth / key invalid
+    if any(k in msg for k in ("unauthorized", "401", "invalid api key", "authentication", "auth")):
+        return {
+            "code": "key_invalid",
+            "status": 401,
+            "user_message": "The AI provider rejected the API key. Ask your admin to verify EMERGENT_LLM_KEY.",
+        }
+
+    # Content moderation / safety
+    if any(k in msg for k in ("content_policy", "safety", "moderation", "rejected", "harmful", "violation")):
+        return {
+            "code": "safety_reject",
+            "status": 422,
+            "user_message": "Your prompt was rejected by the AI safety filter. Try rewording it without anything that could be read as violent, sexual, or political — or remove brand/celebrity names.",
+        }
+
+    # Rate limit
+    if any(k in msg for k in ("rate limit", "ratelimit", "too many requests", "429")):
+        return {
+            "code": "rate_limited",
+            "status": 429,
+            "user_message": "AI provider rate limit hit. Wait 30-60 seconds and try again.",
+        }
+
+    # Prompt validation
+    if any(k in msg for k in ("invalid prompt", "prompt too long", "bad request", "400", "validation")):
+        return {
+            "code": "prompt_invalid",
+            "status": 400,
+            "user_message": "The prompt was rejected as invalid (probably too long or empty). Shorten it and retry.",
+        }
+
+    # Network / timeout
+    if any(k in msg for k in ("timeout", "timed out", "connection", "network", "504", "503", "service unavailable")):
+        return {
+            "code": "provider_unavailable",
+            "status": 503,
+            "user_message": "Couldn't reach the AI provider. Check your internet connection and try again in a minute.",
+        }
+
+    # Unknown — surface the raw message in technical, generic message to owner
+    return {
+        "code": "unknown",
+        "status": 502,
+        "user_message": "Image generation failed for an unexpected reason. Try again, or check the technical details below.",
+    }
 
 
 # ===================== Video Rendering =====================
@@ -495,7 +599,7 @@ async def _run_render_job(job_id: str):
             {"$set": {"status": "completed", "progress": 1.0, "output_asset_id": new_id,
                       "completed_at": _now(), "updated_at": _now()}},
         )
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         await db.render_jobs.update_one(
             {"id": job_id},
             {"$set": {"status": "failed",
