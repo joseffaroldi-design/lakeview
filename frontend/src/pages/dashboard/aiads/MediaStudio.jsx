@@ -11,10 +11,13 @@ import axios from "axios";
 import {
   Upload, Image as ImageIcon, Sparkles, Video, Library as LibraryIcon,
   Trash2, Star, Loader2, Folder, Film, Search, RefreshCcw, Play, Download,
+  Sliders, Share2, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API, Section, EmptyState } from "./shared";
+import { ImageEditor } from "./ImageEditor";
+import { SocialExporter } from "./SocialExporter";
 
 const FOLDERS = ["Menu Items", "Promotions", "Catering", "Events", "Logos", "Social Media", "Custom"];
 const ASPECTS = ["1:1", "4:5", "9:16", "16:9"];
@@ -178,7 +181,7 @@ const AiImageGenerator = (props) => {
 
 // --------------- Asset Card ---------------
 const AssetCard = (props) => {
-  const { asset, onDelete, onFavorite } = props;
+  const { asset, onDelete, onFavorite, onEdit } = props;
   const isVideo = asset.kind === "video";
   return (
     <div className="rounded-lg border-2 border-navy/10 bg-card overflow-hidden group" data-testid={`media-asset-${asset.id}`}>
@@ -191,12 +194,19 @@ const AssetCard = (props) => {
         ) : null}
         {asset.source === "ai_image" ? <span className="absolute top-1 left-1 text-[9px] bg-gold/90 text-navy px-1.5 py-0.5 rounded font-semibold uppercase">AI</span> : null}
         {asset.source === "video_render" ? <span className="absolute top-1 left-1 text-[9px] bg-forest/90 text-cream px-1.5 py-0.5 rounded font-semibold uppercase">Rendered</span> : null}
+        {asset.source === "image_edit" ? <span className="absolute top-1 left-1 text-[9px] bg-navy/90 text-cream px-1.5 py-0.5 rounded font-semibold uppercase">Edited</span> : null}
+        {asset.source === "social_export" ? <span className="absolute top-1 left-1 text-[9px] bg-cream/90 text-navy px-1.5 py-0.5 rounded font-semibold uppercase border border-navy/20">Social</span> : null}
       </div>
       <div className="p-2 space-y-1">
         <p className="text-[11px] font-semibold text-navy truncate" title={asset.filename}>{asset.filename}</p>
-        <p className="text-[9px] text-muted-foreground">{asset.folder} · {(asset.size_bytes / 1024).toFixed(0)} KB{asset.duration_seconds ? ` · ${asset.duration_seconds}s` : ""}</p>
+        <p className="text-[9px] text-muted-foreground">{asset.folder} · {(asset.size_bytes / 1024).toFixed(0)} KB{asset.duration_seconds ? ` · ${asset.duration_seconds}s` : ""}{asset.width ? ` · ${asset.width}×${asset.height}` : ""}</p>
         <div className="flex gap-1">
           <a href={`${API}/media/file/${asset.id}`} target="_blank" rel="noopener noreferrer" className="p-1 text-navy hover:text-gold" title="Download" data-testid={`media-${asset.id}-download`}><Download className="w-3 h-3" /></a>
+          {!isVideo && onEdit ? (
+            <button onClick={() => onEdit(asset)} className="p-1 text-navy hover:text-gold" title="Edit" data-testid={`media-${asset.id}-edit`}>
+              <Sliders className="w-3 h-3" />
+            </button>
+          ) : null}
           <button onClick={() => onFavorite(asset)} className={`p-1 ${asset.is_favorite ? "text-gold" : "text-navy/60 hover:text-gold"}`} title="Favorite" data-testid={`media-${asset.id}-fav`}>
             <Star className="w-3 h-3" fill={asset.is_favorite ? "currentColor" : "none"} />
           </button>
@@ -252,23 +262,43 @@ const VideoRenderWizard = (props) => {
   const jobRows = [];
   for (let i = 0; i < jobs.length; i += 1) {
     const j = jobs[i];
+    const isFailed = j.status === "failed";
+    const isDone = j.status === "completed";
     jobRows.push(
-      <div key={j.id} className="flex items-center gap-2 p-2 bg-background border border-navy/10 rounded-sm text-xs" data-testid={`render-job-${j.id}`}>
-        <Film className="w-3.5 h-3.5 text-gold" />
-        <span className="font-mono text-[10px]">{j.id.slice(0, 8)}</span>
-        <span className="text-navy">{j.template} · {j.aspect} · {j.duration_seconds}s</span>
-        <span className="ml-auto text-[10px] uppercase tracking-wider font-semibold">
-          {j.status === "completed" ? <span className="text-forest">✓ Done</span>
-            : j.status === "failed" ? <span className="text-red-700">✗ {j.error?.slice(0, 30)}</span>
-            : <span className="text-navy">{j.status} {Math.round((j.progress || 0) * 100)}%</span>}
-        </span>
+      <div key={j.id}
+        className={`flex flex-col gap-1 p-2 border rounded-sm text-xs ${isFailed ? "bg-red-50 border-red-300" : isDone ? "bg-forest/5 border-forest/30" : "bg-background border-navy/10"}`}
+        data-testid={`render-job-${j.id}`}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Film className="w-3.5 h-3.5 text-gold flex-shrink-0" />
+          <span className="font-mono text-[10px] text-muted-foreground">{j.id.slice(0, 8)}</span>
+          <span className="text-navy text-[11px]">{j.template} · {j.aspect} · {j.duration_seconds}s</span>
+          <span className="ml-auto text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1">
+            {isDone ? <span className="text-forest">✓ Done</span>
+              : isFailed ? <span className="text-red-700 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Failed</span>
+              : <span className="text-navy flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> {j.status} {Math.round((j.progress || 0) * 100)}%</span>}
+          </span>
+        </div>
+        {!isDone && !isFailed ? (
+          <div className="h-1.5 w-full bg-navy/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gold transition-all" style={{ width: `${Math.round((j.progress || 0) * 100)}%` }} />
+          </div>
+        ) : null}
+        {isFailed && j.error ? (
+          <p className="text-[11px] text-red-700 bg-red-100 rounded p-1.5 font-mono break-all" data-testid={`render-job-${j.id}-error`}>{j.error}</p>
+        ) : null}
+        {isDone && j.output_asset_id ? (
+          <a href={`${API}/media/file/${j.output_asset_id}`} target="_blank" rel="noopener noreferrer"
+            className="text-[11px] text-gold hover:underline inline-flex items-center gap-1" data-testid={`render-job-${j.id}-link`}>
+            <Download className="w-3 h-3" /> View / Download render
+          </a>
+        ) : null}
       </div>
     );
   }
 
   return (
     <Section title="Video Studio · Render from Media" icon={Video} testId="video-studio">
-      <p className="text-xs text-muted-foreground mb-3">Pick 2-12 images or video clips, set duration + aspect, optionally add a title + CTA, and we'll render an MP4 you can publish.</p>
+      <p className="text-xs text-muted-foreground mb-3">Pick 2-12 images or video clips, set duration + aspect, optionally add a title + CTA, and we&apos;ll render an MP4 you can publish.</p>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <div>
           <label className="block text-xs text-muted-foreground mb-1">Duration</label>
@@ -323,6 +353,7 @@ export const MediaStudio = (props) => {
   const [assets, setAssets] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [stats, setStats] = useState({});
+  const [editorAsset, setEditorAsset] = useState(null);
 
   const loadAssets = useCallback(async () => {
     try {
@@ -349,19 +380,22 @@ export const MediaStudio = (props) => {
     } catch (e) { /* noop */ }
   }, [getAuthHeader]);
 
-  useEffect(() => { loadAssets(); loadStats(); }, [loadAssets, loadStats]);
+  // Combined initial load + 4s polling for active render jobs / video tab
+  const refs = useRef({ jobs, section, loadJobs, loadAssets, loadStats });
+  useEffect(() => { refs.current = { jobs, section, loadJobs, loadAssets, loadStats }; });
   useEffect(() => {
-    loadJobs();
+    refs.current.loadAssets();
+    refs.current.loadStats();
+    refs.current.loadJobs();
     const t = setInterval(() => {
-      const hasActive = jobs.some((j) => j.status === "queued" || j.status === "processing");
-      if (hasActive || section === "video") {
-        loadJobs();
-        loadAssets();
-        loadStats();
+      const r = refs.current;
+      const hasActive = r.jobs.some((j) => j.status === "queued" || j.status === "processing");
+      if (hasActive || r.section === "video") {
+        r.loadJobs(); r.loadAssets(); r.loadStats();
       }
     }, 4000);
     return () => clearInterval(t);
-  }, [loadJobs, loadAssets, loadStats, jobs, section]);
+  }, []);
 
   const onFavorite = async (a) => {
     await axios.patch(`${API}/media/assets/${a.id}`, { is_favorite: !a.is_favorite }, { headers: getAuthHeader() });
@@ -375,13 +409,15 @@ export const MediaStudio = (props) => {
 
   const cards = [];
   for (let i = 0; i < assets.length; i += 1) {
-    cards.push(<AssetCard key={assets[i].id} asset={assets[i]} onDelete={onDelete} onFavorite={onFavorite} />);
+    cards.push(<AssetCard key={assets[i].id} asset={assets[i]} onDelete={onDelete} onFavorite={onFavorite} onEdit={setEditorAsset} />);
   }
 
   const sectionBtns = [];
   const SECTIONS = [
     { id: "uploads", label: "Uploads", icon: Upload },
     { id: "ai", label: "AI Images", icon: Sparkles },
+    { id: "editor", label: "Editor", icon: Sliders },
+    { id: "exports", label: "Social Exports", icon: Share2 },
     { id: "video", label: "Video Studio", icon: Video },
     { id: "library", label: "Asset Library", icon: LibraryIcon },
   ];
@@ -408,6 +444,28 @@ export const MediaStudio = (props) => {
 
       {section === "uploads" && <UploadDropzone onUpload={loadAssets} folder={folder} setFolder={setFolder} getAuthHeader={getAuthHeader} />}
       {section === "ai" && <AiImageGenerator getAuthHeader={getAuthHeader} onGenerated={() => { loadAssets(); loadStats(); }} />}
+      {section === "editor" && (
+        assets.filter((a) => a.kind === "image").length === 0
+          ? <EmptyState icon={Sliders} title="No images yet" body="Upload or generate an image first, then click the editor icon on any thumbnail to refine it." testId="editor-empty" />
+          : (
+            <Section title="Image Editor" icon={Sliders} testId="editor-launcher">
+              <p className="text-xs text-muted-foreground mb-3">Pick an image from your library to crop, resize, adjust brightness/contrast, add text or logo overlays, or remove the background.</p>
+              <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
+                {assets.filter((a) => a.kind === "image").slice(0, 32).map((a) => (
+                  <button key={a.id} type="button" onClick={() => setEditorAsset(a)}
+                    className="relative rounded border-2 border-navy/10 hover:border-gold overflow-hidden aspect-square group"
+                    data-testid={`editor-source-${a.id}`}>
+                    <img src={`${API}/media/thumb/${a.id}`} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    <div className="absolute inset-0 bg-navy/0 group-hover:bg-navy/40 transition-colors flex items-center justify-center">
+                      <Sliders className="w-5 h-5 text-cream opacity-0 group-hover:opacity-100" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Section>
+          )
+      )}
+      {section === "exports" && <SocialExporter assets={assets} getAuthHeader={getAuthHeader} onExported={() => { loadAssets(); loadStats(); }} />}
       {section === "video" && <VideoRenderWizard getAuthHeader={getAuthHeader} assets={assets} onStarted={() => { loadJobs(); loadStats(); }} jobs={jobs} />}
 
       {(section === "library" || section === "uploads" || section === "ai" || section === "video") ? (
@@ -428,6 +486,11 @@ export const MediaStudio = (props) => {
             : <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">{cards}</div>}
         </Section>
       ) : null}
+
+      <ImageEditor key={editorAsset ? editorAsset.id : "closed"} open={!!editorAsset} source={editorAsset} libraryAssets={assets}
+        getAuthHeader={getAuthHeader}
+        onClose={() => setEditorAsset(null)}
+        onSaved={() => { loadAssets(); loadStats(); }} />
     </div>
   );
 };

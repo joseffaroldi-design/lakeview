@@ -1,0 +1,40 @@
+{
+  "summary": "Phase 8 Media Studio testing. Backend: 10/11 pytest pass (91%). All 3 new endpoints — POST /api/media/edit (brightness/contrast/text + crop/rotate/flip + remove_background), POST /api/media/export-social (6 formats × cover/contain with correct dimensions 1080x1080, 1080x1920, 1200x630, 1200x900, 2550x3300), GET /api/media/social-formats (8 presets) — work end-to-end. /media/stats and /media/video/jobs sorting confirmed. The ONE failure is critical and infrastructural: POST /api/media/video/render queues correctly but the background worker dies with [Errno 2] No such file or directory: 'ffmpeg'. `which ffmpeg` returns nothing and `dpkg -l ffmpeg` shows no package — ffmpeg is NOT installed in this container. The main agent's claim 'I ran a successful render via curl' does NOT hold in this environment. The stats banner UI shows '2 rendering...' permanently because 2 jobs are stuck queued/failed. Frontend: login → AI Ads → Media Studio renders all 6 sub-tabs (Uploads/AI Images/Editor/Social Exports/Video Studio/Asset Library) with stats banner. ImageEditor modal opens from any Asset Library card edit button, shows 5 tabs (Adjust/Crop/Text/Logo/BG), 4 sliders (Brightness/Contrast/Saturation/Sharpness), 4 rotate buttons + Flip, Save-as-new + Reset, filename in title. SOCIAL/EDITED badges appear on cards. SocialExporter and VideoStudio panels render correctly (Duration/Aspect/Title/CTA/media picker). No console errors observed during navigation. AI Ads regression: all sub-tabs click without error.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/media/video/render", "issue": "ffmpeg binary is NOT installed in the runtime container. `which ffmpeg` returns nothing, `dpkg -l ffmpeg` shows no package. Render jobs queue successfully but the async worker raises FileNotFoundError: 'ffmpeg' inside _render_sync(), so every render fails. The job document is correctly updated with status='failed' and error='[Errno 2] No such file or directory: \\'ffmpeg\\'', so the API contract holds — but the actual feature cannot work until ffmpeg is installed. Also affects video thumbnail extraction in /api/media/thumb/{asset_id} for video assets. Fix: `apt-get install -y ffmpeg` in the container image (or supervisor postinstall).", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Video Studio render", "issue": "Because the backend can't run ffmpeg (see backend CRITICAL), any video the user starts will be marked failed. The queue UI does display the failure (per main agent's iter17 work), but the user can never produce a video. End-to-end flow blocked until ffmpeg is installed.", "affected_selectors": ["[data-testid=\"media-sub-video\"]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase8_media_studio.py",
+    "/app/test_reports/pytest/pytest_phase8_iter17.xml"
+  ],
+  "action_items": [
+    "INSTALL ffmpeg in the container — `apt-get update && apt-get install -y ffmpeg`. Without it, /api/media/video/render and video thumbnail generation are non-functional. This is the only thing blocking 100% Phase 8 success.",
+    "Optionally clean up the 2 stuck 'rendering...' jobs in the render_jobs collection (or just leave; they're marked failed once worker errors)."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/routers/media.py is now ~957 lines — exceeds the 700-line guideline. Consider splitting into media/{upload,edit,export,ai,render}.py modules sharing a common dependencies file. The edit + export-social blocks are good candidates to extract.",
+    "_render_sync raises subprocess.CalledProcessError on ffmpeg failure, which the outer except catches and stores `ffmpeg exit {returncode}` — but FileNotFoundError (missing ffmpeg binary) falls through to the generic Exception handler and stores the OS error string. A clearer message like 'ffmpeg binary not installed on the server' would help operators diagnose faster.",
+    "edit_image saves the source PIL image without explicit close; under load the file descriptors could leak. Wrap base = Image.open(...) in a context manager or call base.close() in a finally block.",
+    "SOCIAL_FORMATS has 8 presets, but the IG portrait 4:5 (1080x1350) and FB story (1080x1920) presets are listed in /social-formats but not in the test's required 6 — that's fine, but the docstring in media.py header doesn't mention /edit, /export-social, or /social-formats. Update docstring (lines 4–17) to include the 3 new endpoints."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase8_media_studio.py (NEW — 11 pytest tests, regression suite for Phase 8)"
+  ],
+  "success_rate": {"backend": "91% (10/11 pytest — only failure is missing ffmpeg binary)", "frontend": "100% of UI rendering verified; video end-to-end blocked downstream by ffmpeg"},
+  "test_credentials": {"admin_password": "Lakeview872", "login_button_label": "Access Dashboard"},
+  "seed_data_creation": "Test created 4 uploads (TEST_phase8.jpg + 3× TEST_p8_seq_*.jpg) plus 3 edited variants plus 7 social-export variants (6 cover + 1 contain) under folder 'Custom'/'Social Media'. No production data touched. Can be deleted via filename prefix TEST_.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 8 — image editor (/api/media/edit), social exports (/api/media/export-social), and social-formats listing — all VERIFIED working end-to-end via /app/backend/tests/test_phase8_media_studio.py. The ONLY remaining blocker is the absent ffmpeg binary; once installed, re-run TestVideoRender::test_video_render_lifecycle to confirm. Frontend Media Studio (MediaStudio.jsx + ImageEditor.jsx + SocialExporter.jsx) renders all 6 sub-tabs without console errors; the ImageEditor modal is reachable from Asset Library edit buttons (data-testid='media-{id}-edit'). Editor section's image-thumbnail click also opens the modal — verified visually. The brightness/contrast sliders are present (4 of them) with React-controlled state — DOM-only value injections via Playwright won't update React state, so any retest should use mouse-drag or keyboard ArrowRight on the slider to trigger React onChange.",
+  "rca of the issue": "Video render failure RCA: media.py calls `subprocess.run(['ffmpeg', ...], check=True)` inside _render_sync. The container does not have ffmpeg installed (apt-get install missing). Python raises FileNotFoundError(errno 2) which is caught by the generic Exception handler at line 491 and stored as job.error. No code-level fix needed — only infrastructure. Reproduction: any POST /api/media/video/render → poll /api/media/video/jobs/{id} → status becomes 'failed' within ~5s with error containing 'No such file or directory: ffmpeg'. Mitigation: install ffmpeg system-wide; consider adding a startup health check that logs a clear warning if `shutil.which('ffmpeg')` is None at module import."
+}
