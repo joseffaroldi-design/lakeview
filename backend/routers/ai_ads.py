@@ -23,7 +23,8 @@ Endpoints:
   PUT  /api/ai-ads/settings              — update settings doc bag
 """
 import uuid
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Any, Dict
 
 from fastapi import APIRouter, HTTPException, Header, Cookie, Request, Query
@@ -47,6 +48,7 @@ from ai_engine.templates import (
 )
 from ai_engine.generators import run_generator, GENERATORS
 from ai_engine.providers import list_providers, get_setting, set_setting
+from ai_engine.plugins import list_plugins, get_plugin
 
 router = APIRouter(prefix="/ai-ads")
 
@@ -81,7 +83,7 @@ class CampaignSave(BaseModel):
     industry: Optional[str] = "restaurant"
     context: Optional[str] = None
     output: Dict[str, Any]
-    status: Optional[constr(pattern=r"^(draft|active|archived)$")] = "draft"
+    status: Optional[constr(pattern=r"^(draft|scheduled|active|archived)$")] = "draft"
     is_favorite: Optional[bool] = False
 
 
@@ -320,14 +322,14 @@ class AssetSave(BaseModel):
     payload: Dict[str, Any]
     tags: Optional[List[str]] = []
     is_favorite: Optional[bool] = False
-    status: Optional[constr(pattern=r"^(draft|active|archived)$")] = "active"
+    status: Optional[constr(pattern=r"^(draft|scheduled|active|archived)$")] = "active"
 
 
 class AssetPatch(BaseModel):
     title: Optional[str] = None
     tags: Optional[List[str]] = None
     is_favorite: Optional[bool] = None
-    status: Optional[constr(pattern=r"^(draft|active|archived)$")] = None
+    status: Optional[constr(pattern=r"^(draft|scheduled|active|archived)$")] = None
     payload: Optional[Dict[str, Any]] = None
 
 
@@ -482,3 +484,311 @@ async def update_settings(payload: SettingsBag, authorization: str = Header(None
         if v is not None:
             saved[k] = await set_setting(db, k, v)
     return saved
+
+
+# =====================================================
+# Phase 3 — Industry Plugins (Restaurant Mode + future verticals)
+# =====================================================
+
+class PluginPromoteRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    context: Dict[str, Any]
+    template_id: Optional[str] = None
+    action_ids: Optional[List[str]] = None  # If None, runs ALL actions
+    save_to_library: Optional[bool] = True
+    campaign_name: Optional[constr(max_length=200)] = None
+
+
+@router.get("/plugins")
+async def list_industry_plugins(authorization: str = Header(None), session_token: str = Cookie(None)):
+    await verify_session(authorization, session_token)
+    return {"plugins": list_plugins()}
+
+
+@router.get("/plugins/{plugin_id}")
+async def get_industry_plugin(plugin_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
+    await verify_session(authorization, session_token)
+    plugin = get_plugin(plugin_id)
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not registered")
+    return plugin.to_public()
+
+
+@router.post("/plugins/{plugin_id}/promote")
+@limiter.limit("6/minute")
+async def plugin_promote(
+    plugin_id: str,
+    request: Request,
+    body: PluginPromoteRequest,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """One-click multi-channel generation via an industry plugin.
+
+    The plugin maps `context` (e.g. a menu item) -> per-action briefs that
+    feed into the core engine. Returns one result per requested action.
+    """
+    await verify_session(authorization, session_token)
+    plugin = get_plugin(plugin_id)
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not registered")
+
+    selected_ids = set(body.action_ids) if body.action_ids else None
+    actions = [a for a in plugin.actions if selected_ids is None or a["id"] in selected_ids]
+    if not actions:
+        raise HTTPException(status_code=400, detail="No valid actions selected")
+
+    enriched_ctx = {
+        **body.context,
+        "template_id": body.template_id,
+        "campaign_name": body.campaign_name,
+    }
+
+    async def run_one(action: Dict[str, Any]) -> Dict[str, Any]:
+        brief = plugin.build_brief(enriched_ctx, action)
+        try:
+            # Force a faster model for one-click multi-channel runs so the
+            # whole bundle returns inside the ingress timeout (<60s).
+            result = await run_generator(
+                db, action["kind"], brief,
+                provider_override="openai",
+                model_override="gpt-5-mini",
+            )
+            data = result["data"]
+            model_used = result["model_used"]
+            gen_id = await _persist_generation(
+                {**brief, "_kind": action["kind"], "_plugin": plugin_id, "_action": action["id"]},
+                data,
+                model_used,
+            )
+            asset_id: Optional[str] = None
+            if body.save_to_library:
+                title = (
+                    f"{body.campaign_name or (body.context.get('item') or {}).get('name') or 'Untitled'} "
+                    f"· {action['label']}"
+                )
+                asset_doc = {
+                    "id": str(uuid.uuid4()),
+                    "kind": action.get("asset_kind") or action["kind"],
+                    "title": title[:200],
+                    "platform": brief.get("platform"),
+                    "industry": plugin_id,
+                    "campaign_id": None,
+                    "payload": data,
+                    "tags": [plugin_id, action["id"], body.template_id or "default"],
+                    "is_favorite": False,
+                    "status": "draft",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+                await db.ai_assets.insert_one(asset_doc)
+                asset_id = asset_doc["id"]
+            return {
+                "action_id": action["id"],
+                "label": action["label"],
+                "kind": action["kind"],
+                "platform": brief.get("platform"),
+                "generation_id": gen_id,
+                "asset_id": asset_id,
+                "output": data,
+                "model_used": model_used,
+            }
+        except Exception as e:  # noqa: BLE001
+            return {
+                "action_id": action["id"],
+                "label": action["label"],
+                "kind": action["kind"],
+                "error": str(e),
+            }
+
+    # Fire all actions in parallel — total wall-time = slowest LLM call instead of sum.
+    results = await asyncio.gather(*[run_one(a) for a in actions])
+
+    return {
+        "plugin_id": plugin_id,
+        "template_id": body.template_id,
+        "results": results,
+    }
+
+
+# =====================================================
+# Phase 4 — Bulk actions + Export
+# =====================================================
+
+class BulkActionRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    ids: List[str]
+    action: constr(pattern=r"^(archive|unarchive|delete|favorite|unfavorite)$")
+
+
+@router.post("/assets/bulk")
+async def bulk_action(payload: BulkActionRequest, authorization: str = Header(None), session_token: str = Cookie(None)):
+    await verify_session(authorization, session_token)
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="No asset ids supplied")
+    if payload.action == "delete":
+        res = await db.ai_assets.delete_many({"id": {"$in": payload.ids}})
+        return {"deleted": res.deleted_count}
+    update: Dict[str, Any] = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if payload.action == "archive":
+        update["status"] = "archived"
+    elif payload.action == "unarchive":
+        update["status"] = "active"
+    elif payload.action == "favorite":
+        update["is_favorite"] = True
+    elif payload.action == "unfavorite":
+        update["is_favorite"] = False
+    res = await db.ai_assets.update_many({"id": {"$in": payload.ids}}, {"$set": update})
+    return {"updated": res.modified_count, "action": payload.action}
+
+
+def _flatten_payload(payload: Any) -> str:
+    """Best-effort text flatten for TXT export."""
+    if payload is None:
+        return ""
+    if isinstance(payload, str):
+        return payload
+    if isinstance(payload, list):
+        return "\n".join(_flatten_payload(x) for x in payload)
+    if isinstance(payload, dict):
+        out = []
+        for k, v in payload.items():
+            out.append(f"{k}: {_flatten_payload(v)}")
+        return "\n".join(out)
+    return str(payload)
+
+
+@router.post("/assets/export")
+async def export_assets(
+    payload: Dict[str, Any],
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Export selected assets. payload: {ids: [...], format: 'txt'|'csv'|'json'}."""
+    await verify_session(authorization, session_token)
+    ids = payload.get("ids") or []
+    fmt = (payload.get("format") or "txt").lower()
+    if not ids:
+        raise HTTPException(status_code=400, detail="No asset ids supplied")
+    if fmt not in {"txt", "csv", "json"}:
+        raise HTTPException(status_code=400, detail="format must be txt|csv|json")
+
+    assets = await db.ai_assets.find({"id": {"$in": ids}}, {"_id": 0}).to_list(1000)
+    if fmt == "json":
+        return {"format": "json", "data": assets}
+    if fmt == "csv":
+        # Minimal CSV: id,title,kind,platform,status,created_at,content
+        import csv
+        import io
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["id", "title", "kind", "platform", "status", "created_at", "content"])
+        for a in assets:
+            writer.writerow([
+                a.get("id"),
+                a.get("title"),
+                a.get("kind"),
+                a.get("platform") or "",
+                a.get("status") or "",
+                a.get("created_at") or "",
+                _flatten_payload(a.get("payload")).replace("\n", " | "),
+            ])
+        return {"format": "csv", "data": buf.getvalue()}
+    # TXT
+    blocks = []
+    for a in assets:
+        blocks.append(
+            f"### {a.get('title')}\n"
+            f"Type: {a.get('kind')}  |  Platform: {a.get('platform') or '—'}  |  "
+            f"Status: {a.get('status') or '—'}  |  Created: {a.get('created_at') or '—'}\n\n"
+            f"{_flatten_payload(a.get('payload'))}\n"
+        )
+    return {"format": "txt", "data": "\n\n---\n\n".join(blocks)}
+
+
+# =====================================================
+# Phase 5 — Extended Analytics
+# =====================================================
+
+@router.get("/analytics")
+async def get_extended_analytics(authorization: str = Header(None), session_token: str = Cookie(None)):
+    """Detailed analytics for the AI Studio analytics dashboard."""
+    await verify_session(authorization, session_token)
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+    # Use isoformat string comparisons; created_at is stored as ISO 8601 string
+    last_30 = (now - timedelta(days=30)).isoformat()
+
+    total_campaigns = await db.ai_campaigns.count_documents({})
+    total_generations = await db.ai_generations.count_documents({})
+    gens_this_month = await db.ai_generations.count_documents({"created_at": {"$gte": month_start}})
+    gens_last_30 = await db.ai_generations.count_documents({"created_at": {"$gte": last_30}})
+
+    # Asset counts by kind (Phase 5 cards)
+    kind_pipeline = [{"$group": {"_id": "$kind", "count": {"$sum": 1}}}]
+    asset_kinds_raw = await db.ai_assets.aggregate(kind_pipeline).to_list(50)
+    asset_counts = {a["_id"]: a["count"] for a in asset_kinds_raw if a.get("_id")}
+
+    # Platform / campaign-type breakdown from generations
+    platform_agg = await db.ai_generations.aggregate([
+        {"$group": {"_id": "$brief.platform", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]).to_list(20)
+
+    type_agg = await db.ai_generations.aggregate([
+        {"$group": {"_id": "$brief._kind", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]).to_list(20)
+
+    goal_agg = await db.ai_generations.aggregate([
+        {"$group": {"_id": "$brief.goal", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]).to_list(20)
+
+    # Most-generated menu item: read from brief.context lines matching "FEATURED MENU ITEM:"
+    # Simpler: bucket by brief.name (we set "Promote {item}" as default name).
+    name_agg = await db.ai_generations.aggregate([
+        {"$match": {"brief.name": {"$regex": "^Promote ", "$options": "i"}}},
+        {"$group": {"_id": "$brief.name", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10},
+    ]).to_list(10)
+    most_generated_items = [
+        {"item": (n["_id"] or "").replace("Promote ", ""), "count": n["count"]}
+        for n in name_agg if n.get("_id")
+    ]
+
+    # Trend: per-day count for last 30 days (string slice on ISO date)
+    trend_agg = await db.ai_generations.aggregate([
+        {"$match": {"created_at": {"$gte": last_30}}},
+        {"$project": {"day": {"$substr": ["$created_at", 0, 10]}}},
+        {"$group": {"_id": "$day", "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+    ]).to_list(40)
+    trend = [{"date": t["_id"], "count": t["count"]} for t in trend_agg]
+
+    return {
+        "totals": {
+            "total_campaigns": total_campaigns,
+            "total_generations": total_generations,
+            "generations_this_month": gens_this_month,
+            "generations_last_30_days": gens_last_30,
+            "ads_generated": asset_counts.get("ad_copy", 0) + asset_counts.get("social_post", 0),
+            "emails_generated": asset_counts.get("email", 0),
+            "sms_generated": asset_counts.get("sms", 0),
+            "videos_generated": asset_counts.get("video_concept", 0) + asset_counts.get("video_file", 0),
+            "images_generated": asset_counts.get("image_concept", 0) + asset_counts.get("image_file", 0),
+        },
+        "insights": {
+            "most_used_platform": (platform_agg[0]["_id"] if platform_agg and platform_agg[0].get("_id") else None),
+            "most_used_campaign_type": (type_agg[0]["_id"] if type_agg and type_agg[0].get("_id") else None),
+            "most_used_goal": (goal_agg[0]["_id"] if goal_agg and goal_agg[0].get("_id") else None),
+            "most_generated_items": most_generated_items,
+        },
+        "charts": {
+            "trend_30_days": trend,
+            "platform_usage": [{"name": p["_id"], "count": p["count"]} for p in platform_agg if p.get("_id")],
+            "campaign_type_breakdown": [{"name": t["_id"], "count": t["count"]} for t in type_agg if t.get("_id")],
+        },
+    }

@@ -1,11 +1,17 @@
 /**
- * Creative Library — unified asset list with search + filter + favorite/archive/delete.
+ * Creative Library — unified asset list with search, filters, bulk actions, export.
+ *
+ * Phase 2: search + per-row favorite/archive/duplicate/delete.
+ * Phase 4: multi-select + bulk archive/delete/export (TXT/CSV/Clipboard).
  */
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Star, Trash2, Archive, Library as LibraryIcon, Filter, Copy } from "lucide-react";
+import {
+  Star, Trash2, Archive, Library as LibraryIcon, Filter, Copy,
+  Download, FileText, FileSpreadsheet, Square, CheckSquare, X,
+} from "lucide-react";
 import { API, Section, EmptyState } from "./shared";
 
 const KIND_LABELS = {
@@ -19,7 +25,22 @@ const KIND_LABELS = {
   video_file: "Video",
 };
 
-const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete, onDuplicate }) => {
+const flattenPayload = (payload) => {
+  if (payload == null) return "";
+  if (typeof payload === "string") return payload;
+  if (Array.isArray(payload)) return payload.map((x) => flattenPayload(x)).join("\n");
+  if (typeof payload === "object") {
+    const out = [];
+    for (const k of Object.keys(payload)) {
+      out.push(`${k}: ${flattenPayload(payload[k])}`);
+    }
+    return out.join("\n");
+  }
+  return String(payload);
+};
+
+const AssetRow = (props) => {
+  const { asset, onToggleFavorite, onArchive, onDelete, onDuplicate, selected, onToggleSelect } = props;
   const fav = !!asset.is_favorite;
   const archived = asset.status === "archived";
   const kindLabel = KIND_LABELS[asset.kind] || asset.kind;
@@ -27,13 +48,23 @@ const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete, onDuplicate })
   return (
     <div
       data-testid={`ai-asset-${asset.id}`}
-      className={`flex flex-wrap items-center gap-2 p-3 bg-background border border-navy/5 rounded-sm hover:border-gold/40 ${archived ? "opacity-60" : ""}`}
+      className={`flex flex-wrap items-center gap-2 p-3 bg-background border border-navy/5 rounded-sm hover:border-gold/40 ${archived ? "opacity-60" : ""} ${selected ? "ring-2 ring-gold/60" : ""}`}
     >
+      <button
+        type="button"
+        onClick={() => onToggleSelect(asset.id)}
+        className="text-navy hover:text-gold"
+        data-testid={`ai-asset-${asset.id}-select`}
+        aria-label="Select"
+      >
+        {selected ? <CheckSquare className="w-4 h-4 text-gold" /> : <Square className="w-4 h-4 text-navy/40" />}
+      </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-sans px-2 py-0.5 rounded-full bg-gold/15 text-navy uppercase tracking-wider">{kindLabel}</span>
-          {asset.platform && <span className="text-[10px] text-muted-foreground">{asset.platform}</span>}
-          {archived && <span className="text-[10px] font-sans px-2 py-0.5 rounded-full bg-navy/10 uppercase">archived</span>}
+          {asset.platform ? <span className="text-[10px] text-muted-foreground">{asset.platform}</span> : null}
+          {archived ? <span className="text-[10px] font-sans px-2 py-0.5 rounded-full bg-navy/10 uppercase">archived</span> : null}
+          {asset.status === "draft" ? <span className="text-[10px] font-sans px-2 py-0.5 rounded-full bg-forest/15 text-forest uppercase">draft</span> : null}
         </div>
         <p className="font-semibold text-navy text-sm mt-1 truncate">{asset.title}</p>
         <p className="text-xs text-muted-foreground">{date}</p>
@@ -84,10 +115,15 @@ const AssetRow = ({ asset, onToggleFavorite, onArchive, onDelete, onDuplicate })
   );
 };
 
-export const CreativeLibrary = ({ getAuthHeader }) => {
+export const CreativeLibrary = (props) => {
+  const { getAuthHeader } = props;
   const [assets, setAssets] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [filters, setFilters] = useState({ q: "", kind: "", platform: "", status: "", is_favorite: "" });
+  const [filters, setFilters] = useState({
+    q: "", kind: "", platform: "", status: "", is_favorite: "",
+    date_from: "", date_to: "",
+  });
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const load = useCallback(async (f) => {
     try {
@@ -97,6 +133,8 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
       if (f.platform) params.platform = f.platform;
       if (f.status) params.status = f.status;
       if (f.is_favorite) params.is_favorite = f.is_favorite === "true";
+      if (f.date_from) params.date_from = f.date_from;
+      if (f.date_to) params.date_to = f.date_to;
       const res = await axios.get(`${API}/ai-ads/assets`, { params, headers: getAuthHeader() });
       return res.data.assets || [];
     } catch (e) {
@@ -133,6 +171,7 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
   const del = async (id) => {
     if (!window.confirm("Delete this asset?")) return;
     await axios.delete(`${API}/ai-ads/assets/${id}`, { headers: getAuthHeader() });
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
     refresh();
   };
   const duplicate = async (a) => {
@@ -140,30 +179,102 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
     refresh();
   };
 
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => (prev.indexOf(id) === -1 ? [...prev, id] : prev.filter((x) => x !== id)));
+  };
+  const selectAllVisible = () => {
+    const ids = assets.map((a) => a.id);
+    setSelectedIds(selectedIds.length === ids.length ? [] : ids);
+  };
+  const clearSelection = () => setSelectedIds([]);
+
+  const bulkAction = async (action) => {
+    if (selectedIds.length === 0) return;
+    if (action === "delete" && !window.confirm(`Delete ${selectedIds.length} selected assets?`)) return;
+    await axios.post(
+      `${API}/ai-ads/assets/bulk`,
+      { ids: selectedIds, action },
+      { headers: getAuthHeader() }
+    );
+    clearSelection();
+    refresh();
+  };
+
+  const downloadBlob = (data, filename, mime) => {
+    const blob = new Blob([data], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportSelected = async (format) => {
+    if (selectedIds.length === 0) return;
+    const res = await axios.post(
+      `${API}/ai-ads/assets/export`,
+      { ids: selectedIds, format },
+      { headers: getAuthHeader() }
+    );
+    const data = res.data.data;
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (format === "clipboard") {
+      try {
+        await navigator.clipboard.writeText(typeof data === "string" ? data : JSON.stringify(data, null, 2));
+        window.alert(`Copied ${selectedIds.length} assets to clipboard.`);
+      } catch (_) {
+        window.alert("Clipboard blocked by browser.");
+      }
+      return;
+    }
+    if (format === "csv") downloadBlob(data, `ai-assets-${stamp}.csv`, "text/csv");
+    else if (format === "txt") downloadBlob(data, `ai-assets-${stamp}.txt`, "text/plain");
+    else downloadBlob(JSON.stringify(data, null, 2), `ai-assets-${stamp}.json`, "application/json");
+  };
+
+  const copySelectedToClipboard = async () => {
+    if (selectedIds.length === 0) return;
+    const selectedAssets = assets.filter((a) => selectedIds.indexOf(a.id) !== -1);
+    const text = selectedAssets.map((a) => `### ${a.title}\n${flattenPayload(a.payload)}`).join("\n\n---\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      window.alert(`Copied ${selectedAssets.length} assets to clipboard.`);
+    } catch (_) {
+      window.alert("Clipboard blocked.");
+    }
+  };
+
   const rows = [];
   for (let i = 0; i < assets.length; i += 1) {
+    const a = assets[i];
     rows.push(
       <AssetRow
-        key={assets[i].id}
-        asset={assets[i]}
+        key={a.id}
+        asset={a}
         onToggleFavorite={toggleFavorite}
         onArchive={archive}
         onDelete={del}
         onDuplicate={duplicate}
+        selected={selectedIds.indexOf(a.id) !== -1}
+        onToggleSelect={toggleSelect}
       />
     );
   }
 
+  const allVisibleSelected = selectedIds.length === assets.length && assets.length > 0;
+  const hasSelection = selectedIds.length > 0;
+
   return (
     <div className="space-y-4">
       <Section title="Filters" icon={Filter} testId="ai-library-filters">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
           <Input
             data-testid="ai-library-q"
-            placeholder="Search title or tags..."
+            placeholder="Search title or tags…"
             value={filters.q}
             onChange={(e) => setFilters({ ...filters, q: e.target.value })}
-            className="border-navy/20 text-sm"
+            className="border-navy/20 text-sm md:col-span-2"
           />
           <select
             data-testid="ai-library-kind"
@@ -189,7 +300,7 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
             <option>Facebook</option>
             <option>Instagram</option>
             <option>TikTok</option>
-            <option>Google</option>
+            <option>Google Business</option>
             <option>Email</option>
             <option>SMS</option>
           </select>
@@ -202,6 +313,7 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
             <option value="">Any status</option>
             <option value="active">Active</option>
             <option value="draft">Draft</option>
+            <option value="scheduled">Scheduled</option>
             <option value="archived">Archived</option>
           </select>
           <select
@@ -213,13 +325,86 @@ export const CreativeLibrary = ({ getAuthHeader }) => {
             <option value="">All</option>
             <option value="true">Favorites only</option>
           </select>
+          <Input
+            data-testid="ai-library-date-from"
+            type="date"
+            value={filters.date_from}
+            onChange={(e) => setFilters({ ...filters, date_from: e.target.value })}
+            className="border-navy/20 text-sm"
+            title="Date from"
+          />
+          <Input
+            data-testid="ai-library-date-to"
+            type="date"
+            value={filters.date_to}
+            onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
+            className="border-navy/20 text-sm"
+            title="Date to"
+          />
         </div>
       </Section>
 
-      <Section title={`Assets (${assets.length})`} icon={LibraryIcon} testId="ai-library-list">
-        {busy && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {hasSelection ? (
+        <div
+          data-testid="ai-library-bulk-bar"
+          className="sticky top-0 z-10 rounded-lg border-2 border-gold bg-gold/10 px-4 py-3 flex flex-wrap items-center gap-2"
+        >
+          <span className="text-sm font-semibold text-navy">{selectedIds.length} selected</span>
+          <Button variant="outline" size="sm" onClick={clearSelection} className="border-navy/20" data-testid="ai-bulk-clear">
+            <X className="w-3.5 h-3.5 mr-1" /> Clear
+          </Button>
+          <div className="flex-1" />
+          <Button variant="outline" size="sm" onClick={() => bulkAction("archive")} className="border-navy/20" data-testid="ai-bulk-archive">
+            <Archive className="w-3.5 h-3.5 mr-1" /> Archive
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => bulkAction("favorite")} className="border-navy/20" data-testid="ai-bulk-favorite">
+            <Star className="w-3.5 h-3.5 mr-1" /> Favorite
+          </Button>
+          <Button variant="outline" size="sm" onClick={copySelectedToClipboard} className="border-navy/20" data-testid="ai-bulk-clipboard">
+            <Copy className="w-3.5 h-3.5 mr-1" /> Copy
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportSelected("txt")} className="border-navy/20" data-testid="ai-bulk-export-txt">
+            <FileText className="w-3.5 h-3.5 mr-1" /> TXT
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportSelected("csv")} className="border-navy/20" data-testid="ai-bulk-export-csv">
+            <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportSelected("json")} className="border-navy/20" data-testid="ai-bulk-export-json">
+            <Download className="w-3.5 h-3.5 mr-1" /> JSON
+          </Button>
+          <Button size="sm" onClick={() => bulkAction("delete")} className="bg-destructive text-white hover:bg-destructive/90" data-testid="ai-bulk-delete">
+            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+          </Button>
+        </div>
+      ) : null}
+
+      <Section
+        title={`Assets (${assets.length})`}
+        icon={LibraryIcon}
+        testId="ai-library-list"
+        action={
+          assets.length > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={selectAllVisible}
+              className="border-navy/20"
+              data-testid="ai-library-select-all"
+            >
+              {allVisibleSelected ? <CheckSquare className="w-3.5 h-3.5 mr-1" /> : <Square className="w-3.5 h-3.5 mr-1" />}
+              {allVisibleSelected ? "Deselect all" : "Select all"}
+            </Button>
+          ) : null
+        }
+      >
+        {busy ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
         {!busy && rows.length === 0 ? (
-          <EmptyState icon={LibraryIcon} title="No assets yet" body="Generate ads, social posts, emails, SMS, or concepts — then click 'Save to Library' to collect them here." testId="ai-library-empty" />
+          <EmptyState
+            icon={LibraryIcon}
+            title="No assets yet"
+            body="Generate ads, social posts, emails, SMS, or concepts — then click 'Save to Library' to collect them here."
+            testId="ai-library-empty"
+          />
         ) : (
           <div className="space-y-2">{rows}</div>
         )}

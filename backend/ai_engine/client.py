@@ -63,12 +63,17 @@ async def generate_structured(
     user_prompt: str,
     schema_hint: str,
     session_id: Optional[str] = None,
+    provider_override: Optional[str] = None,
+    model_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run a structured-JSON generation against the active model.
 
     Returns the parsed JSON dict. Raises if parsing fails.
     """
-    active = await get_active_model(db)
+    if provider_override and model_override:
+        active = {"provider": provider_override, "model": model_override}
+    else:
+        active = await get_active_model(db)
 
     full_system = (
         system_prompt

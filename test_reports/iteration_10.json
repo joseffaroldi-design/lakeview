@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 10 — verified Phase 3 (Restaurant Plugin), Phase 4 (bulk + export + date filters + 'scheduled' status), Phase 5 (Extended Analytics) on Lakeview admin dashboard. Backend: 17/18 pytests pass in /app/backend/tests/test_ai_ads_phase345.py. The single failure is an ingress 502 on POST /api/ai-ads/plugins/restaurant/promote — backend completed with 200 OK after ~62s but ingress cap is 60s. Backend log shows two gpt-5-mini LiteLLM calls ran SEQUENTIALLY (01:33:55→01:34:26 then 01:34:26→01:34:57) despite asyncio.gather() — they did NOT parallelize. Phase 4 backend: bulk archive/favorite/delete all work, export txt/csv/json returns proper shape with no _id leakage, 400 on bad format / empty ids, status='scheduled' accepted on PUT, date_from+date_to filtering works correctly. Phase 5 backend: /api/ai-ads/analytics returns full totals (9 keys), insights (4 keys), and charts (3 keys) shape exactly as specified. Frontend: login still works, all 10 top-level tabs render, AI Ads now has Analytics sub-tab (data-testid ai-subtab-analytics) showing 10 ai-analytics-* testids (6 stat cards + 3 top-insights + tab), 3 chart sections (Generation Trend / Platform Usage / Campaign Type) with 11 recharts SVGs. Library bulk bar appears on row select with all 8 bulk testids (archive/favorite/clipboard/export-txt/csv/json/delete/clear) + both date filters. Menu Editor → Burgers expand → 7 promote-item-burgers-{0..6} buttons; promote-modal opens with 9 channel toggles, template select, run button, close X all working. Regression intact.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/ai-ads/plugins/restaurant/promote", "issue": "Even with action_ids limited to 2 short actions (sms_campaign + flyer_copy) the wall-time is ~62s (each gpt-5-mini call ~31s ran sequentially per backend log) → ingress 502. asyncio.gather() is NOT actually parallelizing the LLM calls. Backend itself returns 200 (visible in /var/log/supervisor/backend.out.log) but client never sees it. Risk: any promote request with ≥2 actions will 502 in production. Recommend: investigate emergentintegrations.LlmChat.send_message — it may be holding a lock or the OpenAI client may be sync under the hood. Workaround for now: cap default action_ids to 1 in the modal, or stream/poll results."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AI Ads → Analytics sub-tab", "issues": ["Recharts emits 6× console warnings: 'The width(-1) and height(-1) of chart should be greater than 0' for the 3 chart sections. Charts still render (11 SVG elements present) but on first paint the ResponsiveContainer measures parent at -1. Recommend setting an explicit min-height (e.g. h-72) on each chart wrapper div in /app/frontend/src/pages/dashboard/aiads/AnalyticsDashboard.jsx to silence the warning and prevent first-paint jank."]},
+      {"screen": "Promote Modal (PromoteItemModal.jsx)", "issues": ["Testid naming drift from the spec — actual ids are promote-close-btn (spec said promote-modal-close), promote-run-btn (spec said promote-generate), promote-action-toggle-{action_id} (spec said promote-channel-{id}). Functionality is intact; just align ids OR update the spec/docs."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ai_ads_phase345.py",
+    "/app/test_reports/pytest/pytest_phase345.xml"
+  ],
+  "action_items": [
+    "INVESTIGATE: promote endpoint serializes LLM calls despite asyncio.gather — confirm emergentintegrations LlmChat is truly async-friendly (or run each action through a thread pool via asyncio.to_thread). Two ~30s calls add to 60+s and trip the 60s ingress timeout. Either (a) cap default selected channels to 1 in the modal, (b) split into separate per-action endpoints + client-side fan-out, or (c) implement a background-job + polling pattern.",
+    "MINOR: AnalyticsDashboard.jsx — give Recharts ResponsiveContainer parents an explicit height (h-72/h-80) to fix the width(-1)/height(-1) console warnings on initial render.",
+    "MINOR (doc/spec): Promote modal testids differ from the review spec; either rename in PromoteItemModal.jsx to (promote-modal-close, promote-generate, promote-channel-{id}) or update the spec. Function works either way."
+  ],
+  "critical_code_review_comments": [
+    "ai_ads.py is now 795 lines — still under 700-line bright-line but approaching it. Recommend splitting Phase 3 plugin endpoints + Phase 4 bulk/export + Phase 5 analytics into separate router files (e.g. ai_ads_plugins.py, ai_ads_bulk.py, ai_ads_analytics.py) when next feature lands.",
+    "Bulk endpoint uses constr(pattern=...) for action validation — correctly rejects unknown actions with 422. Good.",
+    "Export endpoint takes raw payload: Dict[str, Any] — could use a Pydantic model for typing/docs/422 vs 400 consistency, but functional today.",
+    "Analytics endpoint: $substr / $regex aggregation pipelines on created_at run on every call. With production-scale data consider an index on ai_generations.created_at and brief.platform/brief._kind to keep this <100ms.",
+    "Promote endpoint correctly catches per-action exceptions and returns 200 with error strings — good UX design. But the wall-time bottleneck (sequential 30s LLM calls) defeats the resilience.",
+    "Plugin registry pattern (/app/backend/ai_engine/plugins/) is clean and extensible — restaurant.py has all 7 templates + 9 actions matching spec exactly.",
+    "PromoteItemModal.jsx is a clean self-contained component. The 'Generate N Channels' dynamic label is a nice UX touch."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ai_ads_phase345.py (NEW — 18 pytests for Phase 3/4/5)"
+  ],
+  "success_rate": {
+    "backend": "94% (17/18 pytests — only promote endpoint trips ingress timeout)",
+    "frontend": "100% (all Phase 3/4/5 UI elements present and working; minor recharts warnings + testid naming drift do not break functionality)"
+  },
+  "test_credentials": {"admin_password": "Lakeview872 (from /app/memory/test_credentials.md)"},
+  "seed_data_creation": "Created and cleaned up 3 TEST_BULK_* assets in TestPhase4Bulk class via autouse fixture (creates 3, bulk-deletes at end). Also created and deleted promote-saved assets when LLM succeeded. No persistent test pollution.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 3/4/5 are largely solid. The ONE real blocker is the promote endpoint's parallelism: backend log proves two gpt-5-mini calls ran sequentially (31s + 31s = 62s) and tripped the ingress 60s cap, even though the code uses asyncio.gather(). Either the LlmChat client is sync-under-the-hood, or there's a per-client mutex. To repro: POST /api/ai-ads/plugins/restaurant/promote with any 2 action_ids → expect 502 at client / 200 at backend after 60s. If fixed (e.g. asyncio.to_thread wrap), my test test_plugin_promote_two_actions will pass. The test suite is /app/backend/tests/test_ai_ads_phase345.py — set REACT_APP_BACKEND_URL env to run. UI testids on the promote modal differ slightly from the original spec (promote-close-btn, promote-run-btn, promote-action-toggle-X) — main agent can either rename to spec or update spec.",
+  "rca of the issue": "RCA — /api/ai-ads/plugins/restaurant/promote 502: From /var/log/supervisor/backend.*.log we observe two consecutive LiteLLM completion() calls for gpt-5-mini: call#1 started 01:33:55, completed 01:34:26 (31s); call#2 started 01:34:26, completed 01:34:57 (31s). Total ≈ 62s. The code uses `asyncio.gather(*[run_one(a) for a in actions])` which SHOULD parallelize, but the underlying emergentintegrations LlmChat.send_message() appears to either (a) be synchronous internally (running in the event loop and blocking), or (b) share a per-client mutex/connection that serializes calls. Effect: backend returns 200 after ~62s, but ingress cuts the connection at 60s and the client sees 502. Reproduction: POST /api/ai-ads/plugins/restaurant/promote with {context:{item:{name:'X'}}, action_ids:['sms_campaign','flyer_copy']}. Mitigation: (1) wrap synchronous LLM calls with asyncio.to_thread to truly run concurrently, OR (2) cap default action_ids in PromoteItemModal to 1 (and surface a 'this is gonna take a minute' UI when more selected), OR (3) make promote async — return a job_id, run actions in background, poll for results. Option (1) is the minimal-code fix and unblocks every async LLM workflow."
+}

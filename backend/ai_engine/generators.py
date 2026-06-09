@@ -3,7 +3,7 @@
 Each generator = system-prompt addon + JSON schema hint + brief-builder.
 Adding a new asset type later = one new entry in GENERATORS.
 """
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from ai_engine.client import generate_structured
 from ai_engine.prompts import resolve_system_prompt
@@ -183,7 +183,14 @@ GENERATORS = {
 }
 
 
-async def run_generator(db, kind: str, brief: Dict[str, Any]) -> Dict[str, Any]:
+async def run_generator(
+    db,
+    kind: str,
+    brief: Dict[str, Any],
+    *,
+    provider_override: Optional[str] = None,
+    model_override: Optional[str] = None,
+) -> Dict[str, Any]:
     if kind not in GENERATORS:
         raise ValueError(f"Unknown generator kind: {kind}")
     spec = GENERATORS[kind]
@@ -194,4 +201,6 @@ async def run_generator(db, kind: str, brief: Dict[str, Any]) -> Dict[str, Any]:
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         schema_hint=spec["schema"],
+        provider_override=provider_override,
+        model_override=model_override,
     )

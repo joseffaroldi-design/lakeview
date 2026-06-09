@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Plus, Trash2, ChevronDown, ChevronUp, FileText, UtensilsCrossed, GripVertical } from "lucide-react";
+import { Save, Plus, Trash2, ChevronDown, ChevronUp, FileText, UtensilsCrossed, GripVertical, Sparkles } from "lucide-react";
 import axios from "axios";
+import PromoteItemModal from "@/pages/dashboard/aiads/PromoteItemModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -160,6 +161,7 @@ export const MenuEditor = ({ getAuthHeader, onSaved }) => {
   const [categories, setCategories] = useState([]);
   const [expandedCat, setExpandedCat] = useState(null);
   const [saving, setSaving] = useState(null);
+  const [promoting, setPromoting] = useState(null); // { item, category }
 
   const fetchMenu = useCallback(() => {
     axios.get(`${API}/menu`).then(res => setCategories(res.data)).catch(console.error);
@@ -255,7 +257,7 @@ export const MenuEditor = ({ getAuthHeader, onSaved }) => {
                         value={item.description || ""}
                         onChange={e => updateItem(catIdx, itemIdx, "description", e.target.value)}
                         placeholder="Description"
-                        className="border-navy/20 sm:col-span-5 text-sm"
+                        className="border-navy/20 sm:col-span-4 text-sm"
                       />
                       <Input
                         value={item.price}
@@ -263,15 +265,28 @@ export const MenuEditor = ({ getAuthHeader, onSaved }) => {
                         placeholder="Price"
                         className="border-navy/20 sm:col-span-2 text-sm"
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(catIdx, itemIdx)}
-                        className="text-destructive hover:text-destructive sm:col-span-1 h-9"
-                        data-testid={`remove-item-${cat.slug}-${itemIdx}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="sm:col-span-2 flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPromoting({ item, category: cat.display_name })}
+                          className="text-gold hover:text-gold hover:bg-gold/10 h-9 px-2"
+                          data-testid={`promote-item-${cat.slug}-${itemIdx}`}
+                          title="Promote with AI"
+                          disabled={!item.name}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(catIdx, itemIdx)}
+                          className="text-destructive hover:text-destructive h-9 px-2"
+                          data-testid={`remove-item-${cat.slug}-${itemIdx}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -287,6 +302,14 @@ export const MenuEditor = ({ getAuthHeader, onSaved }) => {
           )}
         </Card>
       ))}
+      {promoting ? (
+        <PromoteItemModal
+          item={promoting.item}
+          category={promoting.category}
+          getAuthHeader={getAuthHeader}
+          onClose={() => setPromoting(null)}
+        />
+      ) : null}
     </div>
   );
 };

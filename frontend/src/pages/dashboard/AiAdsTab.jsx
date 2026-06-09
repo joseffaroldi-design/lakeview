@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles, Share2, Mail, MessageSquare, Image as ImageIcon, Video as VideoIcon,
-  Library as LibraryIcon, Settings as SettingsIcon, Wand2,
+  Library as LibraryIcon, Settings as SettingsIcon, Wand2, BarChart3,
 } from "lucide-react";
 import { API } from "./aiads/shared";
 import CampaignBuilder from "./aiads/CampaignBuilder";
@@ -19,6 +19,7 @@ import SmsGenerator from "./aiads/SmsGenerator";
 import ImageStudio from "./aiads/ImageStudio";
 import VideoStudio from "./aiads/VideoStudio";
 import CreativeLibrary from "./aiads/CreativeLibrary";
+import AnalyticsDashboard from "./aiads/AnalyticsDashboard";
 import AiSettingsPanel from "./aiads/SettingsPanel";
 
 const SUB_TABS = [
@@ -29,6 +30,7 @@ const SUB_TABS = [
   { id: "image", label: "Image Studio", icon: ImageIcon },
   { id: "video", label: "Video Studio", icon: VideoIcon },
   { id: "library", label: "Library", icon: LibraryIcon },
+  { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -138,6 +140,9 @@ export const AiAdsTab = ({ getAuthHeader }) => {
       )}
       {activeSub === "library" && (
         <CreativeLibrary getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "analytics" && (
+        <AnalyticsDashboard getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "settings" && (
         <AiSettingsPanel getAuthHeader={getAuthHeader} />
