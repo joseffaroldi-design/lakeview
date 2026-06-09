@@ -85,6 +85,33 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 9, 2026 — Production Readiness & Restaurant Automation — Complete
+
+**Phase 1 — Real publishing (NO MORE SIMULATION):**
+- `/app/backend/publishing/real_providers.py` replaces the simulation stubs at import time. Real `httpx` HTTP calls to: Facebook Graph API v19 (`POST /{page_id}/feed`), Instagram Graph API (2-step container+publish), Google Business Profile (`v4/.../localPosts`), Mailchimp v3 (create→content→send), SendGrid v3 (`/v3/mail/send`), Twilio REST (`/Messages.json`). Stored on success: `external_post_id`, `published_url`, `published_at`, `provider_response`.
+- Without credentials → returns `status="failed"` with actionable error: "Open AI Ads → Providers and connect {provider} before publishing." No silent simulated success.
+- With invalid credentials → real platform error surfaces (verified: Facebook returns "Invalid OAuth access token" — proves real network call).
+
+**Phase 2 — Restaurant Automation Center** (`/app/frontend/src/pages/dashboard/aiads/RestaurantAutomationCenter.jsx`, now the **default AI Ads sub-tab**):
+- 4 production lanes — Daily Specials, Google Review Requests, Loyalty Campaigns, Catering Marketing.
+- 13 new restaurant templates added to the Restaurant plugin (review_request_sms/email/followup, loyalty_first_visit/repeat/birthday/winback/vip, catering_office_lunch/corporate/school/holiday_party/family) — **20 total** templates.
+- Each lane: template select + optional menu-item picker (specials) + channel chips + fan-out generate → assets saved to Library → one-click "Schedule This Bundle" popover that bulk-schedules each asset to its native platform with operator-controlled stagger.
+
+**Phase 3 — BI / KPI dashboard:** Top "Restaurant KPIs" band on Analytics sub-tab — 4 cards: Publish Success Rate, Most Promoted Menu Item, Best Platform, Best Campaign Type. Sits ABOVE the existing 6 stat cards (no redesign).
+
+**Phase 4 — Production polish:**
+- **Logo: 2.5 MB PNG → 101 KB WebP** (96% reduction) — `/app/frontend/public/logo.webp`, referenced 3× in nav/hero/footer.
+- **ErrorBoundary** mounted at the React root (`/app/frontend/src/index.js`) — friendly fallback + Refresh button.
+- **Footer: Facebook + Instagram icons** with proper hrefs (facebook.com/lakeviewburgers, instagram.com/lakeviewburgers), `target=_blank`, `aria-label`, hover gold.
+- **Tappable address**: Contact section anchor wraps the address with `https://maps.google.com/?q=...` (mobile deep-link to Apple/Google Maps).
+- **Google Maps iframe** migrated to the `maps.google.com/maps?q=...&output=embed` format — renders correctly on desktop now.
+
+**Testing — 40/40 backend pytests pass in 25s** + 100% frontend regression (test_reports/iteration_13.json):
+- 9/9 phase1_real_providers (no-connection → failed; invalid token → real Facebook error)
+- 13/13 phase6_publishing (updated 2 tests to match new real-providers contract)
+- 18/18 phase345 regression
+- Smoke E2E: Automation Center → Daily Specials → SMS-only → Generate → asset saved → Schedule Bundle → Calendar shows the scheduled event.
+
 ### Feb 9, 2026 — AI Marketing Studio Phase 6 (Schedule & Publish System) — Complete
 
 **Database changes** (4 new collections, all carry `business_id` for multi-tenancy):
@@ -156,11 +183,9 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 - LLM Universal Key confirmed funded — all 6 generation endpoints return 200.
 
 ## P1 Backlog (Next)
-- **Live provider integrations** — replace the 6 simulating publishers with real API calls (Facebook Graph API, IG Business, Google Business Profile API, Mailchimp Marketing API, SendGrid v3, Twilio REST). Plug into the existing `Publisher.publish()` contract; UI + scheduler stay the same.
-- **Permissions / RBAC** — add role field to admin sessions (admin / manager / staff), gate write endpoints by role middleware. Currently single-admin only.
-- **Automation worker** — the rules CRUD is complete; add a cron-style worker that materializes rules into actual generations + schedules at the correct UTC hour. (Hooks already in `automation_rules.next_run_at`.)
-- **More industry plugins** — Moving Company, Event/Festival, Retail, Home Services. Each ships templates + actions + `build_brief`.
-- **AI Studio standalone SaaS extraction** — eventually move `ai_engine/` + `publishing/` + `routers/ai_ads.py` + `routers/publishing.py` into a separate service so the dashboard becomes one of many tenants.
+- **Connect live API credentials** via the Providers UI — Facebook Page Access Token, IG Business User+Token, Mailchimp API key + audience, SendGrid API key + verified sender, Twilio account SID/token + sender number. The publishing code is already production-grade `httpx` calls; only credentials are needed.
+- **Permissions / RBAC** — single-admin auth today. Add role field + middleware (admin/manager/staff).
+- **Automation worker** — `automation_rules` CRUD is complete; add a cron tick that materializes active rules into generations + schedules at their next UTC hour.
 
 ## P2 Backlog (Polish)
 - Instagram + Facebook footer links
