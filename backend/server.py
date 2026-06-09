@@ -15,17 +15,8 @@ from rate_limit import limiter
 
 import auth
 from routers import (
-    cms,
-    specials,
-    analytics,
-    giveaway,
-    loyalty,
-    messaging,
-    catering,
-    newsletter,
-    misc,
-    ai_ads,
-    publishing,
+    cms, specials, analytics, giveaway, loyalty, messaging,
+    catering, newsletter, misc, ai_ads, publishing, media,
 )
 from publishing import run_due_publishes
 
@@ -55,6 +46,7 @@ api_router.include_router(catering.router)
 api_router.include_router(newsletter.router)
 api_router.include_router(ai_ads.router)
 api_router.include_router(publishing.router)
+api_router.include_router(media.router)
 app.include_router(api_router)
 
 # CORS
@@ -106,6 +98,12 @@ async def on_startup():
         await db.ai_generations.create_index([("brief.platform", 1)], name="gens_platform")
         # provider_connections: lookup by provider + business
         await db.provider_connections.create_index([("provider", 1), ("business_id", 1)], name="conn_provider_biz", unique=True)
+        # media_assets: Library lookups by kind/folder/tags
+        await db.media_assets.create_index([("status", 1), ("kind", 1), ("uploaded_at", -1)], name="media_status_kind_uploaded")
+        await db.media_assets.create_index([("folder", 1), ("uploaded_at", -1)], name="media_folder_uploaded")
+        await db.media_assets.create_index("id", name="media_id", unique=True, sparse=True)
+        await db.render_jobs.create_index([("status", 1), ("created_at", -1)], name="render_status_created")
+        await db.render_jobs.create_index("id", name="render_id", unique=True, sparse=True)
         logger.info("MongoDB indexes ensured on hot collections")
     except Exception as e:  # noqa: BLE001
         logger.warning("Index creation skipped: %s", e)

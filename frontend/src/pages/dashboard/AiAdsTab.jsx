@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles, Share2, Mail, MessageSquare, Image as ImageIcon, Video as VideoIcon,
   Library as LibraryIcon, Settings as SettingsIcon, Wand2, BarChart3,
-  Calendar as CalendarIcon, ListChecks, Link2, Repeat, UtensilsCrossed,
+  Calendar as CalendarIcon, ListChecks, Link2, Repeat, UtensilsCrossed, Film,
 } from "lucide-react";
 import { API } from "./aiads/shared";
 import CampaignBuilder from "./aiads/CampaignBuilder";
@@ -26,16 +26,18 @@ import PublishQueue from "./aiads/PublishQueue";
 import ProviderConnections from "./aiads/ProviderConnections";
 import AutomationRules from "./aiads/AutomationRules";
 import RestaurantAutomationCenter from "./aiads/RestaurantAutomationCenter";
+import MediaStudio from "./aiads/MediaStudio";
 import AiSettingsPanel from "./aiads/SettingsPanel";
 
 const SUB_TABS = [
   { id: "automations", label: "Automation Center", icon: UtensilsCrossed },
+  { id: "media", label: "Media Studio", icon: Film },
   { id: "builder", label: "Campaign Builder", icon: Wand2 },
   { id: "social", label: "Social", icon: Share2 },
   { id: "email", label: "Email", icon: Mail },
   { id: "sms", label: "SMS", icon: MessageSquare },
-  { id: "image", label: "Image Studio", icon: ImageIcon },
-  { id: "video", label: "Video Studio", icon: VideoIcon },
+  { id: "image", label: "Image Concepts", icon: ImageIcon },
+  { id: "video", label: "Video Concepts", icon: VideoIcon },
   { id: "library", label: "Library", icon: LibraryIcon },
   { id: "calendar", label: "Calendar", icon: CalendarIcon },
   { id: "queue", label: "Queue", icon: ListChecks },
@@ -170,6 +172,9 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
       )}
       {activeSub === "automations" && (
         <RestaurantAutomationCenter getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "media" && (
+        <MediaStudio getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "rules" && (
         <AutomationRules getAuthHeader={getAuthHeader} />
