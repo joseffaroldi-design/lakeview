@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import os
 import uuid
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -581,6 +582,41 @@ async def test_provider_connection(
         }},
     )
     return result
+
+
+@router.post("/provider-connections/test-all")
+async def test_all_provider_connections(
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Run Test Connection against every currently-connected provider in parallel.
+    Returns {results: [{provider, ok, message, latency_ms}, ...]}."""
+    await verify_session(authorization, session_token)
+    conns = await db.provider_connections.find({"business_id": DEFAULT_BUSINESS_ID}, {"_id": 0}).to_list(20)
+    if not conns:
+        return {"results": [], "summary": {"connected": 0, "passed": 0, "failed": 0}}
+
+    from publishing.connection_test import run_test
+
+    async def one(conn):
+        result = await run_test(conn["provider"], conn.get("credentials") or {})
+        await db.provider_connections.update_one(
+            {"provider": conn["provider"], "business_id": DEFAULT_BUSINESS_ID},
+            {"$set": {
+                "last_test_at": datetime.now(timezone.utc).isoformat(),
+                "last_test_ok": result["ok"],
+                "last_test_message": result["message"],
+                "last_test_latency_ms": result.get("latency_ms", 0),
+            }},
+        )
+        return {"provider": conn["provider"], **result}
+
+    results = await asyncio.gather(*[one(c) for c in conns])
+    passed = sum(1 for r in results if r["ok"])
+    return {
+        "results": results,
+        "summary": {"connected": len(conns), "passed": passed, "failed": len(conns) - passed},
+    }
 
 
 # ===================== Automation Rules =====================

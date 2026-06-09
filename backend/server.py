@@ -87,6 +87,37 @@ async def _scheduler_loop():
 @app.on_event("startup")
 async def on_startup():
     await seed_defaults(db)
+    # ---- 1. MongoDB indexes on hot collections (idempotent — create_index is a no-op if it exists)
+    try:
+        # ai_assets: Library search/filter
+        await db.ai_assets.create_index([("status", 1), ("kind", 1), ("created_at", -1)], name="assets_status_kind_created")
+        await db.ai_assets.create_index([("platform", 1), ("created_at", -1)], name="assets_platform_created")
+        await db.ai_assets.create_index([("is_favorite", 1), ("created_at", -1)], name="assets_fav_created")
+        await db.ai_assets.create_index("id", name="assets_id", unique=True, sparse=True)
+        # scheduled_posts: Calendar + Queue + scheduler poll
+        await db.scheduled_posts.create_index([("status", 1), ("scheduled_at", 1)], name="sp_status_at")
+        await db.scheduled_posts.create_index([("provider", 1), ("scheduled_at", 1)], name="sp_provider_at")
+        await db.scheduled_posts.create_index("id", name="sp_id", unique=True, sparse=True)
+        # publish_logs: audit trail lookups
+        await db.publish_logs.create_index([("scheduled_post_id", 1), ("created_at", -1)], name="logs_sp_created")
+        await db.publish_logs.create_index([("created_at", -1)], name="logs_created")
+        # ai_generations: analytics aggregations
+        await db.ai_generations.create_index([("created_at", -1)], name="gens_created")
+        await db.ai_generations.create_index([("brief.platform", 1)], name="gens_platform")
+        # provider_connections: lookup by provider + business
+        await db.provider_connections.create_index([("provider", 1), ("business_id", 1)], name="conn_provider_biz", unique=True)
+        logger.info("MongoDB indexes ensured on hot collections")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Index creation skipped: %s", e)
+
+    # ---- 6. Pre-warm the plugin catalog (static — avoids cold-cache latency on first Automation Center mount)
+    try:
+        from ai_engine.plugins import list_plugins, get_plugin
+        list_plugins()
+        get_plugin("restaurant")
+    except Exception:  # noqa: BLE001
+        pass
+
     global _scheduler_task
     _scheduler_task = asyncio.create_task(_scheduler_loop())
     logger.info("Publishing scheduler started (interval=%ss)", SCHEDULER_INTERVAL_SECONDS)

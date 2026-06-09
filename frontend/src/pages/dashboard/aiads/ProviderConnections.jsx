@@ -208,6 +208,8 @@ export const ProviderConnections = (props) => {
   const { getAuthHeader } = props;
   const [providers, setProviders] = useState([]);
   const [connections, setConnections] = useState([]);
+  const [bulkTesting, setBulkTesting] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -223,6 +225,20 @@ export const ProviderConnections = (props) => {
   }, [getAuthHeader]);
 
   useEffect(() => { load(); }, [load]);
+
+  const testAll = async () => {
+    setBulkTesting(true);
+    setBulkResult(null);
+    try {
+      const r = await axios.post(`${API}/ai-ads/provider-connections/test-all`, {}, { headers: getAuthHeader() });
+      setBulkResult(r.data);
+      load();
+    } catch (e) {
+      setBulkResult({ error: (e.response && e.response.data && e.response.data.detail) || "Test failed" });
+    } finally {
+      setBulkTesting(false);
+    }
+  };
 
   const connectProvider = async (id, creds) => {
     await axios.post(
@@ -268,10 +284,45 @@ export const ProviderConnections = (props) => {
   }
 
   return (
-    <Section title="Provider Connections" icon={Link2} testId="ai-provider-connections">
+    <Section
+      title="Provider Connections"
+      icon={Link2}
+      testId="ai-provider-connections"
+      action={
+        connections.length > 0 ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={testAll}
+            disabled={bulkTesting}
+            className="border-gold text-navy hover:bg-gold/10"
+            data-testid="providers-test-all"
+          >
+            {bulkTesting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+            Test All Connections ({connections.length})
+          </Button>
+        ) : null
+      }
+    >
       <p className="text-xs text-muted-foreground mb-4">
         Connect each platform once. Then any scheduled post for that channel publishes automatically. Stored credentials never leave your database.
       </p>
+      {bulkResult ? (
+        <div
+          data-testid="providers-test-all-result"
+          className={`mb-3 rounded-sm border p-2 text-xs ${
+            bulkResult.error ? "bg-red-50 border-red-200 text-red-700"
+              : (bulkResult.summary && bulkResult.summary.failed === 0)
+                ? "bg-forest/10 border-forest/30 text-forest"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+          }`}
+        >
+          {bulkResult.error
+            ? `Failed: ${bulkResult.error}`
+            : `${bulkResult.summary.passed}/${bulkResult.summary.connected} connections healthy${bulkResult.summary.failed ? ` · ${bulkResult.summary.failed} failed (see card details below)` : ""}.`
+          }
+        </div>
+      ) : null}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{cards}</div>
     </Section>
   );

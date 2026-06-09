@@ -4,7 +4,7 @@
  * Phase 2: search + per-row favorite/archive/duplicate/delete.
  * Phase 4: multi-select + bulk archive/delete/export (TXT/CSV/Clipboard).
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,21 +156,30 @@ export const CreativeLibrary = (props) => {
     }
   }, [getAuthHeader]);
 
+  // Debounce only the `q` text input (every other filter is discrete — apply instantly)
+  const [debouncedQ, setDebouncedQ] = useState(filters.q);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(filters.q), 350);
+    return () => clearTimeout(t);
+  }, [filters.q]);
+
+  const effectiveFilters = useMemo(() => ({ ...filters, q: debouncedQ }), [filters, debouncedQ]);
+
   useEffect(() => {
     let mounted = true;
     setBusy(true);
-    load(filters).then((items) => {
+    load(effectiveFilters).then((items) => {
       if (!mounted) return;
       setAssets(items);
       setBusy(false);
     });
     return () => { mounted = false; };
-  }, [load, filters]);
+  }, [load, effectiveFilters]);
 
   const refresh = useCallback(async () => {
-    const items = await load(filters);
+    const items = await load(effectiveFilters);
     setAssets(items);
-  }, [load, filters]);
+  }, [load, effectiveFilters]);
 
   const toggleFavorite = async (a) => {
     await axios.put(`${API}/ai-ads/assets/${a.id}`, { is_favorite: !a.is_favorite }, { headers: getAuthHeader() });

@@ -108,7 +108,7 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
         variant={isActive ? "default" : "outline"}
         size="sm"
         onClick={() => setActiveSub(t.id)}
-        className={isActive ? "bg-navy text-cream hover:bg-navy/90" : "border-navy/20 text-navy hover:bg-navy/5"}
+        className={`whitespace-nowrap shrink-0 ${isActive ? "bg-navy text-cream hover:bg-navy/90" : "border-navy/20 text-navy hover:bg-navy/5"}`}
       >
         <t.icon className="w-3.5 h-3.5 mr-1.5" />
         {t.label}
@@ -133,7 +133,11 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
         <StatCard label="Top Goal" value={stats.most_used_goal || "—"} testId="ai-stat-goal" />
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6 border-b-2 border-navy/10 pb-4" data-testid="ai-subtabs">
+      <div
+        className="flex gap-2 mb-6 border-b-2 border-navy/10 pb-4 overflow-x-auto -mx-2 px-2 md:flex-wrap md:overflow-x-visible md:mx-0 md:px-0"
+        data-testid="ai-subtabs"
+        style={{ scrollbarWidth: "thin" }}
+      >
         {tabBtns}
       </div>
 
