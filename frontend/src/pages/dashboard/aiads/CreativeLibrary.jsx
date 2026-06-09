@@ -11,8 +11,10 @@ import { Input } from "@/components/ui/input";
 import {
   Star, Trash2, Archive, Library as LibraryIcon, Filter, Copy,
   Download, FileText, FileSpreadsheet, Square, CheckSquare, X,
+  Calendar as CalendarIcon, Zap,
 } from "lucide-react";
 import { API, Section, EmptyState } from "./shared";
+import SchedulePopover from "./SchedulePopover";
 
 const KIND_LABELS = {
   ad_copy: "Ad Copy",
@@ -40,7 +42,7 @@ const flattenPayload = (payload) => {
 };
 
 const AssetRow = (props) => {
-  const { asset, onToggleFavorite, onArchive, onDelete, onDuplicate, selected, onToggleSelect } = props;
+  const { asset, onToggleFavorite, onArchive, onDelete, onDuplicate, onSchedule, selected, onToggleSelect } = props;
   const fav = !!asset.is_favorite;
   const archived = asset.status === "archived";
   const kindLabel = KIND_LABELS[asset.kind] || asset.kind;
@@ -70,6 +72,16 @@ const AssetRow = (props) => {
         <p className="text-xs text-muted-foreground">{date}</p>
       </div>
       <div className="flex gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onSchedule(asset)}
+          className="border-navy/20 text-gold"
+          title="Schedule / Publish"
+          data-testid={`ai-asset-${asset.id}-schedule`}
+        >
+          <CalendarIcon className="w-3.5 h-3.5" />
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -124,6 +136,7 @@ export const CreativeLibrary = (props) => {
     date_from: "", date_to: "",
   });
   const [selectedIds, setSelectedIds] = useState([]);
+  const [scheduling, setScheduling] = useState(null);
 
   const load = useCallback(async (f) => {
     try {
@@ -178,6 +191,7 @@ export const CreativeLibrary = (props) => {
     await axios.post(`${API}/ai-ads/assets/${a.id}/duplicate`, {}, { headers: getAuthHeader() });
     refresh();
   };
+  const openSchedule = (a) => setScheduling(a);
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => (prev.indexOf(id) === -1 ? [...prev, id] : prev.filter((x) => x !== id)));
@@ -256,6 +270,7 @@ export const CreativeLibrary = (props) => {
         onArchive={archive}
         onDelete={del}
         onDuplicate={duplicate}
+        onSchedule={openSchedule}
         selected={selectedIds.indexOf(a.id) !== -1}
         onToggleSelect={toggleSelect}
       />
@@ -409,6 +424,14 @@ export const CreativeLibrary = (props) => {
           <div className="space-y-2">{rows}</div>
         )}
       </Section>
+      {scheduling ? (
+        <SchedulePopover
+          asset={scheduling}
+          getAuthHeader={getAuthHeader}
+          onClose={() => setScheduling(null)}
+          onScheduled={() => { setScheduling(null); refresh(); }}
+        />
+      ) : null}
     </div>
   );
 };

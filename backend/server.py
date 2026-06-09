@@ -2,6 +2,7 @@
 
 Route registration lives here; business logic is split across /routers/*.
 """
+import asyncio
 import logging
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
@@ -24,7 +25,9 @@ from routers import (
     newsletter,
     misc,
     ai_ads,
+    publishing,
 )
+from publishing import run_due_publishes
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,6 +54,7 @@ api_router.include_router(messaging.router)
 api_router.include_router(catering.router)
 api_router.include_router(newsletter.router)
 api_router.include_router(ai_ads.router)
+api_router.include_router(publishing.router)
 app.include_router(api_router)
 
 # CORS
@@ -63,11 +67,34 @@ app.add_middleware(
 )
 
 
+SCHEDULER_INTERVAL_SECONDS = 30
+_scheduler_task: asyncio.Task | None = None
+
+
+async def _scheduler_loop():
+    """Background worker — polls scheduled_posts every SCHEDULER_INTERVAL_SECONDS
+    and publishes anything due. Crashes are logged but don't kill the loop."""
+    while True:
+        try:
+            executed = await run_due_publishes(db, limit=25)
+            if executed:
+                logger.info("Scheduler tick — executed %d publishes", len(executed))
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Scheduler tick failed: %s", e)
+        await asyncio.sleep(SCHEDULER_INTERVAL_SECONDS)
+
+
 @app.on_event("startup")
 async def on_startup():
     await seed_defaults(db)
+    global _scheduler_task
+    _scheduler_task = asyncio.create_task(_scheduler_loop())
+    logger.info("Publishing scheduler started (interval=%ss)", SCHEDULER_INTERVAL_SECONDS)
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
+    global _scheduler_task
+    if _scheduler_task:
+        _scheduler_task.cancel()
     client.close()

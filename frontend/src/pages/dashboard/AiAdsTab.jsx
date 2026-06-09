@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles, Share2, Mail, MessageSquare, Image as ImageIcon, Video as VideoIcon,
   Library as LibraryIcon, Settings as SettingsIcon, Wand2, BarChart3,
+  Calendar as CalendarIcon, ListChecks, Link2, Repeat,
 } from "lucide-react";
 import { API } from "./aiads/shared";
 import CampaignBuilder from "./aiads/CampaignBuilder";
@@ -20,6 +21,10 @@ import ImageStudio from "./aiads/ImageStudio";
 import VideoStudio from "./aiads/VideoStudio";
 import CreativeLibrary from "./aiads/CreativeLibrary";
 import AnalyticsDashboard from "./aiads/AnalyticsDashboard";
+import ContentCalendar from "./aiads/ContentCalendar";
+import PublishQueue from "./aiads/PublishQueue";
+import ProviderConnections from "./aiads/ProviderConnections";
+import AutomationRules from "./aiads/AutomationRules";
 import AiSettingsPanel from "./aiads/SettingsPanel";
 
 const SUB_TABS = [
@@ -30,6 +35,10 @@ const SUB_TABS = [
   { id: "image", label: "Image Studio", icon: ImageIcon },
   { id: "video", label: "Video Studio", icon: VideoIcon },
   { id: "library", label: "Library", icon: LibraryIcon },
+  { id: "calendar", label: "Calendar", icon: CalendarIcon },
+  { id: "queue", label: "Queue", icon: ListChecks },
+  { id: "automations", label: "Automations", icon: Repeat },
+  { id: "providers", label: "Providers", icon: Link2 },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -140,6 +149,18 @@ export const AiAdsTab = ({ getAuthHeader }) => {
       )}
       {activeSub === "library" && (
         <CreativeLibrary getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "calendar" && (
+        <ContentCalendar getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "queue" && (
+        <PublishQueue getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "automations" && (
+        <AutomationRules getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "providers" && (
+        <ProviderConnections getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "analytics" && (
         <AnalyticsDashboard getAuthHeader={getAuthHeader} />
