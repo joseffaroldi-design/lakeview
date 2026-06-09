@@ -124,7 +124,7 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {activeTab === "analytics" && <AnalyticsTab getAuthHeader={getAuthHeader} />}
+        {activeTab === "analytics" && <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={setActiveTab} />}
         {activeTab === "specials" && <SpecialsTab getAuthHeader={getAuthHeader} />}
         {activeTab === "content" && (
           <section>

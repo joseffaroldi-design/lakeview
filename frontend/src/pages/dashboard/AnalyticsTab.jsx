@@ -3,12 +3,50 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart3, TrendingUp, Calendar, Users, Monitor, Smartphone, Tablet,
-  Globe, Clock, MousePointer,
+  Globe, Clock, MousePointer, Pencil, ImageIcon, Sparkles, Send, Link2,
+  CalendarDays, ListChecks,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-export const AnalyticsTab = ({ getAuthHeader }) => {
+const QUICK_ACTIONS = [
+  { id: "menu", icon: Pencil, label: "Edit Menu", help: "Add or update menu items", tab: "menu" },
+  { id: "special", icon: ImageIcon, label: "Create Special", help: "Run a daily / weekly promo", tab: "specials" },
+  { id: "promote", icon: Sparkles, label: "Promote Item", help: "AI campaign for any menu item", tab: "ai-ads" },
+  { id: "schedule", icon: CalendarDays, label: "Schedule Posts", help: "Open the content calendar", tab: "ai-ads" },
+  { id: "queue", icon: ListChecks, label: "Publish Queue", help: "What's queued / published", tab: "ai-ads" },
+  { id: "providers", icon: Link2, label: "Connect Providers", help: "Facebook · IG · SendGrid · Twilio", tab: "ai-ads" },
+];
+
+const QuickActionsStrip = ({ onJump }) => {
+  const tiles = [];
+  for (let i = 0; i < QUICK_ACTIONS.length; i += 1) {
+    const a = QUICK_ACTIONS[i];
+    tiles.push(
+      <button
+        key={a.id}
+        type="button"
+        onClick={() => onJump(a.tab)}
+        className="bg-card border-2 border-navy/10 hover:border-gold rounded-lg p-3 text-left transition-colors"
+        data-testid={`quick-${a.id}`}
+      >
+        <a.icon className="w-5 h-5 text-gold mb-1.5" />
+        <p className="font-serif font-semibold text-navy text-sm">{a.label}</p>
+        <p className="text-[10px] text-muted-foreground leading-tight">{a.help}</p>
+      </button>
+    );
+  }
+  return (
+    <section className="mb-8" data-testid="owner-quick-actions">
+      <h2 className="font-serif text-base text-navy font-semibold mb-3 flex items-center gap-2 uppercase tracking-wider">
+        <Sparkles className="w-4 h-4 text-gold" /> Owner Quick Start
+      </h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">{tiles}</div>
+    </section>
+  );
+};
+
+export const AnalyticsTab = ({ getAuthHeader, onSwitchTab }) => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,6 +71,7 @@ export const AnalyticsTab = ({ getAuthHeader }) => {
 
   return (
     <>
+      {onSwitchTab ? <QuickActionsStrip onJump={onSwitchTab} /> : null}
       <section className="mb-12">
         <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
           <BarChart3 className="w-6 h-6 text-gold" />

@@ -6,19 +6,42 @@
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import {
-  Link2, Unlink, CheckCircle2, Lock, ArrowRight, Loader2,
+  Link2, Unlink, CheckCircle2, Lock, ArrowRight, Loader2, AlertTriangle, ExternalLink, Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API, Section } from "./shared";
 
 const ProviderCard = (props) => {
-  const { provider, connection, onConnect, onDisconnect } = props;
+  const { provider, connection, onConnect, onDisconnect, onTest, getAuthHeader } = props;
   const [open, setOpen] = useState(false);
   const [creds, setCreds] = useState({});
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupInfo, setSetupInfo] = useState(null);
   const connected = !!connection;
   const comingSoon = provider.coming_soon;
+
+  const loadSetup = async () => {
+    if (setupInfo) { setSetupOpen(!setupOpen); return; }
+    try {
+      const res = await axios.get(`${API}/ai-ads/provider-setup/${provider.id}`, { headers: getAuthHeader() });
+      setSetupInfo(res.data);
+      setSetupOpen(true);
+    } catch (_) { /* ignore */ }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const r = await onTest(provider.id);
+      setTestResult(r);
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -47,6 +70,15 @@ const ProviderCard = (props) => {
         />
       </div>
     );
+  }
+
+  // Build setup steps without .map() — the visual-edits plugin has a known
+  // recursion bug on inline array iteration patterns. Manual loop sidesteps it.
+  const setupStepEls = [];
+  if (setupInfo && setupInfo.steps) {
+    for (let i = 0; i < setupInfo.steps.length; i += 1) {
+      setupStepEls.push(<li key={i}>{setupInfo.steps[i]}</li>);
+    }
   }
 
   return (
@@ -78,6 +110,39 @@ const ProviderCard = (props) => {
         <p className="text-[10px] text-muted-foreground mb-2">Last sync: {connection.last_sync.slice(0, 16).replace("T", " ")}</p>
       ) : null}
 
+      {/* Last test status pulled from connection record */}
+      {connected && connection.last_test_at ? (
+        <div className={`text-[10px] rounded p-1.5 mb-2 ${connection.last_test_ok ? "bg-forest/10 text-forest border border-forest/30" : "bg-red-50 text-red-700 border border-red-200"}`}>
+          <span className="font-semibold">Last test: </span>
+          {connection.last_test_ok ? "✓ Auth OK" : "✗ Failed"}
+          {connection.last_test_message ? ` — ${connection.last_test_message.slice(0, 90)}` : ""}
+          {connection.last_test_latency_ms ? <span className="opacity-60"> · {connection.last_test_latency_ms}ms</span> : null}
+        </div>
+      ) : null}
+
+      {/* Live test result (after Test Connection clicked) */}
+      {testResult ? (
+        <div className={`text-[10px] rounded p-2 mb-2 flex items-start gap-1.5 ${testResult.ok ? "bg-forest/10 text-forest border border-forest/30" : "bg-red-50 text-red-700 border border-red-200"}`} data-testid={`provider-${provider.id}-test-result`}>
+          {testResult.ok ? <CheckCircle2 className="w-3 h-3 mt-0.5 flex-shrink-0" /> : <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />}
+          <span>{testResult.message}</span>
+        </div>
+      ) : null}
+
+      {/* Setup guide expander */}
+      {setupOpen && setupInfo ? (
+        <div className="mb-3 bg-navy/5 border border-navy/15 rounded-sm p-3 text-xs text-navy" data-testid={`provider-${provider.id}-setup`}>
+          <p className="font-semibold mb-2">{setupInfo.title}</p>
+          <ol className="list-decimal list-inside space-y-1 text-[11px]">
+            {setupStepEls}
+          </ol>
+          {setupInfo.docs_url ? (
+            <a href={setupInfo.docs_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-gold underline text-[11px] mt-2">
+              Official Docs <ExternalLink className="w-3 h-3" />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
       {open ? (
         <div className="space-y-2 mt-3">
           {fields}
@@ -92,12 +157,26 @@ const ProviderCard = (props) => {
           </p>
         </div>
       ) : (
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {connected ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleTest}
+              disabled={testing}
+              className="border-gold text-navy hover:bg-gold/10"
+              data-testid={`provider-${provider.id}-test`}
+            >
+              {testing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+              Test Connection
+            </Button>
+          ) : null}
           {connected ? (
             <Button size="sm" variant="outline" onClick={() => onDisconnect(provider.id)} className="border-destructive text-destructive" data-testid={`provider-${provider.id}-disconnect`}>
               <Unlink className="w-3.5 h-3.5 mr-1" /> Disconnect
             </Button>
-          ) : (
+          ) : null}
+          {!connected ? (
             <Button
               size="sm"
               onClick={() => setOpen(true)}
@@ -107,7 +186,18 @@ const ProviderCard = (props) => {
             >
               <Link2 className="w-3.5 h-3.5 mr-1" /> Connect <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
-          )}
+          ) : null}
+          {!comingSoon ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={loadSetup}
+              className="border-navy/20"
+              data-testid={`provider-${provider.id}-setup-toggle`}
+            >
+              <Info className="w-3.5 h-3.5 mr-1" /> {setupOpen ? "Hide" : "Setup Guide"}
+            </Button>
+          ) : null}
         </div>
       )}
     </div>
@@ -149,6 +239,17 @@ export const ProviderConnections = (props) => {
     load();
   };
 
+  const testProvider = async (id) => {
+    try {
+      const r = await axios.post(`${API}/ai-ads/provider-connections/${id}/test`, {}, { headers: getAuthHeader() });
+      load(); // refresh connection.last_test_* fields
+      return r.data;
+    } catch (e) {
+      const detail = e.response && e.response.data && e.response.data.detail;
+      return { ok: false, message: typeof detail === "string" ? detail : "Test failed" };
+    }
+  };
+
   const cards = [];
   const byId = {};
   for (const c of connections) byId[c.provider] = c;
@@ -160,6 +261,8 @@ export const ProviderConnections = (props) => {
         connection={byId[providers[i].id]}
         onConnect={connectProvider}
         onDisconnect={disconnectProvider}
+        onTest={testProvider}
+        getAuthHeader={getAuthHeader}
       />
     );
   }

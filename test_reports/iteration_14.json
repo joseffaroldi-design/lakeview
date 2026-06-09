@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 14 — Final Production Launch hardening verified end-to-end. BACKEND: 51/51 pytests pass across 4 files in <40s (11 test_final_launch + 9 test_phase1_real_providers + 13 test_phase6_publishing + 18 test_ai_ads_phase345). NEW endpoints all green: GET /api/ai-ads/health returns ok+checks{database.ok=true, llm_key, scheduler, providers.total=6, ts}; GET /api/ai-ads/provider-setup/{6 providers} each returns title/steps(≥3)/docs_url; unknown provider → 404; POST /api/ai-ads/provider-connections/{provider}/test does a REAL Graph/SendGrid/Mailchimp/Twilio auth probe (verified real Facebook Graph 'Invalid OAuth' + real SendGrid 401 'unauthorized' returned through latency_ms timing); test endpoint without saved connection → 404; after a test runs, GET /provider-connections returns last_test_at + last_test_ok + last_test_message + last_test_latency_ms populated. FRONTEND: (1) Owner Quick Start band (data-testid='owner-quick-actions') renders ABOVE Website Analytics on default Analytics tab with all 6 tiles (quick-menu/special/promote/schedule/queue/providers) visible. quick-menu → navigates to Menu Editor (verified). Other tiles navigate to AI Ads top tab as per spec — note that quick-providers/queue/schedule do NOT auto-switch the AI Ads sub-tab; they land on Automation Center default (this matches spec wording 'navigates to the correct top-level tab' but a future polish could deep-link the sub-tab too). (2) AI Ads → Providers UI: all 6 real provider cards expose data-testid='provider-{id}-setup-toggle' (6/6 present). Clicking Setup Guide reveals 5 numbered steps + Official Docs link (verified facebook card). When connected (verified via Email/SendGrid with invalid SG.INVALID_PROBE key), data-testid='provider-email-test' Test Connection button appears, clicking it triggers a REAL HTTP call returning 'SendGrid returned 401: {\"errors\":[{\"field\":null,\"message\":\"unauthorized\"}]}' in data-testid='provider-email-test-result' inline AND updates the Last test pill ('✗ Failed — SendGrid returned 401 … 250ms'). (3) 10 top-level tabs render. (4) 14 AI Ads sub-tabs render (Automation Center, Campaign Builder, Social, Email, SMS, Image Studio, Video Studio, Library, Calendar, Queue, Rules, Providers, Analytics, Settings). (5) Logo.webp referenced 3x on public site (nav/hero/footer). (6) Footer testids footer-facebook + footer-instagram + address-tappable all present. (7) Login (Lakeview872) via 'Access Dashboard' button works.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Owner Quick Start → AI Ads tiles", "issues": ["Minor UX gap: quick-providers / quick-queue / quick-schedule deep-link to AI Ads top tab but the AI Ads sub-tab stays on default (Automation Center). User must click Providers/Queue/Calendar sub-tab manually. Spec only requires top-level tab navigation so this is acceptable, but a future polish could pass the target sub-tab through onSwitchTab() to land users directly on the intended panel."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_final_launch.py",
+    "/app/backend/tests/test_phase1_real_providers.py",
+    "/app/backend/tests/test_phase6_publishing.py",
+    "/app/backend/tests/test_ai_ads_phase345.py",
+    "/app/test_reports/pytest/pytest_iter14.xml"
+  ],
+  "action_items": [
+    "NONE blocking — all 14 review-request items verified passing.",
+    "OPTIONAL polish: have Owner Quick Start tiles for AI Ads (providers/queue/schedule) also deep-link to the target sub-tab, not just AI Ads top tab. Currently lands on Automation Center default.",
+    "FUTURE: once user supplies live FB/IG/Mailchimp/SendGrid/Twilio credentials, re-run /test on each connection — currently /test correctly surfaces the platforms' own 401/OAuth errors (proves it's not stubbed)."
+  ],
+  "critical_code_review_comments": [
+    "Real-provider auth probe is correctly implemented: SendGrid 401 'unauthorized' and Facebook Graph 'Invalid OAuth access token' messages flow verbatim from the provider through /test endpoint into the UI Last-test pill. This proves the read-only probe is genuinely contacting the upstream APIs (latency_ms = 250ms for SendGrid is consistent with a real round-trip).",
+    "Last-test state is persisted on the connection document (last_test_at, last_test_ok, last_test_message, last_test_latency_ms) and surfaces in GET /provider-connections — good design choice for the owner to see freshness without re-clicking.",
+    "Health endpoint design is sensible: scheduler.ok=true even on a quiet last 2 min is intentional (documented in agent note). database/llm_key/providers checks are concrete and won't false-positive.",
+    "Owner Quick Start band UX is a strong addition for a non-developer owner — but recommend the AI Ads tiles also pre-select the sub-tab (Calendar / Queue / Providers) to remove one cognitive step. Implementation requires passing an optional second arg through onSwitchTab().",
+    "ProviderConnections.jsx setup steps rendered via explicit for-loops (not .map()) to avoid the babel/webpack plugin recursion — confirmed by no console errors during the entire Providers UI session.",
+    "ErrorBoundary still mounted in /app/frontend/src/index.js at root; no error-boundary-fallback rendered in any normal flow."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (51/51 — final_launch 11 + phase1_real_providers 9 + phase6_publishing 13 + phase345 18)",
+    "frontend": "100% (Owner Quick Start band + 6 tiles + 6 setup-toggles + Test Connection real call + Last-test pill + 10 top tabs + 14 sub-tabs + logo.webp + footer FB/IG + tappable address all verified)"
+  },
+  "test_credentials": {"admin_password": "Lakeview872 (from /app/memory/test_credentials.md)", "login_button_label": "Access Dashboard (not 'Login')"},
+  "seed_data_creation": "Temporarily created an Email (SendGrid) connection with invalid api_key 'SG.INVALID_PROBE' to exercise Test Connection UI flow, then disconnected via API after verification. No durable test pollution.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter 14 fully green for final production launch. 51/51 backend tests pass when run individually (4 files). The note 'full-suite occasionally hits 120s wall-clock' in review request is correct — run each file individually to be safe (each <40s). Owner Quick Start tiles work but only navigate to top-level tabs; AI-Ads-targeted tiles do not auto-switch sub-tab (matches spec). New /health, /provider-setup/{provider}, /provider-connections/{provider}/test endpoints fully verified including real upstream HTTP probe (SendGrid 401 + Facebook OAuth errors surfaced verbatim). Setup Guide expansion works via for-loop render (no babel recursion). Login button is labeled 'Access Dashboard' — important for future Playwright scripts (not 'Login').",
+  "rca of the issue": "No bugs found. Only finding is a minor UX recommendation (not a defect): AI-Ads-targeted Owner Quick Start tiles (quick-providers / quick-queue / quick-schedule) only switch the top-level tab, not the AI Ads sub-tab. The spec only requires top-level tab navigation so this is not a bug, just a polish opportunity for v-next."
+}
