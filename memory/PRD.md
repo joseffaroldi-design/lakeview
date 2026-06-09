@@ -85,6 +85,39 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 9, 2026 — AI Marketing Studio Phase 6 (Schedule & Publish System) — Complete
+
+**Database changes** (4 new collections, all carry `business_id` for multi-tenancy):
+- `scheduled_posts` — id, asset_id, campaign_id, business_id, platform, provider, scheduled_at, published_at, status (draft/scheduled/publishing/published/failed/cancelled), error_message, external_id, attempts, created_at, updated_at, title, kind, notes.
+- `publish_jobs` — short-lived job records (one per publish attempt) with status, result, error.
+- `publish_logs` — append-only audit trail (action, actor, detail, created_at).
+- `provider_connections` — provider-scoped credentials (never returned in API responses).
+- `automation_rules` — recurring generation rules (frequency, day_of_week, day_of_month, hour, template_id, auto_publish, auto_publish_provider, is_active).
+
+**Backend** (`/app/backend/publishing/`):
+- Provider abstraction: `Publisher` interface, `register_provider()` / `get_provider()` / `publish_now()`.
+- 6 real providers (`facebook`, `instagram`, `google_business`, `mailchimp`, `email`, `sms`) + 4 future-ready (`tiktok`, `linkedin`, `x`, `youtube`) marked `coming_soon`. Real providers currently simulate publishing (success=True, `sim_*` external_id) until live credentials are supplied — architecture is real, only the network call is stubbed.
+- Scheduler core: `schedule_publish`, `cancel_publish`, `reschedule_publish`, `execute_publish`, `run_due_publishes`. All actions write to `publish_logs`.
+- Background worker: `asyncio.create_task(_scheduler_loop)` in `server.py` polls `scheduled_posts` every 30s and publishes anything due.
+
+**API routes added (15)** all under `/api/ai-ads`:
+- `GET /calendar`, `GET /publish-queue`, `GET /publish-logs`
+- `POST /schedule`, `POST /publish`, `POST /cancel/{id}`, `POST /reschedule/{id}`, `POST /bundle-schedule`, `POST /run-due-now`
+- `GET /publish-providers`, `GET /provider-connections`, `POST /provider-connections/{provider}/connect`, `POST /provider-connections/{provider}/disconnect`
+- `GET/POST /automations`, `PUT/DELETE /automations/{id}`
+- `GET /smart-recommendations`, `GET /publish-stats`
+
+**Frontend** (5 new sub-tabs in AI Ads, total now 13):
+- **Calendar** — in-house month/week/day grid, 5-color status legend, drag-and-drop reschedules, click-to-edit popover (reschedule or cancel).
+- **Queue** — 4-column kanban (queued / publishing / published / failed), provider filter, refresh, per-card Retry / Cancel.
+- **Providers** — 10 provider cards (6 connectable, 4 coming-soon); inline credential form per provider; connected state with Last Sync timestamp.
+- **Automations** — CRUD for recurring rules (daily/weekly/monthly), auto-publish toggle, active/inactive switch.
+- **Library** (extended) — every asset row gets a gold Calendar action → `SchedulePopover` (Schedule or Publish Now per provider).
+
+**Tests:** 13/13 phase6 pytests pass in 3.23s (`/app/backend/tests/test_phase6_publishing.py`) + 18/18 phase3-4-5 regression = **31/31 = 100%**. End-to-end integration verified in browser: schedule-in-past → queued → run-due-now → published with `sim_*` id → calendar shows green → 3 audit log entries.
+
+**Multi-tenant readiness:** every new collection carries `business_id` (defaulted to `"default"`). No restaurant-specific logic in `/app/backend/publishing/`.
+
 ### Feb 9, 2026 — AI Marketing Studio Phases 3 + 4 + 5 (Complete)
 
 **Phase 3 — Restaurant Mode (pluggable industry module)**
@@ -123,9 +156,11 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 - LLM Universal Key confirmed funded — all 6 generation endpoints return 200.
 
 ## P1 Backlog (Next)
-- **Schedule & Publish System** (highest priority next): asset action buttons Schedule / Publish Now / Save Draft. Provider-abstracted webhook layer to push to Facebook / Instagram / Google Business Profile / Mailchimp / Email / SMS. Future: TikTok / X / LinkedIn. Content Calendar with Monthly / Weekly / Scheduled-queue / Draft-queue / Published-queue views.
-- **Additional plugins** to validate the plugin contract: Moving Company, Event/Festival, Retail, Home Services. Each ships its own templates + actions + `build_brief`.
-- **AI Studio standalone SaaS extraction** — eventually move `ai_engine/` + `routers/ai_ads.py` into a separate service so the dashboard becomes one of many tenants.
+- **Live provider integrations** — replace the 6 simulating publishers with real API calls (Facebook Graph API, IG Business, Google Business Profile API, Mailchimp Marketing API, SendGrid v3, Twilio REST). Plug into the existing `Publisher.publish()` contract; UI + scheduler stay the same.
+- **Permissions / RBAC** — add role field to admin sessions (admin / manager / staff), gate write endpoints by role middleware. Currently single-admin only.
+- **Automation worker** — the rules CRUD is complete; add a cron-style worker that materializes rules into actual generations + schedules at the correct UTC hour. (Hooks already in `automation_rules.next_run_at`.)
+- **More industry plugins** — Moving Company, Event/Festival, Retail, Home Services. Each ships templates + actions + `build_brief`.
+- **AI Studio standalone SaaS extraction** — eventually move `ai_engine/` + `publishing/` + `routers/ai_ads.py` + `routers/publishing.py` into a separate service so the dashboard becomes one of many tenants.
 
 ## P2 Backlog (Polish)
 - Instagram + Facebook footer links
