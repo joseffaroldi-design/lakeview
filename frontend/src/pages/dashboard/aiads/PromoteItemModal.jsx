@@ -51,6 +51,20 @@ const ResultCard = (props) => {
       </div>
     );
   }
+  if (result.loading) {
+    return (
+      <div
+        data-testid={`promote-result-${result.action_id}`}
+        className="rounded-lg border-2 border-gold/30 bg-card p-4"
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-3.5 h-3.5 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+          <p className="font-serif text-navy font-semibold text-sm">{result.action_id} · generating…</p>
+        </div>
+        <div className="h-16 bg-navy/5 rounded animate-pulse" />
+      </div>
+    );
+  }
   return (
     <div
       data-testid={`promote-result-${result.action_id}`}
@@ -126,27 +140,51 @@ export const PromoteItemModal = (props) => {
     setBusy(true);
     setError("");
     setResults(null);
-    try {
-      const res = await axios.post(
-        `${API}/ai-ads/plugins/restaurant/promote`,
-        {
-          context: {
-            item: {
-              name: item.name,
-              description: item.description || "",
-              category: category || "",
-              price: item.price || "",
-              image_url: item.image_url || null,
-            },
-          },
-          template_id: templateId,
-          action_ids: selectedActions,
-          save_to_library: true,
-          campaign_name: campaignName,
+    // Fan out 1 request per action so each gets its own ingress timeout (60s).
+    // The /promote endpoint accepts arbitrary action_ids, but if we send all
+    // in one request the backend LLM calls serialize and trip the 60s cap.
+    const payloadBase = {
+      context: {
+        item: {
+          name: item.name,
+          description: item.description || "",
+          category: category || "",
+          price: item.price || "",
+          image_url: item.image_url || null,
         },
-        { headers: getAuthHeader() }
+      },
+      template_id: templateId,
+      save_to_library: true,
+      campaign_name: campaignName,
+    };
+    setResults(selectedActions.map((id) => ({ action_id: id, label: id, loading: true })));
+    try {
+      const settled = await Promise.allSettled(
+        selectedActions.map((actionId) =>
+          axios.post(
+            `${API}/ai-ads/plugins/restaurant/promote`,
+            { ...payloadBase, action_ids: [actionId] },
+            { headers: getAuthHeader(), timeout: 70000 }
+          )
+        )
       );
-      setResults(res.data.results || []);
+      const merged = [];
+      for (let i = 0; i < settled.length; i += 1) {
+        const id = selectedActions[i];
+        const res = settled[i];
+        if (res.status === "fulfilled") {
+          const r = (res.value.data.results || [])[0];
+          merged.push(r || { action_id: id, label: id, error: "Empty response" });
+        } else {
+          const detail = res.reason && res.reason.response && res.reason.response.data && res.reason.response.data.detail;
+          merged.push({
+            action_id: id,
+            label: id,
+            error: typeof detail === "string" ? detail : (res.reason && res.reason.message) || "Request failed",
+          });
+        }
+      }
+      setResults(merged);
     } catch (e) {
       const detail = e.response && e.response.data && e.response.data.detail;
       setError(typeof detail === "string" ? detail : "Promote run failed.");

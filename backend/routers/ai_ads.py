@@ -515,7 +515,7 @@ async def get_industry_plugin(plugin_id: str, authorization: str = Header(None),
 
 
 @router.post("/plugins/{plugin_id}/promote")
-@limiter.limit("6/minute")
+@limiter.limit("30/minute")
 async def plugin_promote(
     plugin_id: str,
     request: Request,

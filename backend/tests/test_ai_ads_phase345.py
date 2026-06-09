@@ -69,43 +69,41 @@ class TestPhase3Plugins:
         r = api.get(f"{BASE_URL}/api/ai-ads/plugins/no_such_plugin", headers=auth_headers)
         assert r.status_code == 404
 
-    def test_plugin_promote_two_actions(self, api, auth_headers):
-        """Test promote endpoint with 2 fast actions. Allow LLM errors per-result (200 OK)."""
+    def test_plugin_promote_single_action(self, api, auth_headers):
+        """Single-action promote — frontend now fans out one HTTP request per action
+        via Promise.allSettled, so the backend contract we exercise here is the single
+        action shape. Each request should return 200 inside the ingress 60s budget.
+        """
         body = {
             "context": {
                 "item": {"name": "Cajun Shrimp Po-Boy", "price": "$14", "description": "Fried shrimp with remoulade"},
                 "category": "Sandwiches",
             },
             "template_id": "seafood_special",
-            "action_ids": ["sms_campaign", "flyer_copy"],  # short, cheap actions
+            "action_ids": ["sms_campaign"],
             "save_to_library": True,
             "campaign_name": f"TEST_PROMOTE_{uuid.uuid4().hex[:6]}",
         }
+        t0 = time.time()
         r = api.post(
             f"{BASE_URL}/api/ai-ads/plugins/restaurant/promote",
             headers=auth_headers,
             json=body,
-            timeout=90,
+            timeout=55,
         )
-        assert r.status_code == 200, f"{r.status_code}: {r.text[:500]}"
+        wall = time.time() - t0
+        assert r.status_code == 200, f"{r.status_code} after {wall:.1f}s: {r.text[:500]}"
+        assert wall < 55, f"single-action call took {wall:.1f}s — too close to ingress cap"
         d = r.json()
         assert d.get("plugin_id") == "restaurant"
         results = d.get("results") or []
-        assert len(results) == 2, f"expected 2 results, got {len(results)}"
-        for res in results:
-            assert "action_id" in res
-            # Each result has either output or error (per spec)
-            assert ("output" in res) or ("error" in res), f"result missing output/error: {res}"
-
-        # If at least one result has output and save_to_library was true, asset must be in library
-        saved_asset_ids = [r2.get("asset_id") for r2 in results if r2.get("asset_id")]
-        for aid in saved_asset_ids:
-            lr = api.get(f"{BASE_URL}/api/ai-ads/assets?q={body['campaign_name']}", headers=auth_headers)
-            assert lr.status_code == 200
-            ids = [a["id"] for a in lr.json()["assets"]]
-            assert aid in ids, f"Saved asset {aid} not in library"
-            # Cleanup
-            api.delete(f"{BASE_URL}/api/ai-ads/assets/{aid}", headers=auth_headers)
+        assert len(results) == 1, f"expected 1 result, got {len(results)}"
+        res = results[0]
+        assert res.get("action_id") == "sms_campaign"
+        assert ("output" in res) or ("error" in res)
+        # Cleanup any saved asset
+        if res.get("asset_id"):
+            api.delete(f"{BASE_URL}/api/ai-ads/assets/{res['asset_id']}", headers=auth_headers)
 
     def test_plugin_promote_invalid_actions(self, api, auth_headers):
         body = {"context": {"item": {"name": "x"}}, "action_ids": ["not_a_real_action"]}

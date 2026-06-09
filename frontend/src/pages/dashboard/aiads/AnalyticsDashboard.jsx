@@ -122,8 +122,8 @@ export const AnalyticsDashboard = (props) => {
             {trend.length === 0 ? (
               <p className="text-sm text-muted-foreground py-6 text-center">No generations in the last 30 days.</p>
             ) : (
-              <div style={{ width: "100%", height: 240 }}>
-                <ResponsiveContainer>
+              <div className="h-60 min-h-[240px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trend} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e6e3dd" />
                     <XAxis dataKey="date" stroke="#0E2A47" fontSize={11} />
@@ -152,8 +152,8 @@ export const AnalyticsDashboard = (props) => {
           {platformUsage.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">No platform data yet.</p>
           ) : (
-            <div style={{ width: "100%", height: 240 }}>
-              <ResponsiveContainer>
+            <div className="h-60 min-h-[240px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={platformUsage} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e6e3dd" />
                   <XAxis dataKey="name" stroke="#0E2A47" fontSize={11} />
@@ -169,8 +169,8 @@ export const AnalyticsDashboard = (props) => {
           {typePieData.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">No campaign type data yet.</p>
           ) : (
-            <div style={{ width: "100%", height: 240 }}>
-              <ResponsiveContainer>
+            <div className="h-60 min-h-[240px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={typePieData} dataKey="value" nameKey="name" outerRadius={80} label>
                     {pieCells}
