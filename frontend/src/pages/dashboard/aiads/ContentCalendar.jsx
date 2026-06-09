@@ -160,6 +160,7 @@ export const ContentCalendar = (props) => {
   const [events, setEvents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");  // all | draft | scheduled | publishing | published | failed
 
   const range = useMemo(() => {
     if (view === "month") return { start: startOfMonth(cursor), end: endOfMonth(cursor) };
@@ -192,7 +193,8 @@ export const ContentCalendar = (props) => {
 
   const eventsByDay = useMemo(() => {
     const map = {};
-    for (const ev of events) {
+    const filtered = statusFilter === "all" ? events : events.filter((e) => e.status === statusFilter);
+    for (const ev of filtered) {
       const key = ev.scheduled_at ? ev.scheduled_at.slice(0, 10) : "";
       if (!key) continue;
       if (!map[key]) map[key] = [];
@@ -408,6 +410,19 @@ export const ContentCalendar = (props) => {
       }
     >
       <div className="mb-3"><Legend /></div>
+      <div className="flex flex-wrap gap-1.5 mb-3" data-testid="calendar-status-filters">
+        {["all", "draft", "scheduled", "publishing", "published", "failed"].map((s) => {
+          const count = s === "all" ? events.length : events.filter((e) => e.status === s).length;
+          const on = statusFilter === s;
+          return (
+            <button key={s} type="button" onClick={() => setStatusFilter(s)}
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border transition-colors ${on ? "bg-navy text-cream border-navy" : "bg-card text-navy border-navy/20 hover:border-gold"}`}
+              data-testid={`calendar-filter-${s}`}>
+              {s.charAt(0).toUpperCase() + s.slice(1)} <span className="ml-1 opacity-70">({count})</span>
+            </button>
+          );
+        })}
+      </div>
       {busy ? <p className="text-sm text-muted-foreground">Loading calendar…</p> : null}
       {view === "month" && renderMonth()}
       {view === "week" && renderWeek()}

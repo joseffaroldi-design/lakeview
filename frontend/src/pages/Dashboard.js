@@ -1,38 +1,35 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, BarChart3, Image as ImageIcon, LogOut, Mail,
-  UtensilsCrossed, FileText, Pencil, Gift, CreditCard, Send, Sparkles,
+  ArrowLeft, BarChart3, LogOut, Pencil, Megaphone, Users, Sparkles, Home, Settings as SettingsIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ContentEditor, MenuEditor } from "@/pages/ContentEditor";
-import { GiveawayManager } from "@/pages/GiveawayManager";
-import { LoyaltyManager, MessagingDashboard } from "@/pages/LoyaltyMessaging";
 import AnalyticsTab from "@/pages/dashboard/AnalyticsTab";
-import SpecialsTab from "@/pages/dashboard/SpecialsTab";
-import CateringTab from "@/pages/dashboard/CateringTab";
-import SubscribersTab from "@/pages/dashboard/SubscribersTab";
 import AiAdsTab from "@/pages/dashboard/AiAdsTab";
+import HomeTab from "@/pages/dashboard/HomeTab";
+import CustomersTab from "@/pages/dashboard/CustomersTab";
+import { PromoteItemModal } from "@/pages/dashboard/aiads/PromoteItemModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Phase 9 — collapsed from 10 → 6 top-level tabs.
 const TABS = [
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "specials", label: "Specials", icon: ImageIcon },
-  { id: "content", label: "Site Content", icon: FileText },
-  { id: "menu", label: "Menu Editor", icon: Pencil },
-  { id: "giveaway", label: "Giveaway", icon: Gift },
-  { id: "loyalty", label: "Loyalty", icon: CreditCard },
-  { id: "messaging", label: "Messages", icon: Send },
-  { id: "inquiries", label: "Inquiries", icon: UtensilsCrossed },
-  { id: "subscribers", label: "Subscribers", icon: Mail },
-  { id: "ai-ads", label: "AI Ads", icon: Sparkles },
+  { id: "home",        label: "Home",       icon: Home },
+  { id: "menu",        label: "Menu",       icon: Pencil },
+  { id: "promotions",  label: "Promotions", icon: Megaphone },
+  { id: "customers",   label: "Customers",  icon: Users },
+  { id: "insights",    label: "Insights",   icon: BarChart3 },
+  { id: "settings",    label: "Settings",   icon: SettingsIcon },
 ];
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState("analytics");
+  const [activeTab, setActiveTab] = useState("home");
   const [authChecked, setAuthChecked] = useState(false);
+  const [aiAdsInitialSubTab, setAiAdsInitialSubTab] = useState(null);
+  const [customersInitialFilter, setCustomersInitialFilter] = useState(null);
+  const [promoteCtx, setPromoteCtx] = useState(null);  // {item, category}
   const navigate = useNavigate();
 
   const getAuthHeader = useCallback(() => {
@@ -67,11 +64,22 @@ const Dashboard = () => {
     navigate("/login");
   };
 
-  const [aiAdsInitialSubTab, setAiAdsInitialSubTab] = useState(null);
+  const [promoteCtxLocal] = useState(null);  // placeholder retained for compatibility
+  void promoteCtxLocal;
 
   const switchTab = (tab, subTab) => {
     setActiveTab(tab);
-    if (tab === "ai-ads") setAiAdsInitialSubTab(subTab || null);
+    if (tab === "promotions" || tab === "settings" || tab === "insights") {
+      setAiAdsInitialSubTab(subTab || null);
+    }
+    if (tab === "customers") {
+      setCustomersInitialFilter(subTab || null);
+    }
+  };
+
+  const openPromote = (item, category) => {
+    if (!item) return;
+    setPromoteCtx({ item, category: category || "" });
   };
 
   if (!authChecked) {
@@ -131,57 +139,68 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {activeTab === "analytics" && <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />}
-        {activeTab === "specials" && <SpecialsTab getAuthHeader={getAuthHeader} />}
-        {activeTab === "content" && (
-          <section>
-            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
-              <FileText className="w-6 h-6 text-gold" />
-              Edit Site Content
-            </h2>
-            <ContentEditor getAuthHeader={getAuthHeader} />
-          </section>
+        {activeTab === "home" && (
+          <HomeTab getAuthHeader={getAuthHeader} onNavigate={switchTab} onPromote={openPromote} />
         )}
         {activeTab === "menu" && (
           <section>
-            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
-              <Pencil className="w-6 h-6 text-gold" />
-              Edit Menu
+            <h2 className="font-serif text-2xl text-navy font-bold mb-2 flex items-center gap-2">
+              <Pencil className="w-6 h-6 text-gold" /> Menu & Site Content
             </h2>
-            <MenuEditor getAuthHeader={getAuthHeader} />
+            <p className="text-sm text-muted-foreground mb-6">Edit your menu, hero, gallery, and page copy in one place.</p>
+            <div className="space-y-8">
+              <MenuEditor getAuthHeader={getAuthHeader} />
+              <div className="border-t-2 border-navy/10 pt-6">
+                <h3 className="font-serif text-lg text-navy font-bold mb-4">Site Content</h3>
+                <ContentEditor getAuthHeader={getAuthHeader} />
+              </div>
+            </div>
           </section>
         )}
-        {activeTab === "giveaway" && (
+        {activeTab === "promotions" && (
+          <AiAdsTab
+            getAuthHeader={getAuthHeader}
+            initialSubTab={aiAdsInitialSubTab}
+            group="promotions"
+            title="Promotions"
+            icon={Megaphone}
+            hideStats={false}
+          />
+        )}
+        {activeTab === "customers" && (
+          <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
+        )}
+        {activeTab === "insights" && (
           <section>
-            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
-              <Gift className="w-6 h-6 text-gold" />
-              Summer Giveaway
-            </h2>
-            <GiveawayManager getAuthHeader={getAuthHeader} />
+            <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />
+            <div className="border-t-2 border-navy/10 mt-10 pt-8">
+              <h3 className="font-serif text-xl text-navy font-bold mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-gold" /> AI Marketing Performance
+              </h3>
+              <AiAdsTab getAuthHeader={getAuthHeader} group="insights" title=" " hideStats />
+            </div>
           </section>
         )}
-        {activeTab === "loyalty" && (
-          <section>
-            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
-              <CreditCard className="w-6 h-6 text-gold" />
-              Loyalty Program
-            </h2>
-            <LoyaltyManager getAuthHeader={getAuthHeader} />
-          </section>
+        {activeTab === "settings" && (
+          <AiAdsTab
+            getAuthHeader={getAuthHeader}
+            initialSubTab={aiAdsInitialSubTab}
+            group="settings"
+            title="Settings"
+            icon={SettingsIcon}
+            hideStats
+          />
         )}
-        {activeTab === "messaging" && (
-          <section>
-            <h2 className="font-serif text-2xl text-navy font-bold mb-6 flex items-center gap-2">
-              <Send className="w-6 h-6 text-gold" />
-              Message Blasts
-            </h2>
-            <MessagingDashboard getAuthHeader={getAuthHeader} />
-          </section>
-        )}
-        {activeTab === "inquiries" && <CateringTab getAuthHeader={getAuthHeader} />}
-        {activeTab === "subscribers" && <SubscribersTab getAuthHeader={getAuthHeader} />}
-        {activeTab === "ai-ads" && <AiAdsTab getAuthHeader={getAuthHeader} initialSubTab={aiAdsInitialSubTab} />}
       </main>
+
+      {promoteCtx ? (
+        <PromoteItemModal
+          item={promoteCtx.item}
+          category={promoteCtx.category}
+          getAuthHeader={getAuthHeader}
+          onClose={() => setPromoteCtx(null)}
+        />
+      ) : null}
     </div>
   );
 };

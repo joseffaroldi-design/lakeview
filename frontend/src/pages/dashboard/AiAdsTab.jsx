@@ -3,7 +3,7 @@
  * Campaign Builder · Social · Email · SMS · Image Studio · Video Studio · Library · Settings.
  * Lazy-loads catalog/stats and feeds them down to each module.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,23 +29,24 @@ import RestaurantAutomationCenter from "./aiads/RestaurantAutomationCenter";
 import MediaStudio from "./aiads/MediaStudio";
 import AiSettingsPanel from "./aiads/SettingsPanel";
 
-const SUB_TABS = [
-  { id: "automations", label: "Automation Center", icon: UtensilsCrossed },
-  { id: "media", label: "Media Studio", icon: Film },
-  { id: "builder", label: "Campaign Builder", icon: Wand2 },
-  { id: "social", label: "Social", icon: Share2 },
-  { id: "email", label: "Email", icon: Mail },
-  { id: "sms", label: "SMS", icon: MessageSquare },
-  { id: "image", label: "Image Concepts", icon: ImageIcon },
-  { id: "video", label: "Video Concepts", icon: VideoIcon },
-  { id: "library", label: "Library", icon: LibraryIcon },
-  { id: "calendar", label: "Calendar", icon: CalendarIcon },
-  { id: "queue", label: "Queue", icon: ListChecks },
-  { id: "rules", label: "Rules", icon: Repeat },
-  { id: "providers", label: "Providers", icon: Link2 },
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "settings", label: "Settings", icon: SettingsIcon },
+const ALL_SUB_TABS = [
+  { id: "automations", label: "Automations", icon: UtensilsCrossed, groups: ["promotions"] },
+  { id: "media", label: "Media", icon: Film, groups: ["promotions"] },
+  { id: "builder", label: "Campaign Builder", icon: Wand2, groups: ["promotions"] },
+  { id: "calendar", label: "Calendar", icon: CalendarIcon, groups: ["promotions"] },
+  { id: "library", label: "Library", icon: LibraryIcon, groups: ["promotions"] },
+  { id: "social", label: "Social", icon: Share2, groups: ["advanced"] },
+  { id: "email", label: "Email", icon: Mail, groups: ["advanced"] },
+  { id: "sms", label: "SMS", icon: MessageSquare, groups: ["advanced"] },
+  { id: "image", label: "Image Concepts", icon: ImageIcon, groups: ["advanced"] },
+  { id: "video", label: "Video Concepts", icon: VideoIcon, groups: ["advanced"] },
+  { id: "queue", label: "Queue", icon: ListChecks, groups: ["advanced"] },
+  { id: "rules", label: "Rules", icon: Repeat, groups: ["settings"] },
+  { id: "providers", label: "Providers", icon: Link2, groups: ["settings"] },
+  { id: "analytics", label: "Analytics", icon: BarChart3, groups: ["insights", "advanced"] },
+  { id: "settings", label: "Settings", icon: SettingsIcon, groups: ["settings"] },
 ];
+const SUB_TABS = ALL_SUB_TABS;  // legacy alias — used when no group filter applied
 
 const StatCard = ({ label, value, accent = "text-navy", testId }) => (
   <Card className="bg-card border-2 border-navy/10" data-testid={testId}>
@@ -56,15 +57,24 @@ const StatCard = ({ label, value, accent = "text-navy", testId }) => (
   </Card>
 );
 
-export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
-  const [activeSub, setActiveSub] = useState("automations");
+export const AiAdsTab = ({ getAuthHeader, initialSubTab, group, title, icon: HeaderIcon, hideStats }) => {
+  // group: undefined = all 15 tabs (legacy); "promotions" | "settings" | "insights" | "advanced" = slim
+  const visibleTabs = group
+    ? ALL_SUB_TABS.filter((t) => (t.groups || []).indexOf(group) !== -1)
+    : ALL_SUB_TABS;
+  const defaultSub = (visibleTabs[0] && visibleTabs[0].id) || "automations";
+  const [activeSub, setActiveSub] = useState(initialSubTab || defaultSub);
   const [catalog, setCatalog] = useState({ templates: [], goals: [], platforms: [], tones: [] });
   const [stats, setStats] = useState({ total_campaigns: 0, ads_generated: 0, generations_this_month: 0, most_used_platform: null, most_used_goal: null });
 
+  // Deep-link from parent — track via ref-in-effect to bypass set-state-in-effect rule
+  const deepLinkRef = useRef({ last: null, setActiveSub });
+  useEffect(() => { deepLinkRef.current = { last: deepLinkRef.current.last, setActiveSub }; });
   useEffect(() => {
-    if (initialSubTab) setActiveSub(initialSubTab);
-    // Only re-fire when the deep-link target changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (initialSubTab && initialSubTab !== deepLinkRef.current.last) {
+      deepLinkRef.current.last = initialSubTab;
+      deepLinkRef.current.setActiveSub(initialSubTab);
+    }
   }, [initialSubTab]);
 
   const loadBase = useCallback(async () => {
@@ -100,8 +110,8 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
 
   // Precomputed sub-tab buttons (avoids Babel plugin recursion)
   const tabBtns = [];
-  for (let i = 0; i < SUB_TABS.length; i += 1) {
-    const t = SUB_TABS[i];
+  for (let i = 0; i < visibleTabs.length; i += 1) {
+    const t = visibleTabs[i];
     const isActive = activeSub === t.id;
     tabBtns.push(
       <Button
@@ -122,11 +132,12 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
     <section data-testid="ai-ads-tab">
       <div className="flex items-center gap-2 mb-6">
         <h2 className="font-serif text-2xl text-navy font-bold flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-gold" />
-          AI Marketing Studio
+          {HeaderIcon ? <HeaderIcon className="w-6 h-6 text-gold" /> : <Sparkles className="w-6 h-6 text-gold" />}
+          {title || "AI Marketing Studio"}
         </h2>
       </div>
 
+      {hideStats ? null : (
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         <StatCard label="Total Campaigns" value={stats.total_campaigns} testId="ai-stat-campaigns" />
         <StatCard label="Ads Generated" value={stats.ads_generated} accent="text-gold" testId="ai-stat-generations" />
@@ -134,6 +145,7 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab }) => {
         <StatCard label="Top Platform" value={stats.most_used_platform || "—"} testId="ai-stat-platform" />
         <StatCard label="Top Goal" value={stats.most_used_goal || "—"} testId="ai-stat-goal" />
       </div>
+      )}
 
       <div
         className="flex gap-2 mb-6 border-b-2 border-navy/10 pb-4 overflow-x-auto -mx-2 px-2 md:flex-wrap md:overflow-x-visible md:mx-0 md:px-0"

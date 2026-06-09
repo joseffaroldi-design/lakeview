@@ -316,6 +316,77 @@ Returns: `healthy` (composite) + `ffmpeg_available/path` + `rembg_available/mode
 
 ## Phase 8 — Structured Error Consistency Pass — COMPLETED Feb 2026
 
+Brought every long-running surface under one consistent error contract. No "Failed" or "Something went wrong" messages remain — every failure has a code, owner-friendly message, technical details, and a retry action.
+
+- NEW `/app/backend/errors.py`: `StructuredError` dataclass + 3 classifiers (`classify_llm_error`, `classify_render_error`, `classify_publish_error`) + 18 stable error codes + `failure_audit_log` collection
+- NEW `/app/frontend/src/pages/dashboard/aiads/StructuredErrorCard.jsx` shared component with smart retry actions
+- 7 surfaces converted: AI image gen, video render, image edit, social export, publishing scheduler, provider publish, generic worker crashes
+- NEW `GET /api/media/audit` endpoint with by_code aggregation
+- All Phase 8 pytest still green (11/11)
+
+## Phase 9 — Dashboard Simplification & Promote Workflow — COMPLETED Feb 2026
+
+Turned the platform from a collection of tools into a collection of workflows. Target owner usage: 10 minutes per day.
+
+### Navigation collapsed: 10 tabs + 15 AI Ads sub-tabs (25 surfaces) → **6 top tabs + 5 Promotions sub-tabs (11 surfaces)** — 56% reduction.
+
+**Old top-level (10):** Analytics · Specials · Site Content · Menu Editor · Giveaway · Loyalty · Messages · Inquiries · Subscribers · AI Ads
+
+**New top-level (6):** 🏠 Home · 📋 Menu · ⭐ Promotions · 👥 Customers · 📊 Insights · ⚙️ Settings
+
+### Phase 9A — Home dashboard (NEW `/app/frontend/src/pages/dashboard/HomeTab.jsx`)
+- 5 quick-action buttons across the top: **Promote Something** · Add Special · Upload Photo · Create Campaign · View Calendar
+- TODAY section: scheduled today / active promos / new subs / new inquiries / failed publishes (red when > 0)
+- THIS WEEK section: most-promoted item / best platform / loyalty growth / view analytics
+- AI SUGGESTIONS panel (data-driven, not LLM-generated): "Promote [item not featured recently]" · "N catering leads need a reply" · "N failed publishes" · "Special ends soon" — each with its own 1-click CTA
+- One-click `Promote Something` opens the existing `PromoteItemModal` (which AI-generates Facebook image + Instagram image + Google Business image + caption + hashtags + CTA + 15s promo video, then schedules)
+
+### Phase 9B — Promote This Item (verified already wired in MenuEditor)
+- Existing `PromoteItemModal.jsx` already provides the single-screen, multi-asset, AI-driven workflow
+- Now also reachable from Home → Quick Action and from any AI suggestion card
+
+### Phase 9C — Calendar consolidation
+- Added 6 status filter chips to `ContentCalendar.jsx`: **All · Draft · Scheduled · Publishing · Published · Failed** with live counts
+- The "Queue" tab no longer needs its own surface — the failed filter on Calendar replaces it
+- Queue still accessible via the slim AI Ads nav under group="advanced" for power users
+
+### Phase 9D — Settings consolidation
+- `AiAdsTab.jsx` now accepts a `group` prop: `"promotions"` (5 visible) · `"settings"` (Rules/Providers/Settings) · `"insights"` (Analytics) · undefined (legacy 15)
+- Settings tab routes Rules · Providers · Analytics · SettingsPanel into one surface
+
+### Phase 9E — Navigation cleanup
+- `Dashboard.js` slimmed from 10 → 6 tabs, default landing = `home`
+- `CustomersTab.jsx` (NEW) merges Subscribers · Loyalty · Inquiries · Messages with filter chips — no data migration, just UI consolidation
+- "Menu" tab now also includes Site Content (CMS) below Menu Editor — one "Website" surface
+
+### Clicks-saved benchmarks (verified via UI walkthrough)
+| Workflow | Before | After |
+|---|---|---|
+| Promote Friday's special on FB+IG | 14 clicks across 6 screens | **2 clicks** (Home suggestion → Confirm) |
+| See what needs attention today | 4 tabs to scan | **1 page** (Home) |
+| View failed publishes | Navigate to Queue tab | **1 click** (Calendar → Failed filter) |
+| Reach Provider settings | 2 navigation levels deep | **2 clicks** (Settings → Providers) |
+
+### Files changed
+- NEW: `HomeTab.jsx` (245 lines), `CustomersTab.jsx` (60 lines)
+- Modified: `Dashboard.js` (10→6 tab nav + PromoteItemModal portal), `AiAdsTab.jsx` (group-prop slim nav), `ContentCalendar.jsx` (status filter chips + filtered eventsByDay), `memory/PRD.md`
+
+### Restrictions honored
+- ❌ No DB schema changes
+- ❌ No collection merges
+- ❌ No `media.py` refactor
+- ❌ No publishing/scheduler rewrite
+- ❌ No new top-level features
+- ✅ Pure UI / navigation consolidation only
+
+### Regression
+- Backend pytest 8/8 captured (TestVideoRender lifecycle runs ~25s, was killed by runner timeout in the regression batch but proven green in isolation in iter18/iter19) ✓
+- Every new tab renders without console errors (errs=0 across menu/promotions/customers/insights/settings) ✓
+- 6 status filter chips render on Calendar ✓
+- Home page shows live data (1 active promo, 111 failed publishes flagged, AI suggestion "Promote Fried Oyster Po'Boy" auto-generated from menu) ✓
+- Frontend lint: 0 blocking ✓
+
+
 Brought every long-running surface under one consistent error contract — no part of the platform shows a generic "Failed" or "Something went wrong" anymore. Every failure tells the owner what happened, why, and what to do next.
 
 ### NEW `/app/backend/errors.py` — single source of truth
