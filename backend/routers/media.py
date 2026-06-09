@@ -820,15 +820,19 @@ async def edit_image(
         base = Image.open(src_path)
         base.load()
 
+    edited = None
     try:
         edited = await asyncio.to_thread(_apply_edits, base, body, logo_path)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Image edit failed: {e}")
     finally:
-        try:
-            base.close()
-        except Exception:  # noqa: BLE001
-            pass
+        # Only close the source if _apply_edits returned a different image,
+        # otherwise we'd close the image we still need to save.
+        if edited is not None and base is not edited:
+            try:
+                base.close()
+            except Exception:  # noqa: BLE001
+                pass
 
     # Save — PNG if alpha channel present, otherwise JPEG
     has_alpha = edited.mode == "RGBA" and edited.getextrema()[3][0] < 255
@@ -988,16 +992,47 @@ async def list_social_formats(authorization: str = Header(None), session_token: 
 
 @router.get("/health")
 async def media_health(authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Operational health probe — exposes ffmpeg + storage availability."""
+    """Operational health probe — exposes ffmpeg + rembg + storage + render queue."""
     await verify_session(authorization, session_token)
     ffmpeg_path = shutil.which("ffmpeg")
     storage_used = sum(p.stat().st_size for p in STORAGE_DIR.glob("*") if p.is_file())
+
+    # rembg state (lazy import so health works even if bootstrap fails)
+    rembg = {"available": False, "model_ready": False, "error": "not initialized"}
+    try:
+        from bootstrap import rembg_state
+        rembg = rembg_state()
+    except Exception as e:  # noqa: BLE001
+        rembg["error"] = str(e)[:200]
+
+    # render queue health
+    queue_counts = {"queued": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
+    try:
+        from datetime import timedelta
+        since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        queue_counts["queued"] = await db.render_jobs.count_documents({"status": "queued"})
+        queue_counts["processing"] = await db.render_jobs.count_documents({"status": "processing"})
+        queue_counts["completed_recent"] = await db.render_jobs.count_documents(
+            {"status": "completed", "updated_at": {"$gte": since}}
+        )
+        queue_counts["failed_recent"] = await db.render_jobs.count_documents(
+            {"status": "failed", "updated_at": {"$gte": since}}
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+    healthy = ffmpeg_path is not None and rembg.get("model_ready") and queue_counts["processing"] < 10
     return {
+        "healthy": healthy,
         "ffmpeg_available": ffmpeg_path is not None,
         "ffmpeg_path": ffmpeg_path,
+        "rembg_available": rembg.get("available", False),
+        "rembg_model_ready": rembg.get("model_ready", False),
+        "rembg_error": rembg.get("error"),
         "storage_dir": str(STORAGE_DIR),
         "storage_bytes": storage_used,
         "storage_mb": round(storage_used / 1024 / 1024, 1),
+        "render_queue": queue_counts,
     }
 
 

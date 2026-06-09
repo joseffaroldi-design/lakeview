@@ -295,5 +295,32 @@ Comprehensive media-management module inside the AI Ads tab. Six sub-sections:
 ## P1 Backlog (next)
 - Split `/app/backend/routers/media.py` (~995 lines) into `media/{upload,edit,export,ai,render,health}.py`
 - Drag-handle crop overlay (currently slider-based)
-- Background-removal model preload at first server startup (avoid first-user latency)
-- Container image rebuild with ffmpeg + rembg baked in (currently apt-installed at runtime)
+- "AI Marketing Pack" one-click button: single product photo → FB image + IG reel image + 15s video promo with CTA
+
+## Phase 8 — Infrastructure Hardening Pass — COMPLETED Feb 2026
+
+Made Media Studio survive container restarts/rebuilds without manual intervention.
+
+### Container/runtime self-healing (NEW `/app/backend/bootstrap.py`)
+- **`ensure_ffmpeg()`** — at backend startup, `shutil.which("ffmpeg")` is checked; if missing, runs `apt-get update && apt-get install -y --no-install-recommends ffmpeg`. Idempotent. ~25s on cold restart. Logs `[bootstrap] ffmpeg installed: True` on success.
+- **`prewarm_rembg()`** — fires off `asyncio.create_task(prewarm_rembg())` at startup. Loads u2net session in a worker thread so the model (~170 MB) is ready before any user clicks "Remove background". First-user latency drops from 30-90s → 5-8s.
+
+### Extended health endpoint `GET /api/media/health`
+Returns:
+- `healthy` (composite boolean)
+- `ffmpeg_available` + `ffmpeg_path`
+- `rembg_available` + `rembg_model_ready` + `rembg_error`
+- `storage_bytes` + `storage_mb`
+- `render_queue: { queued, processing, completed_recent, failed_recent }` (24h window)
+
+### Bug fixed during pass
+- `/api/media/edit` background-removal path was throwing `Operation on closed image` because the try/finally was closing the PIL source image even when `_apply_edits` returned the same image unchanged. Now only closes if `base is not edited`.
+
+### Verification
+- Removed ffmpeg via `apt-get remove -y ffmpeg` → restarted backend → ffmpeg auto-reinstalled in ~25s ✓
+- rembg u2net model pre-warmed in ~25s ✓
+- Live video render after rebuild: 16s 9:16 with 3 images, status=completed ✓
+- Live background removal after rebuild (warm model): 6s ✓
+- Full pytest suite `test_phase8_media_studio.py`: **11/11 passed** in 30.79s ✓
+- Health endpoint returns `healthy=true` with all subsystems green ✓
+

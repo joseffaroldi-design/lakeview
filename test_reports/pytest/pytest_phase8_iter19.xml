@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="11" failures="0" skipped="0" tests="11" time="0.992" timestamp="2026-06-09T06:47:27.437691+00:00" hostname="agent-env-efaf7797-c558-4d8b-87d9-5fb5131b19fc"><testcase classname="backend.tests.test_phase8_media_studio.TestUpload" name="test_upload_jpg_success" time="0.305"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestUpload" name="test_upload_rejects_unsupported_mime" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestEdit" name="test_edit_brightness_contrast_text" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestEdit" name="test_edit_crop_rotate_flip_changes_dims" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestEdit" name="test_edit_remove_background" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestSocialExport" name="test_social_formats_list" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestSocialExport" name="test_export_six_formats_cover" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestSocialExport" name="test_export_contain_with_bg_color" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestVideoRender" name="test_video_render_lifecycle" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestVideoRender" name="test_video_jobs_list_sorted" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_phase8_media_studio.TestStats" name="test_stats_contains_required_keys" time="0.000"><error message="failed on setup with &quot;AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">backend/tests/test_phase8_media_studio.py:41: in session
+    assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+E   AssertionError: Login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase></testsuite></testsuites>

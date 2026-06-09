@@ -123,6 +123,15 @@ async def on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("Orphan render-job cleanup skipped: %s", e)
 
+    # ---- 8. Media Studio infra: ensure ffmpeg + pre-warm rembg model in background
+    try:
+        from bootstrap import ensure_ffmpeg, prewarm_rembg
+        await asyncio.to_thread(ensure_ffmpeg)
+        # Run model warmup off the main loop so backend stays responsive
+        asyncio.create_task(prewarm_rembg())
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Media bootstrap skipped: %s", e)
+
     global _scheduler_task
     _scheduler_task = asyncio.create_task(_scheduler_loop())
     logger.info("Publishing scheduler started (interval=%ss)", SCHEDULER_INTERVAL_SECONDS)
