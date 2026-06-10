@@ -555,3 +555,54 @@ Returns:
 - Phase H: First Promotion Walkthrough (P1).
 - Weekly AI Digest Email (P1), "Plan My Week" 7-day draft generation (P1).
 - Merge `ai_assets` and `media_assets` collections (P2).
+
+
+---
+
+## Phase 10 — Persistent Media Storage + AI Job Janitor (Feb 2026)
+
+### Problem (exposed by production verification of the async fix)
+1. **Asset persistence**: AI-generated PNGs, uploaded files, and rendered MP4s were stored on the pod's local `/app/backend/media_storage`. Any pod restart (deploy, OOM, HPA scale) wiped them. Verified live in production — a freshly-generated PNG returned `{"detail":"File missing on disk"}` minutes later.
+2. **Orphan jobs**: AI image jobs are run via `asyncio.create_task` — an in-process registry. A backend restart kills the task. With no janitor, the Mongo doc stays at `status="processing"` forever and the user's UI polls indefinitely (until the 3-min frontend timeout).
+
+### Fix — Emergent Object Storage + Startup Janitor
+
+**Backend — `/app/backend/storage.py` (NEW, 175 lines)**
+- Thin façade over Emergent Object Storage API. Public functions: `init_storage()`, `put_bytes`, `get_bytes`, `exists`, `download_to_tmp`, `make_path`, `health`.
+- Uses `EMERGENT_LLM_KEY` to bootstrap a session `storage_key` (auto re-init on 403).
+- Legacy compat: bare-filename `storage_path` values fall back to LOCAL_STORAGE_DIR.
+
+**Backend — `/app/backend/routers/media.py` (refactored)**
+- All NEW writes → `lakeview/{uploads|ai_images|edits|exports|renders|thumbs}/{uuid}.{ext}`.
+- Upload: stream to /tmp scratch, then put_bytes, then delete scratch.
+- `/file/{id}` and `/thumb/{id}`: return bytes via `Response(content=...)`. Thumbs lazily generated + cached in object storage.
+- Edit, export-social, video render: download sources to /tmp work_dir, process, upload result, cleanup in `finally`.
+- Delete is SOFT (`status="archived"`) — object storage has no delete API.
+- `cleanup_orphan_ai_image_jobs()` + `cleanup_orphan_render_jobs()` sweep `pending|processing` rows to `failed` with structured retryable error.
+- `/api/media/health` expanded: `storage{backend, reachable, initialized}`, `asset_count`, `stale_*_jobs`, full queue counts. `healthy:true` requires ffmpeg + rembg + storage reachable + 0 stale jobs.
+
+**Backend — `/app/backend/server.py`** — startup runs both janitors then `objstore.init_storage()` off the event loop.
+
+### Verification (iteration 21)
+- **Backend pytest 19/19 PASS** (~80s wall-clock).
+- Restart survival: 638-byte upload PNG and 2 MB AI PNG both byte-identical pre/post `supervisorctl restart backend`.
+- Janitor: enqueue → restart → poll → `{status:"failed", error:{code:"unknown", user_message:"interrupted by a server restart", retryable:true, retry_action:"retry"}}`.
+- Health probe (PUT+GET roundtrip on `lakeview/_health/probe.txt`) → `reachable:true, initialized:true`.
+- Regression: `/api/menu`, `/api/specials`, `/`, `/api/ai-ads/plugins`, `/api/ai-ads/plugins/restaurant` all 200.
+
+### Operations summary
+- **Architecture (post-fix):** Writes → Emergent Object Storage. Reads via FastAPI proxy. Mongo = metadata only.
+- **Migration:** Hybrid — `is_remote_path()` discriminator. New writes always remote; old rows read from disk if present, else structured 404.
+- **Rollback:** Revert `media.py` + `server.py` in one commit. Local fallback ensures already-uploaded files keep working.
+- **Downtime:** Zero — code roll only.
+- **Regression suite:** `/app/backend/tests/test_phase10_persistence.py`.
+
+### Remaining risks
+- Object storage has no delete API → archived assets accumulate. Acceptable until volume grows.
+- All reads stream through FastAPI proxy. Fine for admin tool; expose CDN later if public traffic grows.
+
+### Backlog (paused per user instruction — reliability first)
+- (P2) Split `routers/media.py` (~1432 lines) into a subpackage.
+- (P1) First Promotion Walkthrough, Weekly AI Digest Email, "Plan My Week" 7-day generator.
+- (P2) Merge `ai_assets` + `media_assets` collections.
+- (P2) Periodic purge of `status="archived"` rows.
