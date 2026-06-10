@@ -135,86 +135,7 @@ async def update_config(cfg: ModelConfig, authorization: str = Header(None), ses
 @router.post("/generate")
 @limiter.limit("10/minute")
 async def generate_master(request: Request, body: GenerateRequest, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-
-    # Apply template defaults (frontend may also do this, but server is source of truth)
-    brief = body.model_dump()
-    if body.template_id:
-        tpl = get_template(body.template_id)
-        if tpl:
-            for k, v in tpl["defaults"].items():
-                if not brief.get(k):
-                    brief[k] = v
-
-    system_prompt = resolve_system_prompt(brief.get("industry"))
-    user_prompt = build_master_user_prompt(brief)
-
-    try:
-        result = await generate_structured(
-            db,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            schema_hint=MASTER_SCHEMA_HINT,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI generation failed: {e}")
-
-    gen_id = await _persist_generation(brief, result["data"], result["model_used"])
-
-    return {
-        "generation_id": gen_id,
-        "model_used": result["model_used"],
-        "brief": brief,
-        "output": result["data"],
-    }
-
-
-@router.post("/campaigns")
-async def save_campaign(payload: CampaignSave, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-
-    now = datetime.now(timezone.utc).isoformat()
-    if payload.id:
-        existing = await db.ai_campaigns.find_one({"id": payload.id}, {"_id": 0})
-        if not existing:
-            raise HTTPException(status_code=404, detail="Campaign not found")
-        update = payload.model_dump(exclude_unset=True)
-        update["updated_at"] = now
-        await db.ai_campaigns.update_one({"id": payload.id}, {"$set": update})
-        return {**existing, **update}
-
-    new_id = str(uuid.uuid4())
-    doc = payload.model_dump()
-    doc["id"] = new_id
-    doc["created_at"] = now
-    doc["updated_at"] = now
-    await db.ai_campaigns.insert_one(doc)
-    return {k: v for k, v in doc.items() if k != "_id"}
-
-
-@router.get("/campaigns")
-async def list_campaigns(authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    items: List[Dict[str, Any]] = await db.ai_campaigns.find({}, {"_id": 0}).sort("updated_at", -1).to_list(500)
-    return {"campaigns": items, "total": len(items)}
-
-
-@router.get("/campaigns/{campaign_id}")
-async def get_campaign(campaign_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    item = await db.ai_campaigns.find_one({"id": campaign_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    return item
-
-
-@router.delete("/campaigns/{campaign_id}")
-async def delete_campaign(campaign_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    result = await db.ai_campaigns.delete_one({"id": campaign_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    return {"message": "Deleted"}
+    raise HTTPException(status_code=410, detail="Deprecated in Sprint 12B — use POST /api/marketing-pack/generate instead")
 
 
 @router.get("/stats")
@@ -285,23 +206,7 @@ class SpecialtyBrief(BaseModel):
 @router.post("/generate/{kind}")
 @limiter.limit("15/minute")
 async def generate_specialty(kind: str, request: Request, body: SpecialtyBrief, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    if kind not in GENERATORS:
-        raise HTTPException(status_code=400, detail=f"Unknown generator: {kind}")
-    brief = body.model_dump()
-    try:
-        result = await run_generator(db, kind, brief)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI generation failed: {e}")
-
-    gen_id = await _persist_generation({**brief, "_kind": kind}, result["data"], result["model_used"])
-    return {
-        "generation_id": gen_id,
-        "model_used": result["model_used"],
-        "kind": kind,
-        "brief": brief,
-        "output": result["data"],
-    }
+    raise HTTPException(status_code=410, detail="Deprecated in Sprint 12B — use POST /api/marketing-pack/generate instead")
 
 
 # =====================================================
@@ -707,88 +612,5 @@ async def export_assets(
 
 
 # =====================================================
-# Phase 5 — Extended Analytics
+# Phase 5 — Extended Analytics (deleted in Sprint 12B with AnalyticsDashboard)
 # =====================================================
-
-@router.get("/analytics")
-async def get_extended_analytics(authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Detailed analytics for the AI Studio analytics dashboard."""
-    await verify_session(authorization, session_token)
-    now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-
-    # Use isoformat string comparisons; created_at is stored as ISO 8601 string
-    last_30 = (now - timedelta(days=30)).isoformat()
-
-    total_campaigns = await db.ai_campaigns.count_documents({})
-    total_generations = await db.ai_generations.count_documents({})
-    gens_this_month = await db.ai_generations.count_documents({"created_at": {"$gte": month_start}})
-    gens_last_30 = await db.ai_generations.count_documents({"created_at": {"$gte": last_30}})
-
-    # Asset counts by kind (Phase 5 cards)
-    kind_pipeline = [{"$group": {"_id": "$kind", "count": {"$sum": 1}}}]
-    asset_kinds_raw = await db.ai_assets.aggregate(kind_pipeline).to_list(50)
-    asset_counts = {a["_id"]: a["count"] for a in asset_kinds_raw if a.get("_id")}
-
-    # Platform / campaign-type breakdown from generations
-    platform_agg = await db.ai_generations.aggregate([
-        {"$group": {"_id": "$brief.platform", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-    ]).to_list(20)
-
-    type_agg = await db.ai_generations.aggregate([
-        {"$group": {"_id": "$brief._kind", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-    ]).to_list(20)
-
-    goal_agg = await db.ai_generations.aggregate([
-        {"$group": {"_id": "$brief.goal", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-    ]).to_list(20)
-
-    # Most-generated menu item: read from brief.context lines matching "FEATURED MENU ITEM:"
-    # Simpler: bucket by brief.name (we set "Promote {item}" as default name).
-    name_agg = await db.ai_generations.aggregate([
-        {"$match": {"brief.name": {"$regex": "^Promote ", "$options": "i"}}},
-        {"$group": {"_id": "$brief.name", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 10},
-    ]).to_list(10)
-    most_generated_items = [
-        {"item": (n["_id"] or "").replace("Promote ", ""), "count": n["count"]}
-        for n in name_agg if n.get("_id")
-    ]
-
-    # Trend: per-day count for last 30 days (string slice on ISO date)
-    trend_agg = await db.ai_generations.aggregate([
-        {"$match": {"created_at": {"$gte": last_30}}},
-        {"$project": {"day": {"$substr": ["$created_at", 0, 10]}}},
-        {"$group": {"_id": "$day", "count": {"$sum": 1}}},
-        {"$sort": {"_id": 1}},
-    ]).to_list(40)
-    trend = [{"date": t["_id"], "count": t["count"]} for t in trend_agg]
-
-    return {
-        "totals": {
-            "total_campaigns": total_campaigns,
-            "total_generations": total_generations,
-            "generations_this_month": gens_this_month,
-            "generations_last_30_days": gens_last_30,
-            "ads_generated": asset_counts.get("ad_copy", 0) + asset_counts.get("social_post", 0),
-            "emails_generated": asset_counts.get("email", 0),
-            "sms_generated": asset_counts.get("sms", 0),
-            "videos_generated": asset_counts.get("video_concept", 0) + asset_counts.get("video_file", 0),
-            "images_generated": asset_counts.get("image_concept", 0) + asset_counts.get("image_file", 0),
-        },
-        "insights": {
-            "most_used_platform": (platform_agg[0]["_id"] if platform_agg and platform_agg[0].get("_id") else None),
-            "most_used_campaign_type": (type_agg[0]["_id"] if type_agg and type_agg[0].get("_id") else None),
-            "most_used_goal": (goal_agg[0]["_id"] if goal_agg and goal_agg[0].get("_id") else None),
-            "most_generated_items": most_generated_items,
-        },
-        "charts": {
-            "trend_30_days": trend,
-            "platform_usage": [{"name": p["_id"], "count": p["count"]} for p in platform_agg if p.get("_id")],
-            "campaign_type_breakdown": [{"name": t["_id"], "count": t["count"]} for t in type_agg if t.get("_id")],
-        },
-    }

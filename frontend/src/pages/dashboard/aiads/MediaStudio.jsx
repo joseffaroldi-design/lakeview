@@ -11,13 +11,13 @@ import axios from "axios";
 import {
   Upload, Image as ImageIcon, Sparkles, Video, Library as LibraryIcon,
   Trash2, Star, Loader2, Folder, Film, Search, RefreshCcw, Play, Download,
-  Sliders, Share2, AlertTriangle,
+  Sliders, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API, Section, EmptyState } from "./shared";
 import { ImageEditor } from "./ImageEditor";
-import { SocialExporter } from "./SocialExporter";
+// SocialExporter removed in Sprint 12B — superseded by PromoteThisItem social formats.
 import { StructuredErrorCard, parseAxiosError } from "./StructuredErrorCard";
 
 const FOLDERS = ["Menu Items", "Promotions", "Catering", "Events", "Logos", "Social Media", "Custom"];
@@ -539,7 +539,6 @@ export const MediaStudio = (props) => {
     { id: "uploads", label: "Uploads", icon: Upload },
     { id: "ai", label: "AI Images", icon: Sparkles },
     { id: "editor", label: "Editor", icon: Sliders },
-    { id: "exports", label: "Social Exports", icon: Share2 },
     { id: "video", label: "Video Studio", icon: Video },
     { id: "library", label: "Asset Library", icon: LibraryIcon },
   ];
@@ -587,7 +586,6 @@ export const MediaStudio = (props) => {
             </Section>
           )
       )}
-      {section === "exports" && <SocialExporter assets={assets} getAuthHeader={getAuthHeader} onExported={() => { loadAssets(); loadStats(); }} />}
       {section === "video" && <VideoRenderWizard getAuthHeader={getAuthHeader} assets={assets} onStarted={() => { loadJobs(); loadStats(); }} jobs={jobs} />}
 
       {(section === "library" || section === "uploads" || section === "ai" || section === "video") ? (

@@ -8,43 +8,30 @@ import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Sparkles, Share2, Mail, MessageSquare, Image as ImageIcon, Video as VideoIcon,
-  Library as LibraryIcon, Settings as SettingsIcon, Wand2, BarChart3,
-  Calendar as CalendarIcon, ListChecks, Link2, Repeat, UtensilsCrossed, Film,
+  Sparkles, Library as LibraryIcon, Settings as SettingsIcon, BarChart3,
+  Calendar as CalendarIcon, ListChecks, UtensilsCrossed, Film,
 } from "lucide-react";
 import { API } from "./aiads/shared";
-import CampaignBuilder from "./aiads/CampaignBuilder";
-import SocialGenerator from "./aiads/SocialGenerator";
-import EmailGenerator from "./aiads/EmailGenerator";
-import SmsGenerator from "./aiads/SmsGenerator";
-import ImageStudio from "./aiads/ImageStudio";
-import VideoStudio from "./aiads/VideoStudio";
 import CreativeLibrary from "./aiads/CreativeLibrary";
 import AnalyticsTab from "./AnalyticsTab";
 import ContentCalendar from "./aiads/ContentCalendar";
 import PublishQueue from "./aiads/PublishQueue";
-import ProviderConnections from "./aiads/ProviderConnections";
-import AutomationRules from "./aiads/AutomationRules";
 import RestaurantAutomationCenter from "./aiads/RestaurantAutomationCenter";
 import MediaStudio from "./aiads/MediaStudio";
 import PromoteThisItem from "./aiads/PromoteThisItem";
 import AiSettingsPanel from "./aiads/SettingsPanel";
 
+// Sprint 12B — owner-facing surfaces only. Phase-3 generators
+// (CampaignBuilder/BriefForm/SocialGenerator/EmailGenerator/SmsGenerator/
+// ImageStudio/VideoStudio/SocialExporter) deleted; superseded by PromoteThisItem.
+// Empty-collection screens (AutomationRules, ProviderConnections) deleted.
 const ALL_SUB_TABS = [
   { id: "promote", label: "Promote This Item", icon: Sparkles, groups: ["promotions"] },
   { id: "automations", label: "Automations", icon: UtensilsCrossed, groups: ["promotions"] },
   { id: "media", label: "Media", icon: Film, groups: ["promotions"] },
-  { id: "calendar", label: "Calendar", icon: CalendarIcon, groups: ["promotions"] },
-  { id: "builder", label: "Campaign Builder", icon: Wand2, groups: ["advanced"] },
+  { id: "calendar", label: "Calendar", icon: CalendarIcon, groups: ["advanced"] },
   { id: "library", label: "Library", icon: LibraryIcon, groups: ["advanced"] },
-  { id: "social", label: "Social", icon: Share2, groups: ["advanced"] },
-  { id: "email", label: "Email", icon: Mail, groups: ["advanced"] },
-  { id: "sms", label: "SMS", icon: MessageSquare, groups: ["advanced"] },
-  { id: "image", label: "Image Concepts", icon: ImageIcon, groups: ["advanced"] },
-  { id: "video", label: "Video Concepts", icon: VideoIcon, groups: ["advanced"] },
   { id: "queue", label: "Queue", icon: ListChecks, groups: ["advanced"] },
-  { id: "rules", label: "Rules", icon: Repeat, groups: ["settings"] },
-  { id: "providers", label: "Providers", icon: Link2, groups: ["settings"] },
   { id: "analytics", label: "Analytics", icon: BarChart3, groups: ["advanced"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, groups: ["settings"] },
 ];
@@ -169,24 +156,6 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab, group, title, icon: Hea
         <p className="text-xs text-muted-foreground mb-4 italic" data-testid="settings-blurb">{SETTINGS_BLURB[activeSub]}</p>
       ) : null}
 
-      {activeSub === "builder" && (
-        <CampaignBuilder catalog={catalog} getAuthHeader={getAuthHeader} onChange={refresh} />
-      )}
-      {activeSub === "social" && (
-        <SocialGenerator catalog={catalog} getAuthHeader={getAuthHeader} onSavedCount={refresh} />
-      )}
-      {activeSub === "email" && (
-        <EmailGenerator catalog={catalog} getAuthHeader={getAuthHeader} onSavedCount={refresh} />
-      )}
-      {activeSub === "sms" && (
-        <SmsGenerator catalog={catalog} getAuthHeader={getAuthHeader} onSavedCount={refresh} />
-      )}
-      {activeSub === "image" && (
-        <ImageStudio catalog={catalog} getAuthHeader={getAuthHeader} onSavedCount={refresh} />
-      )}
-      {activeSub === "video" && (
-        <VideoStudio catalog={catalog} getAuthHeader={getAuthHeader} onSavedCount={refresh} />
-      )}
       {activeSub === "library" && (
         <CreativeLibrary getAuthHeader={getAuthHeader} />
       )}
@@ -204,12 +173,6 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab, group, title, icon: Hea
       )}
       {activeSub === "media" && (
         <MediaStudio getAuthHeader={getAuthHeader} />
-      )}
-      {activeSub === "rules" && (
-        <AutomationRules getAuthHeader={getAuthHeader} />
-      )}
-      {activeSub === "providers" && (
-        <ProviderConnections getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "analytics" && (
         <AnalyticsTab getAuthHeader={getAuthHeader} />
