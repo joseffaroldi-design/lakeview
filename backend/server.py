@@ -120,12 +120,20 @@ async def on_startup():
     except Exception:  # noqa: BLE001
         pass
 
-    # ---- 7. Clean up orphan media render jobs left behind by a previous worker
+    # ---- 7. Clean up orphan media jobs left behind by a previous worker
     try:
-        from routers.media import cleanup_orphan_render_jobs
+        from routers.media import cleanup_orphan_render_jobs, cleanup_orphan_ai_image_jobs
         await cleanup_orphan_render_jobs()
+        await cleanup_orphan_ai_image_jobs()
     except Exception as e:  # noqa: BLE001
-        logger.warning("Orphan render-job cleanup skipped: %s", e)
+        logger.warning("Orphan job cleanup skipped: %s", e)
+
+    # ---- 7b. Initialize Emergent Object Storage (off the event loop)
+    try:
+        import storage as objstore
+        await asyncio.to_thread(objstore.init_storage)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Object storage init skipped: %s", e)
 
     # ---- 8. Media Studio infra: ensure ffmpeg + pre-warm rembg model in background
     try:

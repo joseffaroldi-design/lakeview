@@ -1,0 +1,41 @@
+{
+  "summary": "Phase 10 — Production reliability backend verified. Created /app/backend/tests/test_phase10_persistence.py (19 pytest cases) — all PASS (80s total wall-clock). Confirmed: every new media write lands in Emergent Object Storage under lakeview/{uploads,ai_images,edits,exports,renders}/; /api/media/file/{id} and /thumb/{id} serve bytes via Response (no FileResponse pointing to local disk); soft-delete works (mode='soft', archived hidden from default listing); duplicate clones bytes with new uuid + new path. CRITICAL restart survival proven for both an uploaded PNG and a freshly-generated AI image — bytes identical pre/post `sudo supervisorctl restart backend`. JANITOR proven: a pending AI job is marked status='failed' after restart with error.retryable=true, retry_action='retry', user_message containing 'interrupted by a server restart'. /api/media/health returns healthy=true with storage.reachable=true, storage.backend='emergent_object_storage', storage.initialized=true, asset_count>0, stale_*_jobs=0, and full pending/processing/completed_recent/failed_recent keys on both queues. Regression: /api/menu, /api/specials, /, /api/ai-ads/plugins, /api/ai-ads/plugins/restaurant all 200. Legacy fallback negative path returns 404 (no 500 crash).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase10_persistence.py",
+    "/app/test_reports/pytest/pytest_phase10.xml"
+  ],
+  "action_items": [
+    "(Optional) The endpoint name in the original review_request says 'render-job' but the implementation is mounted at /api/media/video/render + /api/media/video/jobs/{id}. Not a bug — just a naming note for future agent-to-agent context.",
+    "(Optional, carried) /app/backend/routers/media.py is now ~1432 lines (still > 700-line guideline). Splitting into media/{upload,assets,ai_image,edit,export,video,health}.py with a shared deps module would help maintainability — non-blocking.",
+    "(Optional) GET /api/media/file/{id} and /thumb/{id} are deliberately public (uuid4 is unguessable per the route comment). If product wants to harden this, add ?token=… signed URLs — non-blocking."
+  ],
+  "critical_code_review_comments": [
+    "storage.put_bytes/get_bytes correctly handle 403 re-auth by clearing _storage_key + re-init once before retry — good resilience.",
+    "is_remote_path('foo.png') correctly returns False so pre-Phase-10 rows with bare filenames keep working via LOCAL_STORAGE_DIR fallback. get_bytes raises FileNotFoundError on missing legacy, which the route translates to HTTP 404 'File missing in storage' — no crash. Verified.",
+    "cleanup_orphan_ai_image_jobs and cleanup_orphan_render_jobs are wired into server.on_startup BEFORE init_storage, which is fine because they only touch Mongo. The janitor sweeps ALL pending/processing rows (no age filter) — correct behavior because in-process asyncio tasks are gone after a restart by definition.",
+    "_render_sync downloads each source to a per-job /tmp work_dir and cleans up in finally — no leftover scratch files. ffmpeg-concat is via -c copy after equalizing dims, so output is a valid mp4 (ftyp magic byte confirmed in test).",
+    "health probe does a true PUT+GET roundtrip on lakeview/_health/probe.txt — this proves auth + reachability rather than just session-key presence."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase10_persistence.py (new — 19 pytest cases)"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 — upload+roundtrip, AI lifecycle, edit, export-social ×2, render→mp4, duplicate, soft-delete, restart survival ×2 (upload + AI), janitor, health, regression ×5, legacy 404)",
+    "frontend": "skipped per review_request (backend only)"
+  },
+  "test_credentials": {"admin_password": "Lakeview872"},
+  "seed_data_creation": "During the test run the suite created: 3 PNG uploads (phase10_seed.png, p10_del.png [soft-deleted], p10_restart.png), 2 AI-generated PNGs (prompts 'smash burger' and 'fries'), 1 edited PNG (brightness +10%), 2 social-export JPEGs (ig_post_1_1, fb_post), 1 1:1 10s rendered MP4, and 1 duplicate of the seed PNG. All persist in Emergent Object Storage. Cleanup not performed (Emergent Object Storage has no delete API; Mongo rows remain status='active' except the explicit soft-delete row).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 10 is GREEN. The pytest file at /app/backend/tests/test_phase10_persistence.py is the regression suite for object-storage persistence + janitor — run with `cd /app/backend && python -m pytest tests/test_phase10_persistence.py -v` (takes ~80s due to two real backend restarts and one ffmpeg render). It reads REACT_APP_BACKEND_URL from frontend/.env if the env var isn't exported. The CRITICAL tests are TestRestartSurvival (proves files survive pod restart) and TestJanitor (proves orphan jobs get failed-with-retry on restart). If either fails in a future iteration, the regression is in /app/backend/storage.py or /app/backend/routers/media.py:cleanup_orphan_ai_image_jobs.",
+  "rca of the issue": "N/A — no defects found. The two minor adjustments in this iteration were to the test harness only: (1) read REACT_APP_BACKEND_URL from /app/frontend/.env when not exported in the shell, (2) attach the admin Bearer token when hitting /api/ai-ads/plugins[/restaurant] (those routes require auth per existing implementation; review_request listed them as unauth regression but they are auth-protected, which is by design)."
+}

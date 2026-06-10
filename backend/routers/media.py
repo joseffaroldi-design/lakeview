@@ -27,28 +27,31 @@ import io
 import os
 import shutil
 import subprocess
+import tempfile
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Header, Cookie, UploadFile, File, Form, Query
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, constr
 from motor.motor_asyncio import AsyncIOMotorClient
 from PIL import Image, ImageEnhance, ImageDraw, ImageFont, ImageOps
 
 from auth import verify_session
+import storage as objstore
 
 router = APIRouter(prefix="/media", tags=["media"])
 
 mongo_client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = mongo_client[os.environ["DB_NAME"]]
 
-STORAGE_DIR = Path(os.environ.get("MEDIA_STORAGE_DIR", "/app/backend/media_storage"))
-STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-THUMBS_DIR = STORAGE_DIR / ".thumbs"
-THUMBS_DIR.mkdir(exist_ok=True)
+# /tmp scratch space — only for ffmpeg pipelines that require filesystem inputs.
+# All canonical media is stored in Emergent Object Storage.
+TMP_DIR = Path(tempfile.gettempdir()) / "media_scratch"
+TMP_DIR.mkdir(parents=True, exist_ok=True)
 
 # Sanity check at import — warn loudly if ffmpeg is missing so operators see it in logs.
 if shutil.which("ffmpeg") is None:
@@ -57,8 +60,6 @@ if shutil.which("ffmpeg") is None:
         "[media] ffmpeg binary not found on PATH — video rendering and video thumbnails will fail. "
         "Install with: apt-get install -y ffmpeg"
     )
-RENDERS_DIR = STORAGE_DIR / ".renders"
-RENDERS_DIR.mkdir(exist_ok=True)
 
 ALLOWED_IMAGE = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 ALLOWED_VIDEO = {"video/mp4", "video/quicktime", "video/webm"}
@@ -78,33 +79,71 @@ def _ext_from_mime(mime: str) -> str:
     }.get(mime, "bin")
 
 
-async def _ensure_thumb(asset: Dict[str, Any]) -> Path:
-    """Generate and cache a 360px-wide thumbnail. Returns its path."""
-    thumb_path = THUMBS_DIR / f"{asset['id']}.jpg"
-    if thumb_path.exists():
-        return thumb_path
-    src = STORAGE_DIR / asset["storage_path"]
+@contextmanager
+def _local_copy(storage_path: str, suffix: str = ""):
+    """Yield a local tmp file path for an asset. Downloads from object storage
+    or copies from legacy local disk. Cleans up on exit."""
+    tmp = TMP_DIR / f"{uuid.uuid4().hex}{suffix or '.' + storage_path.rsplit('.', 1)[-1] if '.' in storage_path else ''}"
+    try:
+        objstore.download_to_tmp(storage_path, tmp)
+        yield tmp
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+async def _ensure_thumb_bytes(asset: Dict[str, Any]) -> Optional[bytes]:
+    """Return JPEG thumbnail bytes for an asset. Generates lazily from the
+    canonical asset bytes and caches in object storage at
+    `lakeview/thumbs/{asset_id}.jpg` so subsequent fetches are O(1)."""
+    thumb_path = objstore.make_path("thumbs", asset["id"], "jpg")
+    # Cached?
+    try:
+        data, _ = objstore.get_bytes(thumb_path)
+        return data
+    except FileNotFoundError:
+        pass
+    except Exception:  # noqa: BLE001
+        pass
+    # Generate
+    try:
+        src_bytes, _ = objstore.get_bytes(asset["storage_path"])
+    except FileNotFoundError:
+        return None
+    out = io.BytesIO()
     try:
         if asset["kind"] == "image":
-            with Image.open(src) as img:
+            with Image.open(io.BytesIO(src_bytes)) as img:
                 img = img.convert("RGB")
                 w, h = img.size
                 if w > 360:
                     h = int(h * 360 / w)
                     w = 360
                 img.thumbnail((w, h), Image.LANCZOS)
-                img.save(thumb_path, "JPEG", quality=82, optimize=True)
-        else:  # video — extract frame at 1s
-            subprocess.run(
-                ["ffmpeg", "-y", "-loglevel", "error", "-ss", "1",
-                 "-i", str(src), "-vframes", "1", "-vf", "scale=360:-2",
-                 str(thumb_path)],
-                check=False, timeout=20,
-            )
+                img.save(out, "JPEG", quality=82, optimize=True)
+        else:  # video — extract frame at 1s via ffmpeg
+            with _local_copy(asset["storage_path"]) as src_tmp:
+                thumb_tmp = TMP_DIR / f"{uuid.uuid4().hex}.jpg"
+                try:
+                    subprocess.run(
+                        ["ffmpeg", "-y", "-loglevel", "error", "-ss", "1",
+                         "-i", str(src_tmp), "-vframes", "1", "-vf", "scale=360:-2",
+                         str(thumb_tmp)],
+                        check=False, timeout=20,
+                    )
+                    if thumb_tmp.exists():
+                        out.write(thumb_tmp.read_bytes())
+                finally:
+                    thumb_tmp.unlink(missing_ok=True)
     except Exception:  # noqa: BLE001
-        # If thumbnail generation fails, leave it — caller falls back to /file
-        pass
-    return thumb_path
+        return None
+    data = out.getvalue()
+    if not data:
+        return None
+    try:
+        objstore.put_bytes(thumb_path, data, "image/jpeg")
+    except Exception:  # noqa: BLE001
+        pass  # Cache write is best-effort
+    return data
 
 
 # ===================== Upload + list + read =====================
@@ -130,53 +169,60 @@ async def upload_media(
 
     asset_id = str(uuid.uuid4())
     ext = _ext_from_mime(mime)
-    rel_path = f"{asset_id}.{ext}"
-    dest = STORAGE_DIR / rel_path
+    storage_path = objstore.make_path("uploads", asset_id, ext)
 
-    # Stream to disk in chunks (avoids loading the whole file in memory)
+    # Stream to a /tmp scratch file (avoid loading the whole file in memory
+    # for 100 MB videos), enforce the size limit incrementally, then upload.
+    scratch = TMP_DIR / f"{asset_id}.{ext}"
     size = 0
-    with dest.open("wb") as f:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > max_bytes:
-                dest.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail=f"File exceeds {max_bytes // (1024*1024)} MB limit.")
-            f.write(chunk)
+    try:
+        with scratch.open("wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    scratch.unlink(missing_ok=True)
+                    raise HTTPException(status_code=413, detail=f"File exceeds {max_bytes // (1024*1024)} MB limit.")
+                f.write(chunk)
 
-    width = height = None
-    duration_seconds = None
-    if kind == "image":
-        try:
-            with Image.open(dest) as img:
-                width, height = img.size
-        except Exception:  # noqa: BLE001
-            pass
-    else:
-        try:
-            r = subprocess.run(
-                ["ffprobe", "-v", "error", "-select_streams", "v:0",
-                 "-show_entries", "stream=width,height,duration",
-                 "-of", "csv=s=,:p=0", str(dest)],
-                capture_output=True, text=True, timeout=15,
-            )
-            parts = r.stdout.strip().split(",")
-            if len(parts) >= 2:
-                width = int(parts[0])
-                height = int(parts[1])
-            if len(parts) >= 3 and parts[2] not in ("N/A", ""):
-                duration_seconds = float(parts[2])
-        except Exception:  # noqa: BLE001
-            pass
+        width = height = None
+        duration_seconds = None
+        if kind == "image":
+            try:
+                with Image.open(scratch) as img:
+                    width, height = img.size
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            try:
+                r = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                     "-show_entries", "stream=width,height,duration",
+                     "-of", "csv=s=,:p=0", str(scratch)],
+                    capture_output=True, text=True, timeout=15,
+                )
+                parts = r.stdout.strip().split(",")
+                if len(parts) >= 2:
+                    width = int(parts[0])
+                    height = int(parts[1])
+                if len(parts) >= 3 and parts[2] not in ("N/A", ""):
+                    duration_seconds = float(parts[2])
+            except Exception:  # noqa: BLE001
+                pass
+
+        # Upload to persistent object storage
+        objstore.put_bytes(storage_path, scratch.read_bytes(), mime)
+    finally:
+        scratch.unlink(missing_ok=True)
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     folder = folder if folder in DEFAULT_FOLDERS else "Custom"
 
     doc = {
         "id": asset_id,
-        "filename": file.filename or rel_path,
+        "filename": file.filename or f"{asset_id}.{ext}",
         "kind": kind,
         "mime": mime,
         "size_bytes": size,
@@ -185,7 +231,7 @@ async def upload_media(
         "duration_seconds": duration_seconds,
         "folder": folder,
         "tags": tag_list,
-        "storage_path": rel_path,
+        "storage_path": storage_path,
         "is_favorite": False,
         "status": "active",
         "source": "upload",
@@ -234,10 +280,12 @@ async def get_file(asset_id: str):
     asset = await db.media_assets.find_one({"id": asset_id}, {"_id": 0, "storage_path": 1, "mime": 1, "filename": 1})
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    path = STORAGE_DIR / asset["storage_path"]
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="File missing on disk")
-    return FileResponse(str(path), media_type=asset.get("mime"), filename=asset.get("filename"))
+    try:
+        data, _ = objstore.get_bytes(asset["storage_path"])
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="File missing in storage")
+    headers = {"Content-Disposition": f'inline; filename="{asset.get("filename", asset_id)}"'}
+    return Response(content=data, media_type=asset.get("mime") or "application/octet-stream", headers=headers)
 
 
 @router.get("/thumb/{asset_id}")
@@ -245,11 +293,11 @@ async def get_thumb(asset_id: str):
     asset = await db.media_assets.find_one({"id": asset_id}, {"_id": 0})
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    thumb = await _ensure_thumb(asset)
-    if not thumb.exists():
-        # Fallback to original
-        return await get_file(asset_id)
-    return FileResponse(str(thumb), media_type="image/jpeg")
+    thumb = await _ensure_thumb_bytes(asset)
+    if thumb:
+        return Response(content=thumb, media_type="image/jpeg")
+    # Fallback to original (e.g. thumb generation failed)
+    return await get_file(asset_id)
 
 
 class AssetPatch(BaseModel):
@@ -279,17 +327,16 @@ async def patch_asset(
 
 @router.delete("/assets/{asset_id}")
 async def delete_asset(asset_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
+    """Soft-delete — Mongo row goes status='archived', file remains in storage
+    (Emergent Object Storage has no delete API; bytes stay until purged out-of-band)."""
     await verify_session(authorization, session_token)
-    asset = await db.media_assets.find_one({"id": asset_id}, {"_id": 0})
-    if not asset:
+    res = await db.media_assets.update_one(
+        {"id": asset_id},
+        {"$set": {"status": "archived", "updated_at": _now()}},
+    )
+    if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Asset not found")
-    try:
-        (STORAGE_DIR / asset["storage_path"]).unlink(missing_ok=True)
-        (THUMBS_DIR / f"{asset_id}.jpg").unlink(missing_ok=True)
-    except Exception:  # noqa: BLE001
-        pass
-    await db.media_assets.delete_one({"id": asset_id})
-    return {"deleted": 1, "id": asset_id}
+    return {"deleted": 1, "id": asset_id, "mode": "soft"}
 
 
 @router.post("/assets/{asset_id}/duplicate")
@@ -300,9 +347,13 @@ async def duplicate_asset(asset_id: str, authorization: str = Header(None), sess
         raise HTTPException(status_code=404, detail="Asset not found")
     new_id = str(uuid.uuid4())
     ext = src["storage_path"].rsplit(".", 1)[-1]
-    new_rel = f"{new_id}.{ext}"
-    shutil.copy(STORAGE_DIR / src["storage_path"], STORAGE_DIR / new_rel)
-    clone = {**src, "id": new_id, "storage_path": new_rel,
+    new_path = objstore.make_path(src.get("source", "uploads"), new_id, ext)
+    try:
+        data, _ = objstore.get_bytes(src["storage_path"])
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Source file missing in storage")
+    objstore.put_bytes(new_path, data, src.get("mime") or "application/octet-stream")
+    clone = {**src, "id": new_id, "storage_path": new_path,
              "filename": f"{src['filename']} (Copy)", "is_favorite": False,
              "uploaded_at": _now(), "updated_at": _now()}
     await db.media_assets.insert_one(clone)
@@ -420,9 +471,8 @@ async def _run_ai_image_job(job_id: str, body: AiImageRequest) -> None:
     saved = []
     for img_bytes in image_bytes_list:
         aid = str(uuid.uuid4())
-        rel = f"{aid}.png"
-        path = STORAGE_DIR / rel
-        path.write_bytes(img_bytes)
+        storage_path = objstore.make_path("ai_images", aid, "png")
+        objstore.put_bytes(storage_path, img_bytes, "image/png")
         try:
             with Image.open(io.BytesIO(img_bytes)) as im:
                 w, h = im.size
@@ -437,7 +487,7 @@ async def _run_ai_image_job(job_id: str, body: AiImageRequest) -> None:
             "width": w, "height": h, "duration_seconds": None,
             "folder": body.folder or "Promotions",
             "tags": (body.tags or []) + ["ai-generated"],
-            "storage_path": rel,
+            "storage_path": storage_path,
             "is_favorite": False, "status": "active",
             "source": "ai_image",
             "ai_prompt": full_prompt,
@@ -547,13 +597,21 @@ def _aspect_dims(aspect: str) -> tuple:
     }[aspect]
 
 
-def _render_sync(job: Dict[str, Any], ordered: list, W: int, H: int) -> Path:
-    """Blocking ffmpeg pipeline — runs inside asyncio.to_thread."""
+def _render_sync(job: Dict[str, Any], ordered: list, W: int, H: int, work_dir: Path) -> Path:
+    """Blocking ffmpeg pipeline — runs inside asyncio.to_thread. All file paths
+    live under `work_dir` (a /tmp subdir) for the duration of the render."""
     per = max(2.0, job["duration_seconds"] / max(1, len(ordered)))
-    clip_paths = []
+    src_paths: List[Path] = []
+    # Download each source asset to the work dir
     for i, asset in enumerate(ordered):
-        src = STORAGE_DIR / asset["storage_path"]
-        clip = RENDERS_DIR / f"{job['id']}_{i}.mp4"
+        ext = asset["storage_path"].rsplit(".", 1)[-1] if "." in asset["storage_path"] else "bin"
+        local = work_dir / f"src_{i}.{ext}"
+        objstore.download_to_tmp(asset["storage_path"], local)
+        src_paths.append(local)
+
+    clip_paths = []
+    for i, (asset, src) in enumerate(zip(ordered, src_paths)):
+        clip = work_dir / f"clip_{i}.mp4"
         if asset["kind"] == "image":
             cmd = ["ffmpeg", "-y", "-loglevel", "error",
                    "-loop", "1", "-i", str(src),
@@ -569,9 +627,9 @@ def _render_sync(job: Dict[str, Any], ordered: list, W: int, H: int) -> Path:
         subprocess.run(cmd, check=True, timeout=60, capture_output=True)
         clip_paths.append(clip)
 
-    concat_file = RENDERS_DIR / f"{job['id']}_list.txt"
+    concat_file = work_dir / "concat.txt"
     concat_file.write_text("\n".join(f"file '{p}'" for p in clip_paths))
-    out_path = RENDERS_DIR / f"{job['id']}.mp4"
+    out_path = work_dir / "final.mp4"
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
          "-i", str(concat_file), "-c", "copy", str(out_path)],
@@ -579,7 +637,7 @@ def _render_sync(job: Dict[str, Any], ordered: list, W: int, H: int) -> Path:
     )
 
     if job.get("title"):
-        titled = RENDERS_DIR / f"{job['id']}_titled.mp4"
+        titled = work_dir / "titled.mp4"
         txt = (job.get("title") or "").replace(":", r"\:").replace("'", r"\'")
         cta = (job.get("cta") or "").replace(":", r"\:").replace("'", r"\'")
         vf = (
@@ -600,12 +658,8 @@ def _render_sync(job: Dict[str, Any], ordered: list, W: int, H: int) -> Path:
             if titled.exists() and titled.stat().st_size > 1000:
                 out_path = titled
         except subprocess.CalledProcessError:
-            pass  # drawtext is best-effort — keep the concat output if it fails
+            pass  # drawtext is best-effort
 
-    # Cleanup intermediates
-    for c in clip_paths:
-        c.unlink(missing_ok=True)
-    concat_file.unlink(missing_ok=True)
     return out_path
 
 
@@ -614,6 +668,8 @@ async def _run_render_job(job_id: str):
     job = await db.render_jobs.find_one({"id": job_id}, {"_id": 0})
     if not job:
         return
+    work_dir = TMP_DIR / f"render_{job_id}"
+    work_dir.mkdir(parents=True, exist_ok=True)
     try:
         await db.render_jobs.update_one({"id": job_id}, {"$set": {"status": "processing", "progress": 0.1, "updated_at": _now()}})
         assets = await db.media_assets.find({"id": {"$in": job["asset_ids"]}}, {"_id": 0}).to_list(20)
@@ -622,20 +678,22 @@ async def _run_render_job(job_id: str):
         if not ordered:
             raise RuntimeError("No usable source assets")
         W, H = _aspect_dims(job["aspect"])
-        # Run blocking ffmpeg pipeline in a worker thread to keep the loop free.
-        out_path = await asyncio.to_thread(_render_sync, job, ordered, W, H)
+        out_path = await asyncio.to_thread(_render_sync, job, ordered, W, H, work_dir)
 
+        # Upload the result to persistent object storage
         new_id = str(uuid.uuid4())
-        rel = f"{new_id}.mp4"
-        shutil.move(str(out_path), STORAGE_DIR / rel)
+        storage_path = objstore.make_path("renders", new_id, "mp4")
+        video_bytes = out_path.read_bytes()
+        objstore.put_bytes(storage_path, video_bytes, "video/mp4")
+
         asset_doc = {
             "id": new_id,
             "filename": f"render-{job['template']}-{new_id[:6]}.mp4",
             "kind": "video", "mime": "video/mp4",
-            "size_bytes": (STORAGE_DIR / rel).stat().st_size,
+            "size_bytes": len(video_bytes),
             "width": W, "height": H, "duration_seconds": job["duration_seconds"],
             "folder": "Promotions", "tags": ["rendered", job.get("template") or "menu_item_spotlight"],
-            "storage_path": rel, "is_favorite": False, "status": "active",
+            "storage_path": storage_path, "is_favorite": False, "status": "active",
             "source": "video_render", "render_job_id": job_id,
             "uploaded_at": _now(), "updated_at": _now(),
         }
@@ -671,6 +729,12 @@ async def _run_render_job(job_id: str):
         await db.render_jobs.update_one(
             {"id": job_id}, {"$set": {"status": "failed", "error": err.to_payload(), "updated_at": _now()}},
         )
+    finally:
+        # Always cleanup the scratch dir
+        try:
+            shutil.rmtree(work_dir, ignore_errors=True)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @router.post("/video/render")
@@ -967,100 +1031,112 @@ async def edit_image(
             technical=f"media_assets({body.source_asset_id}) not found or wrong kind",
         ), source_asset_id=body.source_asset_id)
         raise HTTPException(status_code=err.status, detail=err.to_payload())
-    src_path = STORAGE_DIR / src_asset["storage_path"]
-    if not src_path.exists():
+    # Download source to /tmp scratch for PIL/rembg
+    src_scratch = TMP_DIR / f"src_{uuid.uuid4().hex}.{src_asset['storage_path'].rsplit('.', 1)[-1]}"
+    try:
+        objstore.download_to_tmp(src_asset["storage_path"], src_scratch)
+    except FileNotFoundError:
         err = await report_failure(db, surface="image_edit", err=StructuredError(
             code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
-            user_message="The image file is missing on the server. Re-upload it and try again.",
-            technical=f"file not found: {src_path}",
+            user_message="The image file is missing in storage. Re-upload it and try again.",
+            technical=f"object missing: {src_asset['storage_path']}",
         ), source_asset_id=body.source_asset_id)
         raise HTTPException(status_code=err.status, detail=err.to_payload())
 
-    logo_path: Optional[Path] = None
+    logo_scratch: Optional[Path] = None
     if body.logo_overlay:
         logo_asset = await db.media_assets.find_one({"id": body.logo_overlay.logo_asset_id}, {"_id": 0})
         if logo_asset and logo_asset.get("kind") == "image":
-            logo_path = STORAGE_DIR / logo_asset["storage_path"]
+            logo_scratch = TMP_DIR / f"logo_{uuid.uuid4().hex}.{logo_asset['storage_path'].rsplit('.', 1)[-1]}"
+            try:
+                objstore.download_to_tmp(logo_asset["storage_path"], logo_scratch)
+            except FileNotFoundError:
+                logo_scratch = None
 
-    # Background removal first (separate thread — slow)
-    if body.remove_background:
+    try:
+        # Background removal first (separate thread — slow)
+        if body.remove_background:
+            try:
+                png_bytes = await asyncio.to_thread(_remove_background, src_scratch)
+                base = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+            except Exception as e:  # noqa: BLE001
+                err = await report_failure(db, surface="image_edit", err=StructuredError(
+                    code="provider_unavailable", status=502, retryable=True, retry_action="retry",
+                    user_message="Background removal failed. The AI model may still be downloading — wait 30 seconds and try again. (First-ever run can take 60s.)",
+                    technical=str(e)[:400],
+                ), source_asset_id=body.source_asset_id)
+                raise HTTPException(status_code=err.status, detail=err.to_payload())
+            if body.bg_color:
+                bg = Image.new("RGBA", base.size, _hex_to_rgb(body.bg_color, (255, 255, 255)) + (255,))
+                base = Image.alpha_composite(bg, base)
+        else:
+            base = Image.open(src_scratch)
+            base.load()
+
+        edited = None
         try:
-            png_bytes = await asyncio.to_thread(_remove_background, src_path)
-            base = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+            edited = await asyncio.to_thread(_apply_edits, base, body, logo_scratch)
         except Exception as e:  # noqa: BLE001
             err = await report_failure(db, surface="image_edit", err=StructuredError(
-                code="provider_unavailable", status=502, retryable=True, retry_action="retry",
-                user_message="Background removal failed. The AI model may still be downloading — wait 30 seconds and try again. (First-ever run can take 60s.)",
+                code="asset_invalid", status=500, retryable=True, retry_action="retry",
+                user_message="The image editor crashed while applying changes. Try simpler adjustments (smaller crop, less text) or use a different source image.",
                 technical=str(e)[:400],
             ), source_asset_id=body.source_asset_id)
             raise HTTPException(status_code=err.status, detail=err.to_payload())
-        # Fill background color if requested
-        if body.bg_color:
-            bg = Image.new("RGBA", base.size, _hex_to_rgb(body.bg_color, (255, 255, 255)) + (255,))
-            base = Image.alpha_composite(bg, base)
-    else:
-        base = Image.open(src_path)
-        base.load()
+        finally:
+            if edited is not None and base is not edited:
+                try:
+                    base.close()
+                except Exception:  # noqa: BLE001
+                    pass
 
-    edited = None
-    try:
-        edited = await asyncio.to_thread(_apply_edits, base, body, logo_path)
-    except Exception as e:  # noqa: BLE001
-        err = await report_failure(db, surface="image_edit", err=StructuredError(
-            code="asset_invalid", status=500, retryable=True, retry_action="retry",
-            user_message="The image editor crashed while applying changes. Try simpler adjustments (smaller crop, less text) or use a different source image.",
-            technical=str(e)[:400],
-        ), source_asset_id=body.source_asset_id)
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
+        # Save — PNG if alpha channel present, otherwise JPEG
+        has_alpha = edited.mode == "RGBA" and edited.getextrema()[3][0] < 255
+        new_id = str(uuid.uuid4())
+        if has_alpha or body.remove_background:
+            ext = "png"
+            save_kwargs = {"format": "PNG", "optimize": True}
+            mime = "image/png"
+        else:
+            if edited.mode == "RGBA":
+                edited = edited.convert("RGB")
+            ext = "jpg"
+            save_kwargs = {"format": "JPEG", "quality": 90, "optimize": True}
+            mime = "image/jpeg"
+        storage_path = objstore.make_path("edits", new_id, ext)
+        buf = io.BytesIO()
+        edited.save(buf, **save_kwargs)
+        out_bytes = buf.getvalue()
+        objstore.put_bytes(storage_path, out_bytes, mime)
+
+        src_name = src_asset.get("filename", "edited.png").rsplit(".", 1)[0]
+        final_filename = body.filename or f"{src_name}-edited-{new_id[:6]}.{ext}"
+        tags = (body.tags or []) + ["edited"]
+        if body.remove_background:
+            tags.append("bg-removed")
+
+        doc = {
+            "id": new_id,
+            "filename": final_filename,
+            "kind": "image",
+            "mime": mime,
+            "size_bytes": len(out_bytes),
+            "width": edited.width, "height": edited.height, "duration_seconds": None,
+            "folder": body.folder or src_asset.get("folder", "Custom"),
+            "tags": tags,
+            "storage_path": storage_path,
+            "is_favorite": False, "status": "active",
+            "source": "image_edit",
+            "source_asset_id": body.source_asset_id,
+            "edit_params": body.model_dump(exclude_none=True, exclude={"source_asset_id"}),
+            "uploaded_at": _now(), "updated_at": _now(),
+        }
+        await db.media_assets.insert_one(doc)
+        return {k: v for k, v in doc.items() if k != "_id"}
     finally:
-        # Only close the source if _apply_edits returned a different image,
-        # otherwise we'd close the image we still need to save.
-        if edited is not None and base is not edited:
-            try:
-                base.close()
-            except Exception:  # noqa: BLE001
-                pass
-
-    # Save — PNG if alpha channel present, otherwise JPEG
-    has_alpha = edited.mode == "RGBA" and edited.getextrema()[3][0] < 255
-    new_id = str(uuid.uuid4())
-    if has_alpha or body.remove_background:
-        rel = f"{new_id}.png"
-        save_kwargs = {"format": "PNG", "optimize": True}
-        mime = "image/png"
-    else:
-        if edited.mode == "RGBA":
-            edited = edited.convert("RGB")
-        rel = f"{new_id}.jpg"
-        save_kwargs = {"format": "JPEG", "quality": 90, "optimize": True}
-        mime = "image/jpeg"
-    out_path = STORAGE_DIR / rel
-    edited.save(out_path, **save_kwargs)
-
-    src_name = src_asset.get("filename", "edited.png").rsplit(".", 1)[0]
-    final_filename = body.filename or f"{src_name}-edited-{new_id[:6]}.{rel.split('.')[-1]}"
-    tags = (body.tags or []) + ["edited"]
-    if body.remove_background:
-        tags.append("bg-removed")
-
-    doc = {
-        "id": new_id,
-        "filename": final_filename,
-        "kind": "image",
-        "mime": mime,
-        "size_bytes": out_path.stat().st_size,
-        "width": edited.width, "height": edited.height, "duration_seconds": None,
-        "folder": body.folder or src_asset.get("folder", "Custom"),
-        "tags": tags,
-        "storage_path": rel,
-        "is_favorite": False, "status": "active",
-        "source": "image_edit",
-        "source_asset_id": body.source_asset_id,
-        "edit_params": body.model_dump(exclude_none=True, exclude={"source_asset_id"}),
-        "uploaded_at": _now(), "updated_at": _now(),
-    }
-    await db.media_assets.insert_one(doc)
-    return {k: v for k, v in doc.items() if k != "_id"}
+        src_scratch.unlink(missing_ok=True)
+        if logo_scratch:
+            logo_scratch.unlink(missing_ok=True)
 
 
 # ===================== Social Format Export =====================
@@ -1119,61 +1195,68 @@ async def export_social(
             technical=f"media_assets({body.source_asset_id}) not found or wrong kind",
         ), source_asset_id=body.source_asset_id)
         raise HTTPException(status_code=err.status, detail=err.to_payload())
-    src_path = STORAGE_DIR / src_asset["storage_path"]
-    if not src_path.exists():
-        err = await report_failure(db, surface="social_export", err=StructuredError(
-            code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
-            user_message="The image file is missing on the server. Re-upload it and try again.",
-            technical=f"file not found: {src_path}",
-        ), source_asset_id=body.source_asset_id)
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
-
-    bg = _hex_to_rgb(body.bg_color, (255, 255, 255))
-    unknown = [f for f in body.formats if f not in SOCIAL_FORMATS]
-    if unknown:
-        err = await report_failure(db, surface="social_export", err=StructuredError(
-            code="prompt_invalid", status=400, retryable=False,
-            user_message=f"These social format names aren't supported: {', '.join(unknown)}. Use the preset chips in the UI.",
-            technical=f"unknown formats requested: {unknown}",
-        ), formats=body.formats)
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
-
-    saved: List[Dict[str, Any]] = []
+    src_scratch = TMP_DIR / f"src_{uuid.uuid4().hex}.{src_asset['storage_path'].rsplit('.', 1)[-1]}"
     try:
-        base = Image.open(src_path).convert("RGB")
-        base.load()
-    except Exception as e:  # noqa: BLE001
-        err = await report_failure(db, surface="social_export", err=StructuredError(
-            code="asset_invalid", status=422, retryable=False, retry_action="pick_assets",
-            user_message="The source image is corrupted or in an unsupported format. Re-upload it or pick a different one.",
-            technical=str(e)[:300],
-        ), source_asset_id=body.source_asset_id)
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
+        try:
+            objstore.download_to_tmp(src_asset["storage_path"], src_scratch)
+        except FileNotFoundError:
+            err = await report_failure(db, surface="social_export", err=StructuredError(
+                code="asset_missing", status=404, retryable=False, retry_action="pick_assets",
+                user_message="The image file is missing in storage. Re-upload it and try again.",
+                technical=f"object missing: {src_asset['storage_path']}",
+            ), source_asset_id=body.source_asset_id)
+            raise HTTPException(status_code=err.status, detail=err.to_payload())
 
-    for fmt in body.formats:
-        tw, th = SOCIAL_FORMATS[fmt]
-        out = await asyncio.to_thread(_fit_to, base, tw, th, body.fit, bg)
-        aid = str(uuid.uuid4())
-        rel = f"{aid}.jpg"
-        out_path = STORAGE_DIR / rel
-        out.save(out_path, format="JPEG", quality=90, optimize=True)
-        src_name = src_asset.get("filename", "image").rsplit(".", 1)[0]
-        doc = {
-            "id": aid,
-            "filename": f"{src_name}-{fmt}-{aid[:6]}.jpg",
-            "kind": "image", "mime": "image/jpeg",
-            "size_bytes": out_path.stat().st_size,
-            "width": tw, "height": th, "duration_seconds": None,
-            "folder": body.folder or "Social Media",
-            "tags": [fmt, "social-export", body.fit],
-            "storage_path": rel,
-            "is_favorite": False, "status": "active",
-            "source": "social_export",
-            "source_asset_id": body.source_asset_id,
-            "uploaded_at": _now(), "updated_at": _now(),
-        }
-        await db.media_assets.insert_one(doc)
-        saved.append({k: v for k, v in doc.items() if k != "_id"})
+        bg = _hex_to_rgb(body.bg_color, (255, 255, 255))
+        unknown = [f for f in body.formats if f not in SOCIAL_FORMATS]
+        if unknown:
+            err = await report_failure(db, surface="social_export", err=StructuredError(
+                code="prompt_invalid", status=400, retryable=False,
+                user_message=f"These social format names aren't supported: {', '.join(unknown)}. Use the preset chips in the UI.",
+                technical=f"unknown formats requested: {unknown}",
+            ), formats=body.formats)
+            raise HTTPException(status_code=err.status, detail=err.to_payload())
+
+        saved: List[Dict[str, Any]] = []
+        try:
+            base = Image.open(src_scratch).convert("RGB")
+            base.load()
+        except Exception as e:  # noqa: BLE001
+            err = await report_failure(db, surface="social_export", err=StructuredError(
+                code="asset_invalid", status=422, retryable=False, retry_action="pick_assets",
+                user_message="The source image is corrupted or in an unsupported format. Re-upload it or pick a different one.",
+                technical=str(e)[:300],
+            ), source_asset_id=body.source_asset_id)
+            raise HTTPException(status_code=err.status, detail=err.to_payload())
+
+        for fmt in body.formats:
+            tw, th = SOCIAL_FORMATS[fmt]
+            out = await asyncio.to_thread(_fit_to, base, tw, th, body.fit, bg)
+            aid = str(uuid.uuid4())
+            storage_path = objstore.make_path("exports", aid, "jpg")
+            buf = io.BytesIO()
+            out.save(buf, format="JPEG", quality=90, optimize=True)
+            out_bytes = buf.getvalue()
+            objstore.put_bytes(storage_path, out_bytes, "image/jpeg")
+            src_name = src_asset.get("filename", "image").rsplit(".", 1)[0]
+            doc = {
+                "id": aid,
+                "filename": f"{src_name}-{fmt}-{aid[:6]}.jpg",
+                "kind": "image", "mime": "image/jpeg",
+                "size_bytes": len(out_bytes),
+                "width": tw, "height": th, "duration_seconds": None,
+                "folder": body.folder or "Social Media",
+                "tags": [fmt, "social-export", body.fit],
+                "storage_path": storage_path,
+                "is_favorite": False, "status": "active",
+                "source": "social_export",
+                "source_asset_id": body.source_asset_id,
+                "uploaded_at": _now(), "updated_at": _now(),
+            }
+            await db.media_assets.insert_one(doc)
+            saved.append({k: v for k, v in doc.items() if k != "_id"})
+    finally:
+        src_scratch.unlink(missing_ok=True)
 
     return {"assets": saved, "count": len(saved)}
 
@@ -1203,10 +1286,9 @@ async def list_social_formats(authorization: str = Header(None), session_token: 
 
 @router.get("/health")
 async def media_health(authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Operational health probe — exposes ffmpeg + rembg + storage + render queue."""
+    """Operational health probe — exposes ffmpeg + rembg + storage + render + AI image queues."""
     await verify_session(authorization, session_token)
     ffmpeg_path = shutil.which("ffmpeg")
-    storage_used = sum(p.stat().st_size for p in STORAGE_DIR.glob("*") if p.is_file())
 
     # rembg state (lazy import so health works even if bootstrap fails)
     rembg = {"available": False, "model_ready": False, "error": "not initialized"}
@@ -1216,23 +1298,45 @@ async def media_health(authorization: str = Header(None), session_token: str = C
     except Exception as e:  # noqa: BLE001
         rembg["error"] = str(e)[:200]
 
-    # render queue health
-    queue_counts = {"queued": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
+    # Object storage probe (PUT + GET roundtrip)
+    storage_health = await asyncio.to_thread(objstore.health)
+
+    # Render queue
+    render_q = {"queued": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
+    # AI image queue
+    aij_q = {"pending": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
+    from datetime import timedelta
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     try:
-        from datetime import timedelta
-        since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-        queue_counts["queued"] = await db.render_jobs.count_documents({"status": "queued"})
-        queue_counts["processing"] = await db.render_jobs.count_documents({"status": "processing"})
-        queue_counts["completed_recent"] = await db.render_jobs.count_documents(
-            {"status": "completed", "updated_at": {"$gte": since}}
-        )
-        queue_counts["failed_recent"] = await db.render_jobs.count_documents(
-            {"status": "failed", "updated_at": {"$gte": since}}
-        )
+        render_q["queued"] = await db.render_jobs.count_documents({"status": "queued"})
+        render_q["processing"] = await db.render_jobs.count_documents({"status": "processing"})
+        render_q["completed_recent"] = await db.render_jobs.count_documents({"status": "completed", "updated_at": {"$gte": since}})
+        render_q["failed_recent"] = await db.render_jobs.count_documents({"status": "failed", "updated_at": {"$gte": since}})
+        aij_q["pending"] = await db.ai_image_jobs.count_documents({"status": "pending"})
+        aij_q["processing"] = await db.ai_image_jobs.count_documents({"status": "processing"})
+        aij_q["completed_recent"] = await db.ai_image_jobs.count_documents({"status": "completed", "updated_at": {"$gte": since}})
+        aij_q["failed_recent"] = await db.ai_image_jobs.count_documents({"status": "failed", "updated_at": {"$gte": since}})
     except Exception:  # noqa: BLE001
         pass
 
-    healthy = ffmpeg_path is not None and rembg.get("model_ready") and queue_counts["processing"] < 10
+    # Stale-job counts (over 5 min in pending/processing without progress) → janitor will sweep at next startup
+    stale_threshold = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    try:
+        stale_aij = await db.ai_image_jobs.count_documents({"status": {"$in": ["pending", "processing"]}, "updated_at": {"$lt": stale_threshold}})
+        stale_render = await db.render_jobs.count_documents({"status": {"$in": ["queued", "processing"]}, "updated_at": {"$lt": stale_threshold}})
+    except Exception:  # noqa: BLE001
+        stale_aij = stale_render = 0
+
+    asset_count = await db.media_assets.count_documents({"status": "active"})
+
+    healthy = (
+        ffmpeg_path is not None
+        and rembg.get("model_ready")
+        and storage_health.get("reachable")
+        and render_q["processing"] < 10
+        and stale_aij == 0
+        and stale_render == 0
+    )
     return {
         "healthy": healthy,
         "ffmpeg_available": ffmpeg_path is not None,
@@ -1240,10 +1344,12 @@ async def media_health(authorization: str = Header(None), session_token: str = C
         "rembg_available": rembg.get("available", False),
         "rembg_model_ready": rembg.get("model_ready", False),
         "rembg_error": rembg.get("error"),
-        "storage_dir": str(STORAGE_DIR),
-        "storage_bytes": storage_used,
-        "storage_mb": round(storage_used / 1024 / 1024, 1),
-        "render_queue": queue_counts,
+        "storage": storage_health,
+        "asset_count": asset_count,
+        "stale_ai_image_jobs": stale_aij,
+        "stale_render_jobs": stale_render,
+        "render_queue": render_q,
+        "ai_image_queue": aij_q,
     }
 
 
@@ -1265,6 +1371,34 @@ async def cleanup_orphan_render_jobs():
         import logging
         logging.getLogger("uvicorn.error").info(
             f"[media] Marked {r.modified_count} orphan render job(s) as failed at startup"
+        )
+
+
+async def cleanup_orphan_ai_image_jobs():
+    """Mark pending/processing AI image jobs as failed at startup. The background
+    `asyncio.create_task` lives only in the previous process; once we restart,
+    those tasks are gone forever. Without this sweep the UI polls indefinitely.
+
+    Threshold: any job currently in pending/processing is orphaned by definition
+    when the server (re)starts — no live process is driving it. We don't filter
+    by age because the new process starts with an empty task set."""
+    orphan_err = {
+        "code": "unknown",
+        "status": 500,
+        "retryable": True,
+        "retry_action": "retry",
+        "user_message": "This image generation was interrupted by a server restart. Click Try again to regenerate.",
+        "technical": "backend restarted with job in pending/processing state",
+        "context": {},
+    }
+    r = await db.ai_image_jobs.update_many(
+        {"status": {"$in": ["pending", "processing"]}},
+        {"$set": {"status": "failed", "error": orphan_err, "progress": 0, "updated_at": _now()}},
+    )
+    if r.modified_count > 0:
+        import logging
+        logging.getLogger("uvicorn.error").info(
+            f"[media] Marked {r.modified_count} orphan ai_image_job(s) as failed at startup"
         )
 
 
