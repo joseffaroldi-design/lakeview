@@ -516,3 +516,42 @@ Returns:
 - Full pytest suite `test_phase8_media_studio.py`: **11/11 passed** in 30.79s ✓
 - Health endpoint returns `healthy=true` with all subsystems green ✓
 
+
+
+---
+
+## Production Stability — AI Image Async Job Architecture (Feb 2026)
+
+### Problem
+- Production (Cloudflare-fronted) returned **"The origin web server sent a response that Cloudflare could not parse"** on AI Image Generator.
+- Root cause: `POST /api/media/ai-image` was a blocking call that took ~85s; Cloudflare kills idle connections at ~60s.
+- Same surface caused **Promotions → Automations stuck on "Loading automation center…"** because an inner `Promise.all` was firing `GET /api/menu` without an auth header (fixed prior).
+
+### Fix — Async Job + Polling
+
+**Backend (`/app/backend/routers/media.py`)**
+- `POST /api/media/ai-image` → enqueues a job, returns **HTTP 202** with `{job_id, status: "pending"}` in **<150ms**.
+- New `GET /api/media/ai-image/job/{job_id}` → returns full job state (`pending` | `processing` | `completed` | `failed`), `progress` 0–100, and either `result.assets` or structured `error`.
+- Background worker `_run_ai_image_job` runs the actual generation via `asyncio.create_task` (180s internal cap; Cloudflare no longer in the path).
+- MongoDB collection `ai_image_jobs` (indexes: `status+created_at`, unique `id`) — added in `server.py` startup.
+- Fail-fast: missing `EMERGENT_LLM_KEY` returns 500 synchronously (so the form shows it immediately, not via a polled job).
+- Schema fix: `AiImageRequest.style` `max_length` 60 → **200** (the FE default literal was 70 chars; clean-room users were getting silent 422s).
+
+**Frontend (`/app/frontend/src/pages/dashboard/aiads/MediaStudio.jsx`)**
+- `AiImageGenerator` now POSTs to receive `job_id`, then `setInterval` polls every **3s** via `pollOnce`.
+- New UI: progress card (`data-testid="ai-image-progress"`) with status label and gold progress bar.
+- 3-minute frontend ceiling → falls back to StructuredErrorCard with `code: "timeout"`.
+- Transient poll errors are tolerated; only surface if cap exceeded.
+
+### Verification (iter 19 + iter 20)
+- Backend pytest: **9/9 PASS** — auth (POST/GET), enqueue <2s, 404 on unknown job, full pending→processing→completed lifecycle in ~13s for low/1 image, asset accessible via `/api/media/thumb/{id}`, regression endpoints (`/api/media/health`, `/api/ai-ads/plugins`, `/api/ai-ads/plugins/restaurant`, `/api/menu`) all 200.
+- Frontend E2E (Playwright): login → Promotions → Media → AI Images → Generate 1 Image — progress card appears <50ms, status flips Queued → Generating, completes in ~12s, no error card, library AI counter increments.
+- Production stability: ✅ POST initial response well under 60s Cloudflare ceiling; each poll is <100ms.
+
+### Backlog (carried — non-blocking)
+- Pydantic ValidationError → StructuredErrorCard mapper (so future field-length errors surface a clean message instead of "Unexpected error").
+- Startup janitor for `ai_image_jobs` rows stuck in `pending`/`processing` older than N minutes after a backend restart.
+- Split `routers/media.py` (~1300 lines) into `media/{upload,edit,ai_image,video,export,assets}.py` (P2 tech debt).
+- Phase H: First Promotion Walkthrough (P1).
+- Weekly AI Digest Email (P1), "Plan My Week" 7-day draft generation (P1).
+- Merge `ai_assets` and `media_assets` collections (P2).
