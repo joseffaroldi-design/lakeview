@@ -411,9 +411,24 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
             )
     except Exception as e:  # noqa: BLE001
         log.exception("[marketing-pack] pipeline crashed for %s", pack_id)
-        await fail("unknown",
-                   "Something went wrong while building your pack. Try again — if it keeps failing, change the photo or shorten the description.",
-                   str(e)[:400], retryable=True)
+        # Try to classify — turns raw litellm/OpenAI errors into actionable
+        # user messages (budget_exhausted, rate_limited, safety_reject, etc).
+        try:
+            from errors import classify_llm_error
+            classified = classify_llm_error(e, surface="marketing pack")
+            await update(status="failed", error={
+                "code": classified.code,
+                "status": classified.status,
+                "retryable": classified.retryable,
+                "retry_action": classified.retry_action,
+                "user_message": classified.user_message,
+                "technical": classified.technical,
+                "context": classified.context,
+            })
+        except Exception:  # classifier itself broke — fall back to generic
+            await fail("unknown",
+                       "Something went wrong while building your pack. Try again — if it keeps failing, change the photo or shorten the description.",
+                       str(e)[:400], retryable=True)
 
 
 # ---------------------------------------------------------------- routes
