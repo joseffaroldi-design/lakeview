@@ -4,6 +4,7 @@ Route registration lives here; business logic is split across /routers/*.
 """
 import asyncio
 import logging
+import os
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -143,12 +144,17 @@ async def on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("Object storage init skipped: %s", e)
 
-    # ---- 8. Media Studio infra: ensure ffmpeg + pre-warm rembg model in background
+    # ---- 8. Media Studio infra: ensure ffmpeg + (optionally) pre-warm rembg model.
+    # rembg pre-warm loads ~170 MB of u2net at startup. To keep memory headroom
+    # on production pods, this is now OPT-IN: set REMBG_PREWARM=1 to enable.
+    # When skipped, the model loads lazily on the first background-removal call.
     try:
         from bootstrap import ensure_ffmpeg, prewarm_rembg
         await asyncio.to_thread(ensure_ffmpeg)
-        # Run model warmup off the main loop so backend stays responsive
-        asyncio.create_task(prewarm_rembg())
+        if os.environ.get("REMBG_PREWARM", "").lower() in ("1", "true", "yes"):
+            asyncio.create_task(prewarm_rembg())
+        else:
+            logger.info("[bootstrap] rembg pre-warm skipped (set REMBG_PREWARM=1 to enable). Model loads on first use.")
     except Exception as e:  # noqa: BLE001
         logger.warning("Media bootstrap skipped: %s", e)
 

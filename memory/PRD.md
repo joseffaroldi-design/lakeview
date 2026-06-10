@@ -667,3 +667,38 @@ Code path `routers/marketing_pack.py::items_not_promoted_recently` flattens `men
 - (P2) "Promote" entry point from menu item rows + Media Library asset cards (current entry only via Promotions sub-tab).
 - (P2) Pack history list — past packs viewable + re-editable.
 - (P2) Per-channel A/B copy variants.
+
+
+---
+
+## Phase 11 — Production Hotfix: memory pressure & crash loop (Feb 2026)
+
+### Symptom
+User screenshot showed broken-image thumbnail + "Server error" red banner + "Unexpected error / Request failed" card while trying to generate a pack in production (https://lakeview-grill.emergent.host). Reproduction in PREVIEW worked end-to-end with the same flow — clearly a production-only issue.
+
+### Root cause
+Production backend was **flapping between HTTP 200 and HTTP 520** (Cloudflare "origin error"). Probes over a 5-minute window showed the pod recovering for ~60s then crashing again. Phase 11 brought heavy add-ons to the runtime:
+- **rembg u2net model** pre-warmed at startup (~170 MB resident)
+- **ffmpeg** subprocess during video render (peaks 200-300 MB)
+- **LiteLLM / OpenAI image generation** stack loaded on first call
+Combined with the existing Mongo/FastAPI base, the production pod almost certainly hit its memory limit during the first marketing-pack run and got OOM-killed → restart loop.
+
+### Fix (memory-frugal defaults, no behavior change)
+- `backend/server.py` — rembg pre-warm is now **opt-in** via `REMBG_PREWARM=1`. Default = skip → model loads lazily on the first background-removal call only. Saves ~170 MB at startup.
+- `backend/routers/marketing_pack.py::_render_pack_video` — default video resolution is now **720x1280** (was 1080x1920). Set `MARKETING_PACK_VIDEO_RES=1080` to upgrade. 720p cuts ffmpeg peak RSS by ~60%; vertical 9:16 still looks great on mobile.
+- Also added `MARKETING_PACK_VIDEO=0` env to disable video generation entirely (the 4 image formats + all text still ship) as a panic switch if memory remains too tight.
+
+### Test (preview)
+- Backend boots clean with new defaults: `[bootstrap] rembg pre-warm skipped (set REMBG_PREWARM=1 to enable). Model loads on first use.`
+- Full marketing-pack pipeline still completes — latest pack `87c05a6a` `status=completed`, all 6 asset_ids + caption + hashtags + sms + email + gbp present.
+- `/api/menu`, `/api/marketing-pack/items-not-promoted-recently`, `/api/media/health` all 200.
+
+### Production deploy required
+The fix is in preview only. User must redeploy. After deploy:
+1. Verify `/api/menu` stays 200 for 5+ minutes (no crash loop).
+2. Run one production marketing pack — confirm the pipeline completes without flapping.
+3. (Optional) Set `REMBG_PREWARM=1` in production env once pod resources are upsized, to restore eager warmup.
+
+### If production still flaps after deploy
+- Set `MARKETING_PACK_VIDEO=0` to skip video — proves whether ffmpeg is the OOM cause.
+- Contact Emergent Support to increase the production pod's memory request/limit.

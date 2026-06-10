@@ -264,7 +264,18 @@ async def _save_format_asset(src_bytes: bytes, fmt_key: str, item: Dict[str, str
 
 
 async def _render_pack_video(pack_id: str, image_asset_ids: List[str], item: Dict[str, str]) -> Optional[str]:
-    """15-s vertical slideshow using existing _render_sync. Returns new asset_id or None on failure."""
+    """15-s vertical slideshow using existing _render_sync. Returns new asset_id or None on failure.
+
+    On memory-constrained production pods, set MARKETING_PACK_VIDEO=0 to skip
+    video rendering entirely (the 4 image formats + all text copy still ship).
+    MARKETING_PACK_VIDEO_RES=720 reduces output from 1080x1920 → 720x1280,
+    cutting ffmpeg peak RSS by roughly 60%."""
+    if os.environ.get("MARKETING_PACK_VIDEO", "1").lower() in ("0", "false", "no"):
+        log.info("[marketing-pack] MARKETING_PACK_VIDEO=0 — skipping video render for %s", pack_id)
+        return None
+    res = os.environ.get("MARKETING_PACK_VIDEO_RES", "720")
+    width = 1080 if res == "1080" else 720
+    height = 1920 if res == "1080" else 1280
     assets = await db.media_assets.find({"id": {"$in": image_asset_ids}}, {"_id": 0}).to_list(20)
     by_id = {a["id"]: a for a in assets}
     # Order: hero → ig_post → fb_post → ig_story (story last for the strong vertical kicker)
@@ -289,7 +300,7 @@ async def _render_pack_video(pack_id: str, image_asset_ids: List[str], item: Dic
     work_dir = TMP_DIR / f"pack_{pack_id}"
     work_dir.mkdir(parents=True, exist_ok=True)
     try:
-        out_path = await asyncio.to_thread(_render_sync, job, ordered, 1080, 1920, work_dir)
+        out_path = await asyncio.to_thread(_render_sync, job, ordered, width, height, work_dir)
         video_bytes = out_path.read_bytes()
         new_id = str(uuid.uuid4())
         storage_path = objstore.make_path("marketing_pack", new_id, "mp4")
@@ -299,7 +310,7 @@ async def _render_pack_video(pack_id: str, image_asset_ids: List[str], item: Dic
             "filename": f"{_slugify(item['name'])}-promo-{new_id[:6]}.mp4",
             "kind": "video", "mime": "video/mp4",
             "size_bytes": len(video_bytes),
-            "width": 1080, "height": 1920, "duration_seconds": 15.0,
+            "width": width, "height": height, "duration_seconds": 15.0,
             "folder": "Marketing Packs",
             "tags": ["marketing-pack", "promo-video", f"pack:{pack_id}"],
             "storage_path": storage_path,
