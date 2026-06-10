@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="18" failures="2" skipped="0" tests="20" time="1.112" timestamp="2026-06-10T06:24:15.859698+00:00" hostname="agent-env-efaf7797-c558-4d8b-87d9-5fb5131b19fc"><testcase classname="tests.test_phase11_marketing_pack.TestAuth" name="test_post_generate_unauth_401" time="0.412"><failure message="assert 502 == 401&#10; +  where 502 = &lt;Response [502]&gt;.status_code">tests/test_phase11_marketing_pack.py:108: in test_post_generate_unauth_401
+    assert r.status_code == 401
+E   assert 502 == 401
+E    +  where 502 = &lt;Response [502]&gt;.status_code</failure></testcase><testcase classname="tests.test_phase11_marketing_pack.TestAuth" name="test_get_job_unauth_401" time="0.107"><failure message="assert 502 == 401&#10; +  where 502 = &lt;Response [502]&gt;.status_code">tests/test_phase11_marketing_pack.py:112: in test_get_job_unauth_401
+    assert r.status_code == 401
+E   assert 502 == 401
+E    +  where 502 = &lt;Response [502]&gt;.status_code</failure></testcase><testcase classname="tests.test_phase11_marketing_pack.TestAuth" name="test_get_job_unknown_404" time="0.211"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestSuggestions" name="test_list_top3_shape" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPipeline" name="test_result_keys_present" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPipeline" name="test_image_assets_resolve" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPipeline" name="test_video_asset_resolves" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPipeline" name="test_asset_tags_and_folder" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPipeline" name="test_menu_item_stamped" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPatch" name="test_patch_unknown_404" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPatch" name="test_patch_pending_409" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestPatch" name="test_patch_caption_and_hashtags" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestRegenerate" name="test_regenerate_returns_new_job_id" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestJanitor" name="test_restart_marks_pending_failed" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestRegression" name="test_endpoint_status[/api/menu-False-200]" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestRegression" name="test_endpoint_status[/api/specials-False-200]" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestRegression" name="test_endpoint_status[/-False-200]" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestRegression" name="test_endpoint_status[/api/ai-ads/plugins-True-200]" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestRegression" name="test_endpoint_status[/api/media/health-True-200]" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase><testcase classname="tests.test_phase11_marketing_pack.TestRegression" name="test_ai_image_unknown_job_404" time="0.000"><error message="failed on setup with &quot;AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code&quot;">tests/test_phase11_marketing_pack.py:82: in auth_token
+    return _login()
+           ^^^^^^^^
+tests/test_phase11_marketing_pack.py:47: in _login
+    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
+E   AssertionError: login failed: 502 The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</error></testcase></testsuite></testsuites>

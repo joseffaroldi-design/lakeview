@@ -27,9 +27,11 @@ import ProviderConnections from "./aiads/ProviderConnections";
 import AutomationRules from "./aiads/AutomationRules";
 import RestaurantAutomationCenter from "./aiads/RestaurantAutomationCenter";
 import MediaStudio from "./aiads/MediaStudio";
+import PromoteThisItem from "./aiads/PromoteThisItem";
 import AiSettingsPanel from "./aiads/SettingsPanel";
 
 const ALL_SUB_TABS = [
+  { id: "promote", label: "Promote This Item", icon: Sparkles, groups: ["promotions"] },
   { id: "automations", label: "Automations", icon: UtensilsCrossed, groups: ["promotions"] },
   { id: "media", label: "Media", icon: Film, groups: ["promotions"] },
   { id: "calendar", label: "Calendar", icon: CalendarIcon, groups: ["promotions"] },
@@ -196,6 +198,9 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab, group, title, icon: Hea
       )}
       {activeSub === "automations" && (
         <RestaurantAutomationCenter getAuthHeader={getAuthHeader} />
+      )}
+      {activeSub === "promote" && (
+        <PromoteThisItem getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "media" && (
         <MediaStudio getAuthHeader={getAuthHeader} />

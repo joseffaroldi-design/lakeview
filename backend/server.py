@@ -17,6 +17,7 @@ import auth
 from routers import (
     cms, specials, analytics, giveaway, loyalty, messaging,
     catering, newsletter, misc, ai_ads, publishing, media, home,
+    marketing_pack,
 )
 from publishing import run_due_publishes
 
@@ -48,6 +49,7 @@ api_router.include_router(ai_ads.router)
 api_router.include_router(publishing.router)
 api_router.include_router(media.router)
 api_router.include_router(home.router)
+api_router.include_router(marketing_pack.router)
 app.include_router(api_router)
 
 # CORS
@@ -108,6 +110,10 @@ async def on_startup():
         # ai_image_jobs: AI image generation polling (Cloudflare bypass)
         await db.ai_image_jobs.create_index([("status", 1), ("created_at", -1)], name="aij_status_created")
         await db.ai_image_jobs.create_index("id", name="aij_id", unique=True, sparse=True)
+        # marketing_packs: Promote This Item 2.0
+        await db.marketing_packs.create_index([("status", 1), ("created_at", -1)], name="mpk_status_created")
+        await db.marketing_packs.create_index("id", name="mpk_id", unique=True, sparse=True)
+        await db.menu_promotions.create_index("item_key", name="mp_item_key", unique=True)
         logger.info("MongoDB indexes ensured on hot collections")
     except Exception as e:  # noqa: BLE001
         logger.warning("Index creation skipped: %s", e)
@@ -123,8 +129,10 @@ async def on_startup():
     # ---- 7. Clean up orphan media jobs left behind by a previous worker
     try:
         from routers.media import cleanup_orphan_render_jobs, cleanup_orphan_ai_image_jobs
+        from routers.marketing_pack import cleanup_orphan_marketing_packs
         await cleanup_orphan_render_jobs()
         await cleanup_orphan_ai_image_jobs()
+        await cleanup_orphan_marketing_packs()
     except Exception as e:  # noqa: BLE001
         logger.warning("Orphan job cleanup skipped: %s", e)
 

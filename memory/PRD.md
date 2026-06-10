@@ -606,3 +606,64 @@ Returns:
 - (P1) First Promotion Walkthrough, Weekly AI Digest Email, "Plan My Week" 7-day generator.
 - (P2) Merge `ai_assets` + `media_assets` collections.
 - (P2) Periodic purge of `status="archived"` rows.
+
+
+---
+
+## Phase 11 — Promote This Item 2.0 (Feb 2026)
+
+### What it does
+Owner-facing one-click marketing pack generator. Pick a photo (upload or library) → optionally tweak item details → one click → receive **5 image formats + a 15-s vertical promo MP4 + caption + hashtags + SMS + email subject/body + Google Business Profile copy**, all saved to the library under folder "Marketing Packs".
+
+### Files changed
+- `/app/backend/routers/marketing_pack.py` (NEW, ~580 lines): full router + 5-stage async pipeline.
+- `/app/backend/server.py`: registers `marketing_pack.router`, adds indexes for `marketing_packs` (`id` unique, `status+created_at`) and `menu_promotions` (`item_key` unique), startup janitor.
+- `/app/frontend/src/pages/dashboard/aiads/PromoteThisItem.jsx` (NEW, ~570 lines): 4-step wizard (PickPhotoStep → ItemDetailsStep → ProgressStep → ReviewStep) with debounced PATCH autosave.
+- `/app/frontend/src/pages/dashboard/AiAdsTab.jsx`: adds `promote` as first sub-tab under Promotions (Sparkles icon).
+
+### API routes (all /api prefix)
+- `POST /marketing-pack/generate` → 202 `{job_id, status:"pending"}` in <250 ms
+- `GET /marketing-pack/items-not-promoted-recently?limit=3` (LITERAL — registered BEFORE `/{pack_id}`)
+- `GET /marketing-pack/job/{id}` — full polling state
+- `GET /marketing-pack/{id}` — re-open saved pack
+- `PATCH /marketing-pack/{id}` — save inline copy edits (debounced 800 ms FE autosave)
+- `POST /marketing-pack/{id}/regenerate` → 202 with a NEW job_id
+
+### Mongo collections (NEW)
+- `marketing_packs` — `{id, status, progress, current_step, source_asset_id, menu_item_key, item, result, error, created_at, updated_at}`
+- `menu_promotions` — `{item_key, last_promoted_at, last_pack_id}` (used by the "not promoted recently" recommender; updated when a pack completes)
+
+### Object storage paths
+- `lakeview/marketing_pack/{uuid}.jpg` — 4 social formats (1:1, 9:16, 1.91:1, 16:9)
+- `lakeview/marketing_pack/{uuid}.mp4` — 15-s vertical promo video
+- All assets also written to `media_assets` Mongo rows with folder=`Marketing Packs` and tags `["marketing-pack", "<format>", "pack:<pack_id>"]`. The 9:16 image gets dual labels: `ig_story` AND `tiktok_reel` (single file, two references in the result block).
+
+### Pipeline stages
+1. **inferring** (~2–5 s) — text LLM call fills missing `name`/`description` (`ai_engine.client.generate_structured` — note: returns wrapper `{data, model_used, raw}`, must unwrap with `.get("data")`)
+2. **writing_copy** (~3–7 s) — single structured LLM call returns caption + hashtags + sms + email{subject, body} + gbp consistently
+3. **rendering_images** (~2 s) — PIL `_fit_to` crops the source into 4 ratios, paints a brand overlay (dark bar + headline + price chip + CTA chip)
+4. **rendering_video** (~25–40 s) — reuses `_render_sync` from `routers/media.py` (slideshow of the 4 images @1080x1920 with title + CTA drawtext)
+5. **saving** (<1 s) — inserts pack row, stamps `menu_promotions.{item_key}.last_promoted_at`
+
+### Test results
+- **Manual E2E (preview)**: 44 s end-to-end for low/1024 source. All 5 image asset files accessible (200 image/jpeg) + video (200 video/mp4 51 KB). Captions, hashtags (10), SMS, email subject/body, GBP all populated with NOLA-flavored copy.
+- **Auth probes**: POST/GET unauth → 401; GET unknown id (authed) → 404; PATCH unknown → 404.
+- **Menu stamp**: `appetizers::caf-fries` → `menu_promotions` row created with `last_promoted_at` + `last_pack_id`.
+- **Janitor**: enqueue → `supervisorctl restart backend` → status=`failed`, error.code=`unknown`, error.user_message=`"interrupted by a server restart"`, retryable=true, retry_action=`retry`.
+- **PATCH autosave**: caption edit returns updated `result.caption`. PATCH on unknown id → 404.
+- **Regenerate**: returns NEW job_id ≠ original. 
+- **`items-not-promoted-recently`**: correctly returns never-promoted first then oldest. Test confirmed 60 menu items in `menu_categories`, 2 stamped in `menu_promotions`, endpoint ordering is correct ("not promoted recently" intent).
+- **Frontend smoke**: all data-testids render (`promote-this-item`, `promote-suggestions`, `promote-upload-btn`, `promote-library-btn`, the stepper, suggestion cards with prices + "Never promoted" badge). Sub-tab `ai-subtab-promote` wired and selected by default.
+
+### Average generation time
+- Source size 1024×1024 low quality: **~44 s** total (POST 0.25 s → infer 5 s → copy 10 s → images 2 s → video 30 s → save 1 s)
+- Restart-survival: assets persist (Phase 10), pending jobs marked failed (Phase 11 janitor).
+
+### Fallback used because menu_items not its own collection
+Code path `routers/marketing_pack.py::items_not_promoted_recently` flattens `menu_categories.items[]` arrays into a virtual list, joining via `item_key="{category_slug}::{slug(name)}"`. `fallback_used: false`, `source: "menu_categories"`. **No alternative entity (restaurants / episodes / media-only) was needed** because BTC NOLA / Lakeview's menu data lives in `menu_categories`.
+
+### Backlog (paused per scope)
+- (P1) Onboarding tour for first-time owners — sample-pack walkthrough.
+- (P2) "Promote" entry point from menu item rows + Media Library asset cards (current entry only via Promotions sub-tab).
+- (P2) Pack history list — past packs viewable + re-editable.
+- (P2) Per-channel A/B copy variants.
