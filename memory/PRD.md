@@ -85,6 +85,93 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 10, 2026 — Sprint 12C: Backend Consolidation & Data Cleanup — Complete
+
+Pure tech-debt elimination. Zero UX changes, zero new features, zero frontend axios edits.
+
+**Task 1 — Split `routers/media.py` (1,431 LOC → subpackage)**
+- New package `/app/backend/routers/media/` with 9 files: `__init__.py` (mounts master router, re-exports shared helpers), `shared.py`, `upload.py`, `assets.py`, `ai_image.py`, `video.py`, `edit.py`, `export.py`, `health.py`
+- Every endpoint preserves its path under `/api/media/*`, method signature, auth contract, and background-task plumbing 1:1
+- Re-exports `TMP_DIR, _fit_to, _hex_to_rgb, _now, _render_sync, _spawn_ai_image_task, cleanup_orphan_ai_image_jobs, cleanup_orphan_render_jobs` so `routers.marketing_pack` and `server.py` keep working without import changes
+- Verified: all 14 endpoints return identical responses; 19 routes registered on master router; marketing-pack shared imports still resolve
+
+**Task 2 — Merge `ai_assets` (18 docs) → `media_assets` (idempotent migration)**
+- New migration `/app/backend/migrations/merge_ai_assets.py` (run with `--drop` flag)
+- 18 text-payload docs upserted into `media_assets` with `source="ai_ads_legacy"` (NOT `"ai_image"` — these are SMS/social_post/image_concept payloads, not images); preserved `id, kind, title, payload, platform, industry, campaign_id, tags, is_favorite, status, created_at, updated_at`; added compat fields `filename, mime="application/json", storage_path=null, uploaded_at`
+- `ai_assets` collection DROPPED post-verification
+- Rewrote 9 `db.ai_assets.*` callsites in `routers/ai_ads.py` → `db.media_assets.*` filtered by `source="ai_ads_legacy"` via new `_legacy_q()` helper. `/api/ai-ads/assets*` contract preserved; CRUD round-trip verified (POST/PUT/DELETE/bulk/export/duplicate)
+- `/api/media/assets` list hides legacy text rows (`source != "ai_ads_legacy"`) so Media Studio stays clean
+- New `media_source_created` index on `media_assets.{source, created_at}` for fast legacy queries
+- Counts: before=406 media + 18 ai; after=424 media (406 + 18 legacy), `ai_assets` dropped
+
+**Task 3 — TTL indexes (4 collections)**
+- All four collections previously stored timestamps as ISO strings (TTL needs BSON Date). Fix: added `expires_at` BSON Date field at insert + one-time backfill of historical rows
+- Retention: `failure_audit_log`=30d, `publish_logs`=90d, `page_views`=180d, `ai_generations`=90d
+- TTL indexes created with `expireAfterSeconds=0` on `expires_at`
+- Backfilled 778 historical rows on startup (`failure_audit_log: 2`, `publish_logs: 351`, `page_views: 383`, `ai_generations: 42`) via `migrations/ttl_backfill.py`
+- Insert sites updated: `errors.audit_log`, `publishing/scheduler._log`, `analytics.track_page_view`, `ai_ads._persist_generation`
+
+**Task 4 — Retire `specials` collection**
+- `routers/specials.py` rewritten: `GET /api/specials` + `GET /api/specials/{id}` now read from `marketing_packs` where `tag="special"`
+- Stable id mapping: response `id = pack.migrated_from_special_id || pack.id` so existing bookmarks / SEO URLs keep resolving
+- Public response shape preserved exactly: `{id, title, description, price, image_url, is_active, created_at}`
+- One-release legacy fallback: if `marketing_packs` returns empty, falls back to legacy `specials` collection if it still exists (after the drop, fallback returns [])
+- `specials` collection DROPPED
+- Verified: `Friday Fish Fry` still serves at id `6aac615f-c81b-457c-b8dc-83d9d87fee51`; `active_only=true` filter still works
+
+**Task 5 — Decide on `ai_generations`**
+- Codebase scan: actively read by `/api/ai-ads/stats` (admin dashboard analytics) and written by `/api/ai-ads/plugins/{id}/promote`. 42 active rows (all <30d old).
+- Verdict: **KEEP** read-only; not dropped. Cap growth with 90-day TTL (matches `publish_logs` retention). Same `expires_at` pattern as Task 3.
+
+**Testing**
+- `testing_agent_v3_fork` iteration_22.json: **32/32 backend tests pass, 0 action items, retest_needed=false**
+- Smoke matrix verified: all `/api/media/*` (9 routes), `/api/ai-ads/assets` CRUD, `/api/ai-ads/stats`, `/api/specials` (+/id), `/api/menu`, `/api/content`, `/api/home/summary`, `/api/home/health`, `/api/marketing-pack/items-not-promoted-recently` — all 200
+- Lint: 0 blocking, 0 advisory on every Sprint-12C-touched file
+- Frontend smoke: home page renders cleanly with SPECIALS nav
+
+**Routes preserved / removed / proxied**
+- Preserved (unchanged behaviour): every `/api/media/*` route + every `/api/specials*` route
+- Proxied (internal-only refactor): every `/api/ai-ads/assets*` route now reads `media_assets` with `source="ai_ads_legacy"`; same external contract
+- Removed: none
+
+**Collections merged / dropped**
+- Merged: `ai_assets` → `media_assets` (source="ai_ads_legacy")
+- Dropped: `ai_assets`, `specials`
+
+**Indexes added**
+- `media_assets.{source, created_at}` (`media_source_created`)
+- `failure_audit_log.expires_at` TTL (`fal_ttl`)
+- `publish_logs.expires_at` TTL (`pl_ttl`)
+- `page_views.expires_at` TTL (`pv_ttl`)
+- `ai_generations.expires_at` TTL (`gens_ttl`)
+- Removed (now redundant): four `ai_assets.*` indexes
+
+**Files created**
+- `/app/backend/routers/media/__init__.py`, `shared.py`, `upload.py`, `assets.py`, `ai_image.py`, `video.py`, `edit.py`, `export.py`, `health.py`
+- `/app/backend/migrations/__init__.py`, `merge_ai_assets.py`, `ttl_backfill.py`
+
+**Files modified**
+- `/app/backend/routers/ai_ads.py` (db.ai_assets → db.media_assets + source filter; ai_generations gets expires_at)
+- `/app/backend/routers/specials.py` (rewritten to read from marketing_packs)
+- `/app/backend/server.py` (drop ai_assets indexes, add 4 TTL indexes + media_assets.source index, mount TTL backfill on startup)
+- `/app/backend/errors.py` (audit_log adds expires_at)
+- `/app/backend/publishing/scheduler.py` (_log adds expires_at)
+- `/app/backend/routers/analytics.py` (page-view tracker adds expires_at)
+
+**Files deleted**
+- `/app/backend/routers/media.py` (replaced by `routers/media/` subpackage)
+
+**Rollback commands**
+- Restore `media.py`: `git checkout HEAD~N -- backend/routers/media.py && rm -rf backend/routers/media/`
+- Restore `ai_assets`: re-run a reverse migration (not provided — drop was after explicit verification). Or: leave the `media_assets` legacy rows in place and re-introduce read paths on `ai_assets`.
+- Restore `specials`: re-create from `marketing_packs` where `tag="special"` (the migration in 12A stamped `migrated_from_special_id`, so it's reversible).
+- TTL: drop the `*_ttl` indexes — `expires_at` field becomes inert and is dropped on next migration pass.
+
+**Remaining Sprint 12D backlog (next)**
+- Unified `jobs` collection merging `render_jobs`, `ai_image_jobs`, `marketing_packs` async state
+- Production OAuth — Meta / Twilio / SendGrid OR delete `publishing.py` entirely
+- Search-based Media UX (drop folder browser)
+
 ### Feb 9, 2026 — Post-Launch Optimization Pass — Complete (6/7 fully, 1 cosmetic deferred)
 
 Maintenance-only pass — no new features, no behavior change beyond bug fixes:
