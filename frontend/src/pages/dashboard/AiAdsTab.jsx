@@ -20,7 +20,7 @@ import SmsGenerator from "./aiads/SmsGenerator";
 import ImageStudio from "./aiads/ImageStudio";
 import VideoStudio from "./aiads/VideoStudio";
 import CreativeLibrary from "./aiads/CreativeLibrary";
-import AnalyticsDashboard from "./aiads/AnalyticsDashboard";
+import AnalyticsTab from "./AnalyticsTab";
 import ContentCalendar from "./aiads/ContentCalendar";
 import PublishQueue from "./aiads/PublishQueue";
 import ProviderConnections from "./aiads/ProviderConnections";
@@ -45,7 +45,7 @@ const ALL_SUB_TABS = [
   { id: "queue", label: "Queue", icon: ListChecks, groups: ["advanced"] },
   { id: "rules", label: "Rules", icon: Repeat, groups: ["settings"] },
   { id: "providers", label: "Providers", icon: Link2, groups: ["settings"] },
-  { id: "analytics", label: "Analytics", icon: BarChart3, groups: ["insights", "advanced"] },
+  { id: "analytics", label: "Analytics", icon: BarChart3, groups: ["advanced"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, groups: ["settings"] },
 ];
 const SUB_TABS = ALL_SUB_TABS;  // legacy alias — used when no group filter applied
@@ -212,7 +212,7 @@ export const AiAdsTab = ({ getAuthHeader, initialSubTab, group, title, icon: Hea
         <ProviderConnections getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "analytics" && (
-        <AnalyticsDashboard getAuthHeader={getAuthHeader} />
+        <AnalyticsTab getAuthHeader={getAuthHeader} />
       )}
       {activeSub === "settings" && (
         <AiSettingsPanel getAuthHeader={getAuthHeader} />

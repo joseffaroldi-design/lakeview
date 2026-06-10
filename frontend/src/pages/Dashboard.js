@@ -1,26 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, BarChart3, LogOut, Pencil, Megaphone, Users, Sparkles, Home, Settings as SettingsIcon,
+  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Settings as SettingsIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ContentEditor, MenuEditor } from "@/pages/ContentEditor";
-import AnalyticsTab from "@/pages/dashboard/AnalyticsTab";
 import AiAdsTab from "@/pages/dashboard/AiAdsTab";
 import HomeTab from "@/pages/dashboard/HomeTab";
 import CustomersTab from "@/pages/dashboard/CustomersTab";
-import { PromoteItemModal } from "@/pages/dashboard/aiads/PromoteItemModal";
+import PromoteThisItem from "@/pages/dashboard/aiads/PromoteThisItem";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Phase 9 — collapsed from 10 → 6 top-level tabs.
+// Phase 12A — collapsed to 5 top-level tabs (Insights folded into Home).
 const TABS = [
   { id: "home",        label: "Home",       icon: Home },
   { id: "menu",        label: "Menu",       icon: Pencil },
   { id: "promotions",  label: "Promotions", icon: Megaphone },
   { id: "customers",   label: "Customers",  icon: Users },
-  { id: "insights",    label: "Insights",   icon: BarChart3 },
   { id: "settings",    label: "Settings",   icon: SettingsIcon },
 ];
 
@@ -64,12 +62,9 @@ const Dashboard = () => {
     navigate("/login");
   };
 
-  const [promoteCtxLocal] = useState(null);  // placeholder retained for compatibility
-  void promoteCtxLocal;
-
   const switchTab = (tab, subTab) => {
     setActiveTab(tab);
-    if (tab === "promotions" || tab === "settings" || tab === "insights") {
+    if (tab === "promotions" || tab === "settings") {
       setAiAdsInitialSubTab(subTab || null);
     }
     if (tab === "customers") {
@@ -170,17 +165,6 @@ const Dashboard = () => {
         {activeTab === "customers" && (
           <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
         )}
-        {activeTab === "insights" && (
-          <section>
-            <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />
-            <div className="border-t-2 border-navy/10 mt-10 pt-8">
-              <h3 className="font-serif text-xl text-navy font-bold mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-gold" /> AI Marketing Performance
-              </h3>
-              <AiAdsTab getAuthHeader={getAuthHeader} group="insights" title=" " hideStats />
-            </div>
-          </section>
-        )}
         {activeTab === "settings" && (
           <AiAdsTab
             getAuthHeader={getAuthHeader}
@@ -194,10 +178,17 @@ const Dashboard = () => {
       </main>
 
       {promoteCtx ? (
-        <PromoteItemModal
-          item={promoteCtx.item}
-          category={promoteCtx.category}
+        <PromoteThisItem
+          mode="modal"
           getAuthHeader={getAuthHeader}
+          initialMenuItem={promoteCtx.item ? {
+            item_key: `${(promoteCtx.category && promoteCtx.category.slug) || "menu"}::${(promoteCtx.item.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+            name: promoteCtx.item.name,
+            description: promoteCtx.item.description,
+            price: promoteCtx.item.price,
+            category_slug: promoteCtx.category && promoteCtx.category.slug,
+            category_display_name: promoteCtx.category && (promoteCtx.category.display_name || promoteCtx.category.name),
+          } : null}
           onClose={() => setPromoteCtx(null)}
         />
       ) : null}

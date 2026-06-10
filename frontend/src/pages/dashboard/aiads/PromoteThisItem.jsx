@@ -512,10 +512,10 @@ const ReviewStep = ({ getAuthHeader, pack, onRegenerate, onStartOver }) => {
 
 // ---------- Top-level orchestrator -----------------------------------------
 
-const PromoteThisItem = ({ getAuthHeader }) => {
-  const [step, setStep] = useState("pick"); // pick | details | progress | review
+const PromoteThisItem = ({ getAuthHeader, mode = "page", initialMenuItem = null, onClose }) => {
+  const [step, setStep] = useState(initialMenuItem ? "details" : "pick"); // pick | details | progress | review
   const [asset, setAsset] = useState(null);
-  const [menuItem, setMenuItem] = useState(null);
+  const [menuItem, setMenuItem] = useState(initialMenuItem);
   const [jobId, setJobId] = useState(null);
   const [completedPack, setCompletedPack] = useState(null);
   const [topError, setTopError] = useState(null);
@@ -527,6 +527,7 @@ const PromoteThisItem = ({ getAuthHeader }) => {
   const onCompleted = (pack) => { setCompletedPack(pack); setStep("review"); };
   const onFailed = (err) => { setTopError(err); setStep("details"); };
   const startOver = () => {
+    if (mode === "modal" && onClose) { onClose(); return; }
     setStep("pick"); setAsset(null); setMenuItem(null); setJobId(null); setCompletedPack(null); setTopError(null);
   };
   const regenerate = async () => {
@@ -537,7 +538,7 @@ const PromoteThisItem = ({ getAuthHeader }) => {
     } catch (e) { setTopError(parseAxiosError(e)); }
   };
 
-  return (
+  const body = (
     <div className="space-y-6" data-testid="promote-this-item">
       {/* Stepper */}
       <div className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="promote-stepper">
@@ -557,7 +558,7 @@ const PromoteThisItem = ({ getAuthHeader }) => {
       {step === "pick" && <PickPhotoStep getAuthHeader={getAuthHeader} onSelected={onSelected} />}
       {step === "details" && (
         <ItemDetailsStep getAuthHeader={getAuthHeader} asset={asset} menuItem={menuItem}
-          onBack={() => setStep("pick")} onGenerated={onGenerated} />
+          onBack={mode === "modal" && !asset ? (onClose || (() => setStep("pick"))) : () => setStep("pick")} onGenerated={onGenerated} />
       )}
       {step === "progress" && jobId && (
         <ProgressStep getAuthHeader={getAuthHeader} jobId={jobId}
@@ -569,6 +570,29 @@ const PromoteThisItem = ({ getAuthHeader }) => {
       )}
     </div>
   );
+
+  if (mode === "modal") {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-start justify-center bg-navy/60 backdrop-blur-sm overflow-y-auto p-4"
+        data-testid="promote-modal"
+        onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
+      >
+        <div className="bg-cream w-full max-w-3xl rounded-lg shadow-2xl my-8 p-6 relative" onClick={(e) => e.stopPropagation()}>
+          {onClose ? (
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-navy/10 hover:bg-navy/20 flex items-center justify-center text-navy"
+              data-testid="promote-modal-close"
+              aria-label="Close"
+            >×</button>
+          ) : null}
+          {body}
+        </div>
+      </div>
+    );
+  }
+  return body;
 };
 
 export default PromoteThisItem;

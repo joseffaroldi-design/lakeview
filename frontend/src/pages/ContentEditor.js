@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Plus, Trash2, ChevronDown, ChevronUp, FileText, UtensilsCrossed, GripVertical, Sparkles } from "lucide-react";
 import axios from "axios";
-import PromoteItemModal from "@/pages/dashboard/aiads/PromoteItemModal";
+import PromoteThisItem from "@/pages/dashboard/aiads/PromoteThisItem";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -303,10 +303,17 @@ export const MenuEditor = ({ getAuthHeader, onSaved }) => {
         </Card>
       ))}
       {promoting ? (
-        <PromoteItemModal
-          item={promoting.item}
-          category={promoting.category}
+        <PromoteThisItem
+          mode="modal"
           getAuthHeader={getAuthHeader}
+          initialMenuItem={promoting.item ? {
+            item_key: `${(promoting.category && promoting.category.slug) || "menu"}::${(promoting.item.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+            name: promoting.item.name,
+            description: promoting.item.description,
+            price: promoting.item.price,
+            category_slug: promoting.category && promoting.category.slug,
+            category_display_name: promoting.category && (promoting.category.display_name || promoting.category.name),
+          } : null}
           onClose={() => setPromoting(null)}
         />
       ) : null}
