@@ -344,6 +344,8 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
         await update(status="failed", error=err)
 
     try:
+        import time as _t
+        log.info("MARKETING_PACK_START pack_id=%s asset=%s", pack_id, body.source_asset_id)
         src = await db.media_assets.find_one({"id": body.source_asset_id, "status": "active"}, {"_id": 0})
         if not src or src.get("kind") != "image":
             await fail("asset_missing",
@@ -352,6 +354,8 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
             return
 
         # --- Step 1: infer
+        ts = _t.time()
+        log.info("MARKETING_PACK_STEP pack_id=%s step=inferring", pack_id)
         await update(status="processing", current_step="inferring", progress=10)
         inferred = await _infer_missing_fields(body.name, body.description, src)
         item = {
@@ -362,12 +366,18 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
             "cta": body.cta or "Order Now",
         }
         await update(item=item)
+        log.info("MARKETING_PACK_STEP_OK pack_id=%s step=inferring dur_ms=%d", pack_id, int((_t.time()-ts)*1000))
 
         # --- Step 2: copy
+        ts = _t.time()
+        log.info("MARKETING_PACK_STEP pack_id=%s step=writing_copy", pack_id)
         await update(current_step="writing_copy", progress=25)
         copy = await _write_copy(item)
+        log.info("MARKETING_PACK_STEP_OK pack_id=%s step=writing_copy dur_ms=%d", pack_id, int((_t.time()-ts)*1000))
 
         # --- Step 3: render 4 images from the source
+        ts = _t.time()
+        log.info("MARKETING_PACK_STEP pack_id=%s step=rendering_images", pack_id)
         await update(current_step="rendering_images", progress=45)
         try:
             src_bytes, _ = objstore.get_bytes(src["storage_path"])
@@ -382,13 +392,19 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
             result_assets[f"{fmt}_asset_id"] = row["id"]
         # Dual label: tiktok_reel reuses the 9:16
         result_assets["tiktok_reel_asset_id"] = result_assets["ig_story_asset_id"]
+        log.info("MARKETING_PACK_STEP_OK pack_id=%s step=rendering_images dur_ms=%d image_count=%d",
+                 pack_id, int((_t.time()-ts)*1000), len(FORMATS))
 
         # --- Step 4: render 15s video
+        ts = _t.time()
+        log.info("MARKETING_PACK_STEP pack_id=%s step=rendering_video", pack_id)
         await update(current_step="rendering_video", progress=70)
         image_ids = [result_assets[f"{f}_asset_id"] for f in FORMATS]
         video_id = await _render_pack_video(pack_id, image_ids, item)
         if video_id:
             result_assets["video_asset_id"] = video_id
+        log.info("MARKETING_PACK_STEP_OK pack_id=%s step=rendering_video dur_ms=%d video_ok=%s",
+                 pack_id, int((_t.time()-ts)*1000), bool(video_id))
 
         # --- Step 5: save
         await update(current_step="saving", progress=95)

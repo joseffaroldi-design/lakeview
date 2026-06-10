@@ -109,22 +109,4 @@ async def export_social(
     return {"assets": saved, "count": len(saved)}
 
 
-@router.get("/social-formats")
-async def list_social_formats(authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    labels = {
-        "ig_post_1_1":      "Instagram Post (1:1)",
-        "ig_portrait_4_5":  "Instagram Portrait (4:5)",
-        "ig_reel_9_16":     "Instagram Reel / Story (9:16)",
-        "fb_post":          "Facebook Post (1200×630)",
-        "fb_story":         "Facebook Story (9:16)",
-        "tiktok_9_16":      "TikTok Vertical (9:16)",
-        "gbp_image":        "Google Business Profile (4:3)",
-        "flyer_8_5_11":     "Flyer 8.5×11\" @ 300 DPI",
-    }
-    return {
-        "formats": [
-            {"id": k, "label": labels[k], "width": w, "height": h}
-            for k, (w, h) in SOCIAL_FORMATS.items()
-        ]
-    }
+# Sprint 12D: /social-formats endpoint deleted — formats are static; ship as JS constant on the frontend.

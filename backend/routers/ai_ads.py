@@ -46,9 +46,9 @@ from ai_engine.templates import (
     PLATFORMS,
     TONES,
 )
-from ai_engine.generators import run_generator, GENERATORS
 from ai_engine.providers import list_providers, get_setting, set_setting
-from ai_engine.plugins import list_plugins, get_plugin
+# Sprint 12D: ai_engine.generators + ai_engine.plugins deleted. Routes that
+# depended on them (/plugins, /generate/*, /plugins/{id}/promote) are removed.
 
 router = APIRouter(prefix="/ai-ads")
 
@@ -136,22 +136,7 @@ async def list_templates(industry: Optional[str] = None, authorization: str = He
     }
 
 
-@router.get("/config")
-async def get_config(authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    return await get_active_model(db)
-
-
-@router.put("/config")
-async def update_config(cfg: ModelConfig, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    return await set_active_model(db, cfg.provider, cfg.model)
-
-
-@router.post("/generate")
-@limiter.limit("10/minute")
-async def generate_master(request: Request, body: GenerateRequest, authorization: str = Header(None), session_token: str = Cookie(None)):
-    raise HTTPException(status_code=410, detail="Deprecated in Sprint 12B — use POST /api/marketing-pack/generate instead")
+# Sprint 12D: /config + /generate endpoints retired (SettingsPanel deleted; use marketing_pack)
 
 
 @router.get("/stats")
@@ -373,176 +358,16 @@ async def duplicate_asset(asset_id: str, authorization: str = Header(None), sess
 
 
 # =====================================================
-# Phase 2 — Providers + Settings
+# Phase 2 — Providers + Settings: RETIRED in Sprint 12D
 # =====================================================
-
-@router.get("/providers")
-async def get_providers(authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    return {
-        "text": list_providers("text"),
-        "image": list_providers("image"),
-        "video": list_providers("video"),
-    }
-
-
-class SettingsBag(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    default_industry: Optional[constr(max_length=50)] = None
-    default_tone: Optional[constr(max_length=50)] = None
-    default_platform: Optional[constr(max_length=50)] = None
-    monthly_generation_limit: Optional[int] = None
-
-
-@router.get("/settings")
-async def get_settings(authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    return {
-        "default_industry": await get_setting(db, "default_industry", "restaurant"),
-        "default_tone": await get_setting(db, "default_tone", "Local New Orleans Style"),
-        "default_platform": await get_setting(db, "default_platform", "Facebook"),
-        "monthly_generation_limit": await get_setting(db, "monthly_generation_limit", 0),
-    }
-
-
-@router.put("/settings")
-async def update_settings(payload: SettingsBag, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    saved = {}
-    for k, v in payload.model_dump(exclude_unset=True).items():
-        if v is not None:
-            saved[k] = await set_setting(db, k, v)
-    return saved
+# /providers, /settings, /config endpoints removed; SettingsPanel UI deleted.
 
 
 # =====================================================
-# Phase 3 — Industry Plugins (Restaurant Mode + future verticals)
+# Phase 3 — Industry Plugins: RETIRED in Sprint 12D
 # =====================================================
-
-class PluginPromoteRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    context: Dict[str, Any]
-    template_id: Optional[str] = None
-    action_ids: Optional[List[str]] = None  # If None, runs ALL actions
-    save_to_library: Optional[bool] = True
-    campaign_name: Optional[constr(max_length=200)] = None
-
-
-@router.get("/plugins")
-async def list_industry_plugins(authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    return {"plugins": list_plugins()}
-
-
-@router.get("/plugins/{plugin_id}")
-async def get_industry_plugin(plugin_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    plugin = get_plugin(plugin_id)
-    if not plugin:
-        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not registered")
-    return plugin.to_public()
-
-
-@router.post("/plugins/{plugin_id}/promote")
-@limiter.limit("30/minute")
-async def plugin_promote(
-    plugin_id: str,
-    request: Request,
-    body: PluginPromoteRequest,
-    authorization: str = Header(None),
-    session_token: str = Cookie(None),
-):
-    """One-click multi-channel generation via an industry plugin.
-
-    The plugin maps `context` (e.g. a menu item) -> per-action briefs that
-    feed into the core engine. Returns one result per requested action.
-    """
-    await verify_session(authorization, session_token)
-    plugin = get_plugin(plugin_id)
-    if not plugin:
-        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not registered")
-
-    selected_ids = set(body.action_ids) if body.action_ids else None
-    actions = [a for a in plugin.actions if selected_ids is None or a["id"] in selected_ids]
-    if not actions:
-        raise HTTPException(status_code=400, detail="No valid actions selected")
-
-    enriched_ctx = {
-        **body.context,
-        "template_id": body.template_id,
-        "campaign_name": body.campaign_name,
-    }
-
-    async def run_one(action: Dict[str, Any]) -> Dict[str, Any]:
-        brief = plugin.build_brief(enriched_ctx, action)
-        try:
-            # Force a faster model for one-click multi-channel runs so the
-            # whole bundle returns inside the ingress timeout (<60s).
-            result = await run_generator(
-                db, action["kind"], brief,
-                provider_override="openai",
-                model_override="gpt-5-mini",
-            )
-            data = result["data"]
-            model_used = result["model_used"]
-            gen_id = await _persist_generation(
-                {**brief, "_kind": action["kind"], "_plugin": plugin_id, "_action": action["id"]},
-                data,
-                model_used,
-            )
-            asset_id: Optional[str] = None
-            if body.save_to_library:
-                title = (
-                    f"{body.campaign_name or (body.context.get('item') or {}).get('name') or 'Untitled'} "
-                    f"· {action['label']}"
-                )
-                asset_doc = {
-                    "id": str(uuid.uuid4()),
-                    "kind": action.get("asset_kind") or action["kind"],
-                    "title": title[:200],
-                    "filename": title[:160],
-                    "platform": brief.get("platform"),
-                    "industry": plugin_id,
-                    "campaign_id": None,
-                    "payload": data,
-                    "tags": [plugin_id, action["id"], body.template_id or "default"],
-                    "is_favorite": False,
-                    "status": "draft",
-                    "source": LEGACY_SOURCE,
-                    "mime": "application/json",
-                    "storage_path": None,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                    "uploaded_at": datetime.now(timezone.utc).isoformat(),
-                }
-                await db.media_assets.insert_one(asset_doc)
-                asset_id = asset_doc["id"]
-            return {
-                "action_id": action["id"],
-                "label": action["label"],
-                "kind": action["kind"],
-                "platform": brief.get("platform"),
-                "generation_id": gen_id,
-                "asset_id": asset_id,
-                "output": data,
-                "model_used": model_used,
-            }
-        except Exception as e:  # noqa: BLE001
-            return {
-                "action_id": action["id"],
-                "label": action["label"],
-                "kind": action["kind"],
-                "error": str(e),
-            }
-
-    # Fire all actions in parallel — total wall-time = slowest LLM call instead of sum.
-    results = await asyncio.gather(*[run_one(a) for a in actions])
-
-    return {
-        "plugin_id": plugin_id,
-        "template_id": body.template_id,
-        "results": results,
-    }
+# /plugins, /plugins/{id}, /plugins/{id}/promote removed.
+# Use POST /api/marketing-pack/generate instead.
 
 
 # =====================================================

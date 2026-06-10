@@ -167,70 +167,10 @@ def classify_render_error(
 
 
 # ---------------------------------------------------------------------------
-# Classifier — Provider publishing (Meta / SendGrid / Twilio / Mailchimp)
+# Classifier — Provider publishing: RETIRED in Sprint 12D
 # ---------------------------------------------------------------------------
-def classify_publish_error(provider: str, raw_error: str, *, http_status: Optional[int] = None) -> StructuredError:
-    msg = (raw_error or "").lower()
-    if not raw_error:
-        return StructuredError(
-            code="unknown", status=500,
-            user_message=f"Publishing to {provider} failed without an error message. Try again or check the Provider Connections tab.",
-            technical="provider returned no error string",
-            retryable=True, retry_action="retry_publish",
-        )
-    if any(k in msg for k in ("not connected", "no credentials", "missing", "not configured")):
-        return StructuredError(
-            code="not_connected", status=400,
-            user_message=f"{provider} isn't connected yet. Open Provider Connections, sign in, and re-schedule this post.",
-            technical=raw_error, retryable=False, retry_action="open_provider_connections",
-        )
-    if any(k in msg for k in ("expired", "invalid token", "revoked", "401", "unauthorized", "needs reauthentication")):
-        return StructuredError(
-            code="key_invalid", status=401,
-            user_message=f"Your {provider} login expired. Open Provider Connections and reconnect to keep publishing.",
-            technical=raw_error, retryable=False, retry_action="reconnect_provider",
-        )
-    if any(k in msg for k in ("permission", "forbidden", "403", "scope", "insufficient")):
-        return StructuredError(
-            code="permission_denied", status=403,
-            user_message=f"{provider} blocked the publish — the connected account is missing a permission scope. Reconnect with full Page/Profile permissions.",
-            technical=raw_error, retryable=False, retry_action="reconnect_provider",
-        )
-    if any(k in msg for k in ("rate limit", "ratelimit", "too many", "429")):
-        return StructuredError(
-            code="rate_limited", status=429,
-            user_message=f"{provider} rate-limited your account. Wait a few minutes and retry — or reduce how many posts you publish per hour.",
-            technical=raw_error, retryable=True, retry_action="wait_and_retry",
-        )
-    if any(k in msg for k in ("payload too large", "request entity too large", "413", "file too big")):
-        return StructuredError(
-            code="payload_too_large", status=413,
-            user_message=f"The asset is too large for {provider}. Try exporting a smaller version via Social Exports.",
-            technical=raw_error, retryable=True, retry_action="export_smaller",
-        )
-    if any(k in msg for k in ("safety", "policy", "violat", "rejected", "spam")):
-        return StructuredError(
-            code="safety_reject", status=422,
-            user_message=f"{provider} rejected the content under its policy. Edit the caption/image and retry.",
-            technical=raw_error, retryable=True, retry_action="edit_post",
-        )
-    if any(k in msg for k in ("timeout", "timed out", "connection", "network", "504", "503", "unreachable")):
-        return StructuredError(
-            code="provider_unavailable", status=503,
-            user_message=f"Can't reach {provider} right now. We'll auto-retry on the next scheduler tick.",
-            technical=raw_error, retryable=True, retry_action="retry_publish",
-        )
-    if any(k in msg for k in ("not registered", "unknown provider")):
-        return StructuredError(
-            code="provider_unregistered", status=400,
-            user_message=f"The provider '{provider}' isn't installed on this server. Contact support.",
-            technical=raw_error, retryable=False,
-        )
-    return StructuredError(
-        code="unknown", status=502,
-        user_message=f"Publishing to {provider} failed unexpectedly. Try again — if it keeps failing, check Provider Connections.",
-        technical=raw_error, retryable=True, retry_action="retry_publish",
-    )
+# Publishing pipeline removed; classify_publish_error and all its retry_publish
+# action codes are gone with it.
 
 
 # ---------------------------------------------------------------------------

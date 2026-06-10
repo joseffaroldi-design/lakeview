@@ -28,21 +28,26 @@ const ADD_BALANCE_URL = "https://app.emergent.sh/account/billing";
 
 export default function BillingCard() {
   const [status, setStatus] = useState(null);
+  const [spentMonth, setSpentMonth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
   const warnedRef = React.useRef({ low: false, critical: false });
 
   const load = async () => {
     try {
-      const r = await axios.get(`${API}/billing/status`, { headers: getAuthHeader() });
-      setStatus(r.data);
+      const [s, u] = await Promise.all([
+        axios.get(`${API}/billing/status`, { headers: getAuthHeader() }),
+        axios.get(`${API}/billing/usage?limit=200`, { headers: getAuthHeader() }),
+      ]);
+      setStatus(s.data);
+      setSpentMonth(u.data.spent_in_window_usd || 0);
 
       // Emit BUDGET_WARNING_SHOWN telemetry (browser console; backend has its own)
-      if (r.data.is_critical && !warnedRef.current.critical) {
-        console.info("BUDGET_WARNING_SHOWN tier=critical balance=$" + r.data.current_balance_usd.toFixed(2));
+      if (s.data.is_critical && !warnedRef.current.critical) {
+        console.info("BUDGET_WARNING_SHOWN tier=critical balance=$" + s.data.current_balance_usd.toFixed(2));
         warnedRef.current.critical = true;
-      } else if (r.data.is_low && !warnedRef.current.low) {
-        console.info("BUDGET_WARNING_SHOWN tier=low balance=$" + r.data.current_balance_usd.toFixed(2));
+      } else if (s.data.is_low && !warnedRef.current.low) {
+        console.info("BUDGET_WARNING_SHOWN tier=low balance=$" + s.data.current_balance_usd.toFixed(2));
         warnedRef.current.low = true;
       }
     } catch (e) {
@@ -100,7 +105,7 @@ export default function BillingCard() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-amber-700" />
-          <h3 className="font-semibold text-base">AI Credit Balance</h3>
+          <h3 className="font-semibold text-base">Estimated Available Budget</h3>
         </div>
         {is_blocked && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
@@ -134,7 +139,7 @@ export default function BillingCard() {
         <div className={`h-full ${tierStyle.bar} transition-all`} style={{ width: `${pct}%` }} />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+      <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
         <div>
           <div className="text-muted-foreground text-xs uppercase tracking-wide">Packs remaining</div>
           <div className="font-semibold" data-testid="billing-packs-remaining">
@@ -144,6 +149,10 @@ export default function BillingCard() {
         <div>
           <div className="text-muted-foreground text-xs uppercase tracking-wide">Est. cost / pack</div>
           <div className="font-semibold">${estimated_pack_cost_usd.toFixed(3)}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">Spent this month</div>
+          <div className="font-semibold" data-testid="billing-spent-month">${spentMonth.toFixed(2)}</div>
         </div>
       </div>
 

@@ -183,7 +183,4 @@ async def seed_defaults(db):
         await db.menu_categories.insert_many(DEFAULT_MENU_CATEGORIES)
         logger.info("Seeded default menu categories")
 
-    existing_giveaway = await db.giveaway_settings.find_one({}, {"_id": 0})
-    if not existing_giveaway:
-        await db.giveaway_settings.insert_one(DEFAULT_GIVEAWAY_SETTINGS)
-        logger.info("Seeded default giveaway settings")
+    # Sprint 12D: giveaway feature retired — seed removed

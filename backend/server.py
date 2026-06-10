@@ -16,11 +16,10 @@ from rate_limit import limiter
 
 import auth
 from routers import (
-    cms, specials, analytics, giveaway, loyalty, messaging,
-    catering, newsletter, misc, ai_ads, publishing, media, home,
+    cms, specials, analytics, loyalty, messaging,
+    catering, newsletter, misc, ai_ads, media, home,
     marketing_pack, billing,
 )
-from publishing import run_due_publishes
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,13 +40,11 @@ api_router.include_router(auth.router)
 api_router.include_router(cms.router)
 api_router.include_router(specials.router)
 api_router.include_router(analytics.router)
-api_router.include_router(giveaway.router)
 api_router.include_router(loyalty.router)
 api_router.include_router(messaging.router)
 api_router.include_router(catering.router)
 api_router.include_router(newsletter.router)
 api_router.include_router(ai_ads.router)
-api_router.include_router(publishing.router)
 api_router.include_router(media.router)
 api_router.include_router(home.router)
 api_router.include_router(marketing_pack.router)
@@ -64,21 +61,8 @@ app.add_middleware(
 )
 
 
-SCHEDULER_INTERVAL_SECONDS = 30
-_scheduler_task: asyncio.Task | None = None
-
-
-async def _scheduler_loop():
-    """Background worker — polls scheduled_posts every SCHEDULER_INTERVAL_SECONDS
-    and publishes anything due. Crashes are logged but don't kill the loop."""
-    while True:
-        try:
-            executed = await run_due_publishes(db, limit=25)
-            if executed:
-                logger.info("Scheduler tick — executed %d publishes", len(executed))
-        except Exception as e:  # noqa: BLE001
-            logger.exception("Scheduler tick failed: %s", e)
-        await asyncio.sleep(SCHEDULER_INTERVAL_SECONDS)
+SCHEDULER_INTERVAL_SECONDS = 30  # Retained constant; scheduler loop removed in Sprint 12D
+_scheduler_task = None  # always None — publishing pipeline retired
 
 
 @app.on_event("startup")
@@ -86,19 +70,11 @@ async def on_startup():
     await seed_defaults(db)
     # ---- 1. MongoDB indexes on hot collections (idempotent — create_index is a no-op if it exists)
     try:
-        # ai_assets: retired Sprint 12C — rows merged into media_assets (source="ai_ads_legacy"); index lives on media_assets below
-        # scheduled_posts: Calendar + Queue + scheduler poll
-        await db.scheduled_posts.create_index([("status", 1), ("scheduled_at", 1)], name="sp_status_at")
-        await db.scheduled_posts.create_index([("provider", 1), ("scheduled_at", 1)], name="sp_provider_at")
-        await db.scheduled_posts.create_index("id", name="sp_id", unique=True, sparse=True)
-        # publish_logs: audit trail lookups
-        await db.publish_logs.create_index([("scheduled_post_id", 1), ("created_at", -1)], name="logs_sp_created")
-        await db.publish_logs.create_index([("created_at", -1)], name="logs_created")
+        # Sprint 12D: scheduled_posts / publish_logs / provider_connections indexes
+        # removed with the publishing pipeline (collections to be dropped).
         # ai_generations: analytics aggregations
         await db.ai_generations.create_index([("created_at", -1)], name="gens_created")
         await db.ai_generations.create_index([("brief.platform", 1)], name="gens_platform")
-        # provider_connections: lookup by provider + business
-        await db.provider_connections.create_index([("provider", 1), ("business_id", 1)], name="conn_provider_biz", unique=True)
         # media_assets: Library lookups by kind/folder/tags
         await db.media_assets.create_index([("status", 1), ("kind", 1), ("uploaded_at", -1)], name="media_status_kind_uploaded")
         await db.media_assets.create_index([("folder", 1), ("uploaded_at", -1)], name="media_folder_uploaded")
@@ -118,7 +94,6 @@ async def on_startup():
         # audit / log / analytics collections. Mongo's TTL monitor deletes any doc
         # whose `expires_at` (BSON Date) is in the past, checked roughly every 60s.
         await db.failure_audit_log.create_index("expires_at", name="fal_ttl", expireAfterSeconds=0)
-        await db.publish_logs.create_index("expires_at", name="pl_ttl", expireAfterSeconds=0)
         await db.page_views.create_index("expires_at", name="pv_ttl", expireAfterSeconds=0)
         # Sprint 12C — Task 5: ai_generations retained 90 days for /api/ai-ads/stats analytics
         await db.ai_generations.create_index("expires_at", name="gens_ttl", expireAfterSeconds=0)
@@ -126,13 +101,7 @@ async def on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("Index creation skipped: %s", e)
 
-    # ---- 6. Pre-warm the plugin catalog (static — avoids cold-cache latency on first Automation Center mount)
-    try:
-        from ai_engine.plugins import list_plugins, get_plugin
-        list_plugins()
-        get_plugin("restaurant")
-    except Exception:  # noqa: BLE001
-        pass
+    # Sprint 12D: ai_engine.plugins pre-warm removed (plugins package deleted).
 
     # ---- 7. Clean up orphan media jobs left behind by a previous worker
     try:
@@ -172,14 +141,10 @@ async def on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("Media bootstrap skipped: %s", e)
 
-    global _scheduler_task
-    _scheduler_task = asyncio.create_task(_scheduler_loop())
-    logger.info("Publishing scheduler started (interval=%ss)", SCHEDULER_INTERVAL_SECONDS)
+    # Sprint 12D: scheduler loop removed (publishing pipeline retired)
+    logger.info("Backend startup complete — Sprint 12D demolition active")
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    global _scheduler_task
-    if _scheduler_task:
-        _scheduler_task.cancel()
     client.close()

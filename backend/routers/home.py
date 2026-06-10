@@ -31,27 +31,37 @@ async def home_summary(authorization: str = Header(None), session_token: str = C
     today_prefix = now_iso[:10]
     week_ago = _iso(7)
 
-    # Real failures = not archived. (Stale failures auto-archive via /api/home/archive-failed.)
-    real_failures_q = {
-        "status": "failed",
-        "archived": {"$ne": True},
-    }
-    real_failures = await db.scheduled_posts.count_documents(real_failures_q)
-    scheduled_today = await db.scheduled_posts.count_documents({
-        "status": {"$in": ["scheduled", "publishing"]},
-        "scheduled_at": {"$regex": f"^{today_prefix}"},
+    # Sprint 12D: Publishing pipeline retired. Replace scheduled/publish metrics
+    # with marketing-pack, media, and customer metrics — the actual things the
+    # owner cares about.
+    packs_today = await db.marketing_packs.count_documents({
+        "status": "completed", "updated_at": {"$gte": today_prefix},
     })
-    active_specials = await db.specials.count_documents({"active": True})
+    packs_this_week = await db.marketing_packs.count_documents({
+        "status": "completed", "updated_at": {"$gte": week_ago},
+    })
+    failed_packs_recent = await db.marketing_packs.count_documents({
+        "status": "failed", "updated_at": {"$gte": week_ago},
+    })
+    media_this_week = await db.media_assets.count_documents({
+        "status": "active", "uploaded_at": {"$gte": week_ago},
+    })
+    active_specials = await db.marketing_packs.count_documents({"tag": "special", "is_active": True})
     new_subs = await db.newsletter_subscribers.count_documents({"subscribed_at": {"$gte": week_ago}})
     new_inq = await db.catering_inquiries.count_documents({"created_at": {"$gte": week_ago}})
 
     return {
         "today": {
-            "scheduled": scheduled_today,
+            "packs_today": packs_today,
+            "packs_this_week": packs_this_week,
             "active_promos": active_specials,
             "new_subscribers": new_subs,
             "new_inquiries": new_inq,
-            "real_failures": real_failures,
+            "failed_packs_recent": failed_packs_recent,
+            "media_this_week": media_this_week,
+            # Legacy keys retained for one release so the frontend keeps rendering
+            "scheduled": 0,
+            "real_failures": failed_packs_recent,
         },
     }
 
@@ -67,13 +77,8 @@ async def home_health(authorization: str = Header(None), session_token: str = Co
     rembg = rembg_state()
     llm_key_ok = bool(os.environ.get("EMERGENT_LLM_KEY"))
 
-    # Provider health: count "is_connected" provider_connections
-    providers_connected = await db.provider_connections.count_documents({"is_connected": True})
-    # Scheduler health: any unrecoverable failed_posts in last hour?
-    recent_failed = await db.scheduled_posts.count_documents({
-        "status": "failed", "archived": {"$ne": True},
-        "updated_at": {"$gte": _iso(0)[:13]},  # last hour roughly
-    })
+    # Sprint 12D: provider/scheduler health removed (publishing pipeline retired).
+    # Health now reflects ONLY things we actually run: ffmpeg, rembg, LLM key.
 
     issues = []
     if not ffmpeg_ok:
@@ -82,8 +87,6 @@ async def home_health(authorization: str = Header(None), session_token: str = Co
         issues.append("AI key missing")
     if not rembg.get("model_ready"):
         issues.append("Background removal warming up")
-    if providers_connected == 0:
-        issues.append("No social accounts connected")
 
     if not ffmpeg_ok or not llm_key_ok:
         level = "red"
@@ -98,8 +101,6 @@ async def home_health(authorization: str = Header(None), session_token: str = Co
         "ffmpeg_ok": ffmpeg_ok,
         "rembg_ok": rembg.get("model_ready", False),
         "llm_ok": llm_key_ok,
-        "providers_connected": providers_connected,
-        "recent_failed": recent_failed,
     }
 
 
@@ -128,13 +129,18 @@ async def promote_suggestions(
     if not flat:
         return {"items": [], "reason": "No menu items yet — add items in Menu Editor."}
 
-    # Look up last promotion timestamp per item from ai_assets/ai_campaigns
+    # Sprint 12D: ai_campaigns collection retired; use marketing_packs as the
+    # source of truth for "last promoted" per item.
     last_promoted: Dict[str, str] = {}
-    async for doc in db.ai_campaigns.find({}, {"_id": 0, "subject": 1, "created_at": 1}):
-        subj = (doc.get("subject") or "").lower()
+    async for doc in db.marketing_packs.find(
+        {"status": "completed"}, {"_id": 0, "item.name": 1, "updated_at": 1}
+    ):
+        name = ((doc.get("item") or {}).get("name") or "").lower()
+        if not name:
+            continue
+        ts = doc.get("updated_at", "")
         for it in flat:
-            if it["name"].lower() in subj:
-                ts = doc.get("created_at", "")
+            if it["name"].lower() == name:
                 if it["name"] not in last_promoted or last_promoted[it["name"]] < ts:
                     last_promoted[it["name"]] = ts
 
@@ -159,30 +165,4 @@ async def promote_suggestions(
     return {"items": enriched[:max(1, min(limit, 10))], "generated_at": now_iso}
 
 
-@router.post("/archive-failed")
-async def archive_failed(
-    older_than_days: int = 7,
-    authorization: str = Header(None),
-    session_token: str = Cookie(None),
-):
-    """Bulk-archive all failed scheduled_posts older than N days."""
-    await verify_session(authorization, session_token)
-    cutoff = _iso(older_than_days)
-    r = await db.scheduled_posts.update_many(
-        {"status": "failed", "archived": {"$ne": True}, "updated_at": {"$lt": cutoff}},
-        {"$set": {"archived": True, "archived_at": _iso(0)}},
-    )
-    return {"archived_count": r.modified_count, "older_than_days": older_than_days}
-
-
-@router.post("/dismiss-failed/{post_id}")
-async def dismiss_failed(post_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Archive a single failed post."""
-    await verify_session(authorization, session_token)
-    r = await db.scheduled_posts.update_one(
-        {"id": post_id, "status": "failed"},
-        {"$set": {"archived": True, "archived_at": _iso(0)}},
-    )
-    if r.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Post not found or not failed")
-    return {"archived": True}
+# Sprint 12D: /archive-failed and /dismiss-failed removed with the publishing pipeline.

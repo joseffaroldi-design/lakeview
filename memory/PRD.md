@@ -85,6 +85,44 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 10, 2026 — Sprint 12D: Demolition & Truth-Telling — Complete
+
+**Removed entirely:**
+- Publishing pipeline: `routers/publishing.py`, `publishing/` dir, 12 routes, scheduler tick from `server.py`, `classify_publish_error` from `errors.py`, `/api/home/archive-failed` + `/dismiss-failed`
+- Giveaway: `routers/giveaway.py`, `SpinWheel.js`, `GiveawayManager.js`, public-site mount in App.js, seed in `seed_data.py`
+- Automations Center: `RestaurantAutomationCenter.jsx`, `ai_engine/generators.py`, `ai_engine/plugins/` dir, `/api/ai-ads/plugins*`, `/api/ai-ads/automations*`, `/api/ai-ads/campaigns*`
+- Settings Panel: `SettingsPanel.jsx`, `/api/ai-ads/config`, `/api/ai-ads/settings`, `/api/ai-ads/providers`
+- Other dead frontend: `ContentCalendar.jsx`, `PublishQueue.jsx`, `SchedulePopover.jsx`, `CreativeLibrary.jsx`, `InstallPrompt.jsx`
+- 14 unused shadcn components (menubar/carousel/command/navigation-menu/pagination/breadcrumb/context-menu/drawer/hover-card/resizable/accordion/alert-dialog/collapsible/sidebar)
+- `/api/media/social-formats` endpoint (was static dict — now inlined as JS)
+- 9 zombie collections: `provider_connections`, `ai_config`, `ai_settings`, `button_clicks`, `publish_jobs`, `publish_logs`, `scheduled_posts`, `giveaway_entries`, `giveaway_settings`
+- Stale tests: `test_api.py`, `test_ai_ads_phase345.py`, `test_phase6_publishing.py`, `test_phase1_real_providers.py`
+
+**Added/rewired:**
+- New `LibraryTab.jsx` (~170 LOC) — flat searchable grid + uploads, no folders, no sub-tabs
+- `Dashboard.js` — 5 top tabs: Home / Menu / Promote / **Library** / Customers (Settings retired)
+- `AiAdsTab.jsx` collapsed to ~25 LOC — single `<PromoteThisItem>` wrapper, no sub-tabs
+- `home.py` rewired — `/summary` reads marketing_packs/media/customers (no more scheduled/provider deps); `/health` shows only ffmpeg/rembg/llm-key status
+- `marketing_pack.py` — added `MARKETING_PACK_START / STEP / STEP_OK / FAIL` structured logs with `dur_ms` per step (inferring, writing_copy, rendering_images, rendering_video)
+- BillingCard relabeled "Estimated Available Budget" (vs "Current Balance"), added "Spent this month" tile
+
+**Verification (end-to-end):**
+- Backend lint: 0 blocking (after stale-test removal), 1 advisory (pre-existing, unrelated)
+- All retired routes return 404; all kept routes return 200
+- Live marketing-pack run: upload → generate → completed in **27 seconds** with all 4 step-timing logs emitted
+- `/api/home/summary` + `/health` + `/api/billing/*` + `/api/media/*` + `/api/marketing-pack/*` all 200
+
+**Baseline → After (Sprint 12D):**
+| Metric | Before | After | Delta |
+|---|---|---|---|
+| Backend routes | 96 | 66 | **−30 (-31%)** |
+| Backend LOC | 8,389 | 5,660 | **−2,729 (-33%)** |
+| Frontend LOC | 10,911 | 7,186 | **−3,725 (-34%)** |
+| Collections | 26 | 17 | **−9 (-35%)** |
+| Dashboard sub-tabs | 8 | 0 | **−100%** |
+
+**Rollback:** `git reset --hard pre-sprint-12d` + restore Mongo dump.
+
 ### Feb 10, 2026 — Billing Resilience Sprint — Complete
 
 Self-tracked virtual budget layer for the Emergent Universal LLM Key. Required because Emergent does not expose a balance API; only signal is 402 from failed calls. Verified by `integration_playbook_expert_v2` consultation.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Settings as SettingsIcon,
+  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -9,23 +9,23 @@ import { ContentEditor, MenuEditor } from "@/pages/ContentEditor";
 import AiAdsTab from "@/pages/dashboard/AiAdsTab";
 import HomeTab from "@/pages/dashboard/HomeTab";
 import CustomersTab from "@/pages/dashboard/CustomersTab";
+import LibraryTab from "@/pages/dashboard/LibraryTab";
 import PromoteThisItem from "@/pages/dashboard/aiads/PromoteThisItem";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Phase 12A — collapsed to 5 top-level tabs (Insights folded into Home).
+// Sprint 12D — 5 top tabs: Settings retired, Library promoted from a sub-tab.
 const TABS = [
   { id: "home",        label: "Home",       icon: Home },
   { id: "menu",        label: "Menu",       icon: Pencil },
-  { id: "promotions",  label: "Promotions", icon: Megaphone },
+  { id: "promotions",  label: "Promote",    icon: Megaphone },
+  { id: "library",     label: "Library",    icon: ImageIcon },
   { id: "customers",   label: "Customers",  icon: Users },
-  { id: "settings",    label: "Settings",   icon: SettingsIcon },
 ];
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [authChecked, setAuthChecked] = useState(false);
-  const [aiAdsInitialSubTab, setAiAdsInitialSubTab] = useState(null);
   const [customersInitialFilter, setCustomersInitialFilter] = useState(null);
   const [promoteCtx, setPromoteCtx] = useState(null);  // {item, category}
   const navigate = useNavigate();
@@ -64,9 +64,6 @@ const Dashboard = () => {
 
   const switchTab = (tab, subTab) => {
     setActiveTab(tab);
-    if (tab === "promotions" || tab === "settings") {
-      setAiAdsInitialSubTab(subTab || null);
-    }
     if (tab === "customers") {
       setCustomersInitialFilter(subTab || null);
     }
@@ -153,28 +150,15 @@ const Dashboard = () => {
           </section>
         )}
         {activeTab === "promotions" && (
-          <AiAdsTab
-            getAuthHeader={getAuthHeader}
-            initialSubTab={aiAdsInitialSubTab}
-            group="promotions"
-            title="Promotions"
-            icon={Megaphone}
-            hideStats={false}
-          />
+          <AiAdsTab getAuthHeader={getAuthHeader} />
+        )}
+        {activeTab === "library" && (
+          <LibraryTab getAuthHeader={getAuthHeader} />
         )}
         {activeTab === "customers" && (
           <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
         )}
-        {activeTab === "settings" && (
-          <AiAdsTab
-            getAuthHeader={getAuthHeader}
-            initialSubTab={aiAdsInitialSubTab}
-            group="settings"
-            title="Settings"
-            icon={SettingsIcon}
-            hideStats
-          />
-        )}
+        {/* Sprint 12D: Settings tab retired */}
       </main>
 
       {promoteCtx ? (
