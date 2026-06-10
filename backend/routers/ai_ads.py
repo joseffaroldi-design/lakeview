@@ -52,6 +52,19 @@ from ai_engine.plugins import list_plugins, get_plugin
 
 router = APIRouter(prefix="/ai-ads")
 
+# Sprint 12C — Task 2: ai_assets collection retired and merged into media_assets.
+# Every CRUD operation in this file now operates on media_assets filtered by
+# source="ai_ads_legacy", preserving the public /api/ai-ads/assets contract.
+LEGACY_SOURCE = "ai_ads_legacy"
+
+
+def _legacy_q(extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Scope a query to the legacy ai-ads text-asset rows in media_assets."""
+    q: Dict[str, Any] = {"source": LEGACY_SOURCE}
+    if extra:
+        q.update(extra)
+    return q
+
 
 # ----- Models -----
 
@@ -97,12 +110,15 @@ class ModelConfig(BaseModel):
 async def _persist_generation(brief: Dict[str, Any], output: Dict[str, Any], model_used: str) -> str:
     """Audit trail: every generation is saved with its prompt + output."""
     gen_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
     await db.ai_generations.insert_one({
         "id": gen_id,
         "brief": brief,
         "output": output,
         "model_used": model_used,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now.isoformat(),
+        # Sprint 12C — Task 5: 90-day TTL retention (matches publish_logs)
+        "expires_at": now + timedelta(days=90),
     })
     return gen_id
 
@@ -166,9 +182,10 @@ async def get_stats(authorization: str = Header(None), session_token: str = Cook
 
     # Asset counts per kind
     kind_pipeline = [
+        {"$match": {"source": LEGACY_SOURCE}},
         {"$group": {"_id": "$kind", "count": {"$sum": 1}}},
     ]
-    asset_kinds_raw = await db.ai_assets.aggregate(kind_pipeline).to_list(20)
+    asset_kinds_raw = await db.media_assets.aggregate(kind_pipeline).to_list(20)
     asset_counts: Dict[str, int] = {a["_id"]: a["count"] for a in asset_kinds_raw}
 
     return {
@@ -253,7 +270,7 @@ async def list_assets(
     session_token: str = Cookie(None),
 ):
     await verify_session(authorization, session_token)
-    query: Dict[str, Any] = {}
+    query: Dict[str, Any] = {"source": LEGACY_SOURCE}
     if kind:
         query["kind"] = kind
     if platform:
@@ -279,7 +296,7 @@ async def list_assets(
             rng["$lte"] = date_to
         query["created_at"] = rng
 
-    items = await db.ai_assets.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    items = await db.media_assets.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     return {"assets": items, "total": len(items)}
 
 
@@ -290,12 +307,12 @@ async def save_asset(payload: AssetSave, authorization: str = Header(None), sess
         raise HTTPException(status_code=400, detail=f"Invalid kind. Allowed: {sorted(ASSET_KINDS)}")
     now = datetime.now(timezone.utc).isoformat()
     if payload.id:
-        existing = await db.ai_assets.find_one({"id": payload.id}, {"_id": 0})
+        existing = await db.media_assets.find_one(_legacy_q({"id": payload.id}), {"_id": 0})
         if not existing:
             raise HTTPException(status_code=404, detail="Asset not found")
         update = payload.model_dump(exclude_unset=True)
         update["updated_at"] = now
-        await db.ai_assets.update_one({"id": payload.id}, {"$set": update})
+        await db.media_assets.update_one(_legacy_q({"id": payload.id}), {"$set": update})
         return {**existing, **update}
 
     new_id = str(uuid.uuid4())
@@ -303,7 +320,12 @@ async def save_asset(payload: AssetSave, authorization: str = Header(None), sess
     doc["id"] = new_id
     doc["created_at"] = now
     doc["updated_at"] = now
-    await db.ai_assets.insert_one(doc)
+    doc["uploaded_at"] = now
+    doc["source"] = LEGACY_SOURCE
+    doc.setdefault("filename", (doc.get("title") or "Untitled")[:160])
+    doc.setdefault("mime", "application/json")
+    doc.setdefault("storage_path", None)
+    await db.media_assets.insert_one(doc)
     return {k: v for k, v in doc.items() if k != "_id"}
 
 
@@ -314,16 +336,16 @@ async def patch_asset(asset_id: str, patch: AssetPatch, authorization: str = Hea
     if not update:
         raise HTTPException(status_code=400, detail="No fields to patch")
     update["updated_at"] = datetime.now(timezone.utc).isoformat()
-    result = await db.ai_assets.update_one({"id": asset_id}, {"$set": update})
+    result = await db.media_assets.update_one(_legacy_q({"id": asset_id}), {"$set": update})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return await db.ai_assets.find_one({"id": asset_id}, {"_id": 0})
+    return await db.media_assets.find_one(_legacy_q({"id": asset_id}), {"_id": 0})
 
 
 @router.delete("/assets/{asset_id}")
 async def delete_asset(asset_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
     await verify_session(authorization, session_token)
-    result = await db.ai_assets.delete_one({"id": asset_id})
+    result = await db.media_assets.delete_one(_legacy_q({"id": asset_id}))
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Asset not found")
     return {"message": "Deleted"}
@@ -333,7 +355,7 @@ async def delete_asset(asset_id: str, authorization: str = Header(None), session
 async def duplicate_asset(asset_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
     """Duplicate a creative asset (preserves payload, resets id/status/favorite/timestamps)."""
     await verify_session(authorization, session_token)
-    original = await db.ai_assets.find_one({"id": asset_id}, {"_id": 0})
+    original = await db.media_assets.find_one(_legacy_q({"id": asset_id}), {"_id": 0})
     if not original:
         raise HTTPException(status_code=404, detail="Asset not found")
     now = datetime.now(timezone.utc).isoformat()
@@ -344,7 +366,9 @@ async def duplicate_asset(asset_id: str, authorization: str = Header(None), sess
     clone["is_favorite"] = False
     clone["created_at"] = now
     clone["updated_at"] = now
-    await db.ai_assets.insert_one(clone)
+    clone["uploaded_at"] = now
+    clone["source"] = LEGACY_SOURCE
+    await db.media_assets.insert_one(clone)
     return {k: v for k, v in clone.items() if k != "_id"}
 
 
@@ -476,6 +500,7 @@ async def plugin_promote(
                     "id": str(uuid.uuid4()),
                     "kind": action.get("asset_kind") or action["kind"],
                     "title": title[:200],
+                    "filename": title[:160],
                     "platform": brief.get("platform"),
                     "industry": plugin_id,
                     "campaign_id": None,
@@ -483,10 +508,14 @@ async def plugin_promote(
                     "tags": [plugin_id, action["id"], body.template_id or "default"],
                     "is_favorite": False,
                     "status": "draft",
+                    "source": LEGACY_SOURCE,
+                    "mime": "application/json",
+                    "storage_path": None,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "uploaded_at": datetime.now(timezone.utc).isoformat(),
                 }
-                await db.ai_assets.insert_one(asset_doc)
+                await db.media_assets.insert_one(asset_doc)
                 asset_id = asset_doc["id"]
             return {
                 "action_id": action["id"],
@@ -532,7 +561,7 @@ async def bulk_action(payload: BulkActionRequest, authorization: str = Header(No
     if not payload.ids:
         raise HTTPException(status_code=400, detail="No asset ids supplied")
     if payload.action == "delete":
-        res = await db.ai_assets.delete_many({"id": {"$in": payload.ids}})
+        res = await db.media_assets.delete_many(_legacy_q({"id": {"$in": payload.ids}}))
         return {"deleted": res.deleted_count}
     update: Dict[str, Any] = {"updated_at": datetime.now(timezone.utc).isoformat()}
     if payload.action == "archive":
@@ -543,7 +572,7 @@ async def bulk_action(payload: BulkActionRequest, authorization: str = Header(No
         update["is_favorite"] = True
     elif payload.action == "unfavorite":
         update["is_favorite"] = False
-    res = await db.ai_assets.update_many({"id": {"$in": payload.ids}}, {"$set": update})
+    res = await db.media_assets.update_many(_legacy_q({"id": {"$in": payload.ids}}), {"$set": update})
     return {"updated": res.modified_count, "action": payload.action}
 
 
@@ -578,7 +607,7 @@ async def export_assets(
     if fmt not in {"txt", "csv", "json"}:
         raise HTTPException(status_code=400, detail="format must be txt|csv|json")
 
-    assets = await db.ai_assets.find({"id": {"$in": ids}}, {"_id": 0}).to_list(1000)
+    assets = await db.media_assets.find(_legacy_q({"id": {"$in": ids}}), {"_id": 0}).to_list(1000)
     if fmt == "json":
         return {"format": "json", "data": assets}
     if fmt == "csv":

@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("uvicorn.error")
@@ -246,6 +246,7 @@ def log_failure(surface: str, err: StructuredError, **context: Any) -> None:
 async def audit_log(db, *, surface: str, err: StructuredError, **context: Any) -> None:
     """Append to failure_audit_log collection. Best-effort — never raises."""
     try:
+        now = datetime.now(timezone.utc)
         await db.failure_audit_log.insert_one({
             "id": str(uuid.uuid4()),
             "surface": surface,
@@ -254,7 +255,9 @@ async def audit_log(db, *, surface: str, err: StructuredError, **context: Any) -
             "user_message": err.user_message,
             "technical": err.technical,
             "context": context,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": now.isoformat(),
+            # Sprint 12C — TTL: drop after 30 days (BSON Date for the TTL monitor)
+            "expires_at": now + timedelta(days=30),
         })
     except Exception as e:  # noqa: BLE001
         logger.warning("[audit_log] could not record failure: %s", e)

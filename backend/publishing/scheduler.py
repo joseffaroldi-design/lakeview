@@ -13,7 +13,7 @@ Status flow:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from .base import publish_now
@@ -24,13 +24,16 @@ def _now() -> str:
 
 
 async def _log(db, *, scheduled_post_id: Optional[str], action: str, actor: str, detail: Dict[str, Any]) -> None:
+    now = datetime.now(timezone.utc)
     await db.publish_logs.insert_one({
         "id": str(uuid.uuid4()),
         "scheduled_post_id": scheduled_post_id,
         "action": action,
         "actor": actor,
         "detail": detail,
-        "created_at": _now(),
+        "created_at": now.isoformat(),
+        # Sprint 12C — TTL: drop publish audit entries after 90 days
+        "expires_at": now + timedelta(days=90),
     })
 
 

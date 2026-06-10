@@ -58,6 +58,8 @@ async def track_page_view(request: Request, data: TrackingData):
 
     doc = page_view.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
+    # Sprint 12C — TTL: drop page-view rows after 180 days (BSON Date)
+    doc['expires_at'] = datetime.now(timezone.utc) + timedelta(days=180)
     await db.page_views.insert_one(doc)
     return {"message": "Page view tracked"}
 

@@ -85,11 +85,7 @@ async def on_startup():
     await seed_defaults(db)
     # ---- 1. MongoDB indexes on hot collections (idempotent — create_index is a no-op if it exists)
     try:
-        # ai_assets: Library search/filter
-        await db.ai_assets.create_index([("status", 1), ("kind", 1), ("created_at", -1)], name="assets_status_kind_created")
-        await db.ai_assets.create_index([("platform", 1), ("created_at", -1)], name="assets_platform_created")
-        await db.ai_assets.create_index([("is_favorite", 1), ("created_at", -1)], name="assets_fav_created")
-        await db.ai_assets.create_index("id", name="assets_id", unique=True, sparse=True)
+        # ai_assets: retired Sprint 12C — rows merged into media_assets (source="ai_ads_legacy"); index lives on media_assets below
         # scheduled_posts: Calendar + Queue + scheduler poll
         await db.scheduled_posts.create_index([("status", 1), ("scheduled_at", 1)], name="sp_status_at")
         await db.scheduled_posts.create_index([("provider", 1), ("scheduled_at", 1)], name="sp_provider_at")
@@ -106,6 +102,8 @@ async def on_startup():
         await db.media_assets.create_index([("status", 1), ("kind", 1), ("uploaded_at", -1)], name="media_status_kind_uploaded")
         await db.media_assets.create_index([("folder", 1), ("uploaded_at", -1)], name="media_folder_uploaded")
         await db.media_assets.create_index("id", name="media_id", unique=True, sparse=True)
+        # Sprint 12C: route /api/ai-ads/assets to media_assets via source filter
+        await db.media_assets.create_index([("source", 1), ("created_at", -1)], name="media_source_created")
         await db.render_jobs.create_index([("status", 1), ("created_at", -1)], name="render_status_created")
         await db.render_jobs.create_index("id", name="render_id", unique=True, sparse=True)
         # ai_image_jobs: AI image generation polling (Cloudflare bypass)
@@ -115,6 +113,14 @@ async def on_startup():
         await db.marketing_packs.create_index([("status", 1), ("created_at", -1)], name="mpk_status_created")
         await db.marketing_packs.create_index("id", name="mpk_id", unique=True, sparse=True)
         await db.menu_promotions.create_index("item_key", name="mp_item_key", unique=True)
+        # Sprint 12C — Task 3: TTL indexes prevent unbounded growth on append-only
+        # audit / log / analytics collections. Mongo's TTL monitor deletes any doc
+        # whose `expires_at` (BSON Date) is in the past, checked roughly every 60s.
+        await db.failure_audit_log.create_index("expires_at", name="fal_ttl", expireAfterSeconds=0)
+        await db.publish_logs.create_index("expires_at", name="pl_ttl", expireAfterSeconds=0)
+        await db.page_views.create_index("expires_at", name="pv_ttl", expireAfterSeconds=0)
+        # Sprint 12C — Task 5: ai_generations retained 90 days for /api/ai-ads/stats analytics
+        await db.ai_generations.create_index("expires_at", name="gens_ttl", expireAfterSeconds=0)
         logger.info("MongoDB indexes ensured on hot collections")
     except Exception as e:  # noqa: BLE001
         logger.warning("Index creation skipped: %s", e)
@@ -136,6 +142,13 @@ async def on_startup():
         await cleanup_orphan_marketing_packs()
     except Exception as e:  # noqa: BLE001
         logger.warning("Orphan job cleanup skipped: %s", e)
+
+    # ---- 7a. Sprint 12C — Backfill TTL `expires_at` on legacy rows.
+    try:
+        from migrations.ttl_backfill import backfill_ttl_expiries
+        await backfill_ttl_expiries(db)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("TTL backfill skipped: %s", e)
 
     # ---- 7b. Initialize Emergent Object Storage (off the event loop)
     try:
