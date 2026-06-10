@@ -44,7 +44,11 @@ const UploadDropzone = (props) => {
       form.append("folder", folder);
       try {
         const res = await axios.post(`${API}/media/upload`, form, {
-          headers: { ...getAuthHeader(), "Content-Type": "multipart/form-data" },
+          // NOTE: do NOT set Content-Type — axios + the browser MUST
+          // auto-generate `multipart/form-data; boundary=…`. Manual override
+          // drops the boundary string and the backend rejects with 400
+          // (which Cloudflare surfaces as 520 in production).
+          headers: { ...getAuthHeader() },
           onUploadProgress: (e) => {
             const pct = e.total ? Math.round((e.loaded / e.total) * 100) : 0;
             setItems((prev) => prev.map((x) => (x.file === it.file ? { ...x, progress: pct } : x)));

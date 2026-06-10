@@ -68,7 +68,11 @@ const PickPhotoStep = ({ getAuthHeader, onSelected }) => {
       fd.append("folder", "Marketing Packs");
       fd.append("tags", "promote-this-item");
       const r = await axios.post(`${API}/media/upload`, fd, {
-        headers: { ...getAuthHeader(), "Content-Type": "multipart/form-data" },
+        // NOTE: do NOT set Content-Type here — axios + the browser MUST
+        // auto-generate `multipart/form-data; boundary=…` with the correct
+        // boundary string. Setting it manually drops the boundary and the
+        // backend rejects with 400 (which Cloudflare surfaces as 520).
+        headers: { ...getAuthHeader() },
         timeout: 60000,
       });
       onSelected({ asset: r.data, menuItem: null });
