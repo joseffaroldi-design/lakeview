@@ -314,7 +314,7 @@ async def duplicate_asset(asset_id: str, authorization: str = Header(None), sess
 class AiImageRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     prompt: constr(min_length=3, max_length=2000)
-    style: Optional[constr(max_length=60)] = "Food photography, natural light, appetizing, restaurant menu hero shot"
+    style: Optional[constr(max_length=200)] = "Food photography, natural light, appetizing, restaurant menu hero shot"
     count: int = Field(default=1, ge=1, le=4)
     quality: constr(pattern=r"^(low|medium|high)$") = "medium"
     folder: Optional[constr(max_length=60)] = "Promotions"

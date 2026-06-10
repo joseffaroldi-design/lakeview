@@ -1,0 +1,29 @@
+{
+  "summary": "Re-tested AI Image Generator end-to-end after fix to AiImageRequest.style max_length (60→200). Both regression curl and full UI E2E flow PASS. Default 70-char style is now accepted, async job lifecycle completes cleanly, no StructuredErrorCard appears, and the AI counter in the asset library bumps (14 AI → 15 AI) confirming onGenerated callback refresh worked. Total wall-clock for one low/1 image: ~12s.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_ai_image_async.py",
+    "/app/test_reports/pytest/pytest_ai_image_async.xml"
+  ],
+  "action_items": [
+    "(Optional, carried from iter19) Add a Pydantic validation_error → StructuredErrorCard mapper at the route layer so future field-length / type errors surface a user-friendly message instead of generic 'Unexpected error / Request failed.'",
+    "(Optional, carried from iter19) Add a startup janitor that marks ai_image_jobs stuck in pending/processing older than N minutes as 'failed' — in-process _ai_image_tasks set can orphan jobs across backend restarts.",
+    "(Optional, carried from iter19) /app/backend/routers/media.py is ~1298 lines — split into media/{upload,edit,ai_image,video,export,assets}.py when convenient."
+  ],
+  "critical_code_review_comments": [
+    "Fix verified at /app/backend/routers/media.py:317 — style: Optional[constr(max_length=200)] (was 60). Curl with the full 70-char default returns 202 in <100ms.",
+    "Frontend default in /app/frontend/src/pages/dashboard/aiads/MediaStudio.jsx:124 unchanged (70 chars) and now within constraint."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% — POST /api/media/ai-image with default style returns 202 {job_id, status:'pending'}.",
+    "frontend": "100% — login → Promotions → Media → AI Images → Generate 1 Image: progress card appears <0.05s, status label 'Queued…' → 'Generating image…', no error card, progress card clears in ~12s, button back to 'Generate 1 Image', asset library AI counter increments (14 → 15)."
+  },
+  "test_credentials": {"admin_password": "Lakeview872"},
+  "seed_data_creation": "One new AI-generated asset added during the E2E run (folder 'Promotions', prompt 'Plate of beignets with powdered sugar', source='ai_image').",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "AI image async-job + polling UI is fully working end-to-end. Backend (max_length=200) and frontend (70-char default) are now consistent. No outstanding blockers on this feature. Remaining items are non-blocking enhancements (Pydantic-error → StructuredError mapper, stuck-job janitor, media.py file split). The 404 console resources observed during testing are unrelated to this flow (a preloaded customer asset).",
+  "rca of the issue": "Previous iteration (19) RCA: schema/UI drift — backend declared style max_length=60 but the FE default literal was 70 chars, so any submit with default returned 422 before a job was enqueued. Fix applied in iteration 20 review: routers/media.py:317 changed to constr(max_length=200). Verified both via curl (HTTP 202) and via Playwright UI E2E (progress card appears, completes in ~12s, no error card)."
+}
