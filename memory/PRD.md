@@ -85,6 +85,35 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 10, 2026 — Billing Resilience Sprint — Complete
+
+Self-tracked virtual budget layer for the Emergent Universal LLM Key. Required because Emergent does not expose a balance API; only signal is 402 from failed calls. Verified by `integration_playbook_expert_v2` consultation.
+
+**New collections**: `billing_state` (singleton), `llm_usage` (append-only ledger).
+
+**New module**: `/app/backend/billing.py` — cost estimator (gpt-5 ~$0.008/pack), `check_can_afford`, `record_usage`, `reset_balance`, `set_cap`. Telemetry: `BILLING_STATE_INITIALIZED`, `BILLING_CAP_UPDATED`, `BILLING_RESET`, `BUDGET_CHECK_START/PASS/FAIL`, `LLM_USAGE_RECORDED`.
+
+**New routes**:
+- `GET  /api/billing/status` — balance, tier, packs remaining, thresholds (Home polls 30s)
+- `GET  /api/billing/usage?limit=N` — recent events
+- `POST /api/billing/reset` — owner "I just topped up" one-click reset to cap
+- `POST /api/billing/cap` — admin: set monthly cap
+
+**Modified**: `/api/marketing-pack/generate` performs pre-flight `check_can_afford` before enqueueing. Returns **HTTP 402** with `code=budget_exhausted, retry_action=add_balance` when insufficient. Records actual cost via `record_usage` on completion.
+
+**Frontend**:
+- New `BillingCard.jsx` on HomeTab — balance, tier badge (healthy/low/critical/blocked), progress bar, packs remaining, est. cost/pack, contextual alert, "Add Balance in Emergent" + "I just topped up" CTAs. 30s auto-refresh. Emits `BUDGET_WARNING_SHOWN` on tier transition.
+- `PromoteThisItem.jsx` — fetches `/api/billing/status`; shows estimated cost inline ("Est. cost: $0.008 — text only; image resize & video render are free") + live balance next to Generate button. Disables Generate + relabels to "Out of credits — Add Balance" when blocked. 402 responses surface via existing `StructuredErrorCard` (already handles `budget_exhausted` + `add_balance` action).
+
+**Tier thresholds** (per spec):
+- ≥$1.00 healthy (emerald) · <$1.00 low (amber) · <$0.50 critical (red) · $0.00 blocked (pre-flight 402)
+
+**Drift acceptance**: virtual balance is a guardrail, not a mirror of Emergent's real balance. Owner clicks "I just topped up" to resync after adding credits in Emergent.
+
+**Default cap**: `BILLING_MONTHLY_CAP_USD=4.00` (env, override). Auto-initializes on first call.
+
+**Verification**: pre-flight 402 block confirmed; reset action confirmed; first pack cost recorded ($0.0082, balance $10.00 → $9.99). Backend tests via curl all green. Frontend compiled clean (warnings only — headless screenshot tool blocked at 403, unrelated).
+
 ### Feb 10, 2026 — Sprint 12C: Backend Consolidation & Data Cleanup — Complete
 
 Pure tech-debt elimination. Zero UX changes, zero new features, zero frontend axios edits.

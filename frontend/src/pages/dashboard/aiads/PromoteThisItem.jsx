@@ -192,6 +192,14 @@ const ItemDetailsStep = ({ getAuthHeader, asset, menuItem, onBack, onGenerated }
   const [pickedAsset, setPickedAsset] = useState(asset);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [billing, setBilling] = useState(null);
+
+  // Load billing status for the cost-estimate label + block-on-zero
+  useEffect(() => {
+    axios.get(`${API}/billing/status`, { headers: getAuthHeader() })
+      .then((r) => setBilling(r.data))
+      .catch(() => {});
+  }, []);
 
   const generate = async () => {
     if (!pickedAsset) { setNeedAsset(true); return; }
@@ -268,18 +276,48 @@ const ItemDetailsStep = ({ getAuthHeader, asset, menuItem, onBack, onGenerated }
 
           {error ? <StructuredErrorCard error={error} testId="promote-details-error" onRetry={generate} /> : null}
 
+          {/* Estimated cost + budget block (Billing Resilience) */}
+          {billing && (
+            <div
+              className={`mt-2 p-2.5 rounded-md text-xs flex items-center justify-between gap-2 ${
+                billing.is_blocked
+                  ? "bg-red-50 border border-red-200 text-red-800"
+                  : billing.is_critical
+                  ? "bg-red-50 border border-red-200 text-red-700"
+                  : billing.is_low
+                  ? "bg-amber-50 border border-amber-200 text-amber-800"
+                  : "bg-cream border border-gold/30 text-navy"
+              }`}
+              data-testid="promote-cost-estimate"
+            >
+              <span>
+                <strong>Est. cost: ${billing.estimated_pack_cost_usd.toFixed(3)}</strong>
+                <span className="text-muted-foreground ml-1">
+                  (text only — image resize &amp; video render are free)
+                </span>
+              </span>
+              <span className="text-[11px] font-medium">
+                Balance: ${billing.current_balance_usd.toFixed(2)}
+              </span>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={onBack} className="border-navy/20" data-testid="promote-back">
               <ArrowLeft className="w-4 h-4 mr-1" /> Back
             </Button>
             <Button
               onClick={generate}
-              disabled={busy || !pickedAsset}
+              disabled={busy || !pickedAsset || (billing && billing.is_blocked)}
               className="bg-gold text-navy hover:bg-gold/90 flex-1"
               data-testid="promote-generate-btn"
             >
               {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              {busy ? "Starting…" : "Generate Marketing Pack →"}
+              {busy
+                ? "Starting…"
+                : billing && billing.is_blocked
+                ? "Out of credits — Add Balance"
+                : "Generate Marketing Pack →"}
             </Button>
           </div>
         </div>

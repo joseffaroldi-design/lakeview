@@ -18,7 +18,7 @@ import auth
 from routers import (
     cms, specials, analytics, giveaway, loyalty, messaging,
     catering, newsletter, misc, ai_ads, publishing, media, home,
-    marketing_pack,
+    marketing_pack, billing,
 )
 from publishing import run_due_publishes
 
@@ -51,6 +51,7 @@ api_router.include_router(publishing.router)
 api_router.include_router(media.router)
 api_router.include_router(home.router)
 api_router.include_router(marketing_pack.router)
+api_router.include_router(billing.router)
 app.include_router(api_router)
 
 # CORS

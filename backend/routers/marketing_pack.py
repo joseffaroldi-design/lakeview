@@ -402,6 +402,23 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
         }
         await update(status="completed", current_step="done", progress=100, result=result)
 
+        # Billing Resilience: record actual estimated cost against the virtual balance
+        try:
+            import billing
+            cost = billing.estimate_marketing_pack_cost()["total_cost"]
+            await billing.record_usage(
+                db,
+                surface="marketing_pack",
+                model="gpt-5",
+                operation="pack_generation",
+                cost_usd=cost,
+                input_tokens=billing.MARKETING_PACK_TEXT_INPUT_TOKENS,
+                output_tokens=billing.MARKETING_PACK_TEXT_OUTPUT_TOKENS,
+                pipeline_id=pack_id,
+            )
+        except Exception as _e:  # noqa: BLE001
+            log.warning("[marketing-pack] billing.record_usage failed: %s", _e)
+
         # Stamp menu item with last_promoted_at
         if body.menu_item_key:
             await db.menu_promotions.update_one(
@@ -441,6 +458,40 @@ async def generate_pack(
 ):
     await verify_session(authorization, session_token)
     await _get_active_asset(body.source_asset_id)  # 404 fast if missing
+
+    # ---- Billing Resilience: pre-flight budget check ----
+    # Block generation BEFORE enqueueing the background job if virtual balance
+    # cannot cover an estimated pack cost. Telemetry inside billing module.
+    import billing
+    cost_breakdown = billing.estimate_marketing_pack_cost()
+    can_afford, status = await billing.check_can_afford(
+        db, cost_breakdown["total_cost"], surface="marketing_pack",
+    )
+    if not can_afford:
+        # 402 Payment Required — frontend interprets this to show Add Balance CTA
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "budget_exhausted",
+                "status": 402,
+                "retryable": False,
+                "retry_action": "add_balance",
+                "user_message": (
+                    f"Your AI credit balance (${status['current_balance_usd']:.2f}) is too low to "
+                    f"generate a marketing pack (~${cost_breakdown['total_cost']:.2f}). "
+                    "Open Profile → Universal Key → Add Balance in Emergent, then click "
+                    "'I just topped up' on your Home dashboard."
+                ),
+                "technical": f"virtual_balance={status['current_balance_usd']} required={cost_breakdown['total_cost']}",
+                "context": {
+                    "balance_usd": status["current_balance_usd"],
+                    "required_usd": cost_breakdown["total_cost"],
+                    "estimated_packs_remaining": status["estimated_packs_remaining"],
+                },
+            },
+        )
+
     pack_id = str(uuid.uuid4())
     now = _now()
     await db.marketing_packs.insert_one({
@@ -450,6 +501,7 @@ async def generate_pack(
         "current_step": "queued",
         "source_asset_id": body.source_asset_id,
         "menu_item_key": body.menu_item_key,
+        "estimated_cost_usd": cost_breakdown["total_cost"],
         "item": {
             "name": body.name, "description": body.description, "price": body.price,
             "headline": body.headline, "cta": body.cta,

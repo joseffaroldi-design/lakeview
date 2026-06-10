@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import BillingCard from "./BillingCard";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -254,6 +255,11 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* AI BUDGET (full width on mobile, left col on desktop) */}
+        <div className="lg:col-span-2">
+          <BillingCard />
+        </div>
+
         {/* TODAY */}
         <div>
           <h3 className="font-serif text-lg text-navy font-bold mb-3">Today</h3>
