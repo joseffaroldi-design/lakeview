@@ -109,7 +109,14 @@ const UploadDropzone = (props) => {
   );
 };
 
-// --------------- AI Image Generator ---------------
+// --------------- AI Image Generator (async job + polling) ---------------
+// Production uses Cloudflare which kills HTTP requests at ~60s; image gen takes
+// up to ~85s. We therefore POST /media/ai-image to enqueue a job (returns in
+// <1s with a job_id), then poll GET /media/ai-image/job/{id} every 3s until
+// status === "completed" | "failed", with a 3-minute frontend ceiling.
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 3 * 60 * 1000;
+
 const AiImageGenerator = (props) => {
   const { getAuthHeader, onGenerated } = props;
   const [prompt, setPrompt] = useState("");
@@ -119,19 +126,91 @@ const AiImageGenerator = (props) => {
   const [quality, setQuality] = useState("medium");
   const [folder, setFolder] = useState("Promotions");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);  // structured error or null
+  const [error, setError] = useState(null);
+  const [jobStatus, setJobStatus] = useState(null); // pending | processing | completed | failed
+  const [progress, setProgress] = useState(0);
+  const pollRef = useRef(null);
+  const startedAtRef = useRef(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopPolling(), []);
+
+  const finishWith = ({ err, completed }) => {
+    stopPolling();
+    setBusy(false);
+    setJobStatus(null);
+    setProgress(0);
+    if (err) setError(err);
+    if (completed) onGenerated();
+  };
+
+  const pollOnce = async (id) => {
+    try {
+      const res = await axios.get(`${API}/media/ai-image/job/${id}`, {
+        headers: getAuthHeader(),
+        timeout: 15000,
+      });
+      const job = res.data;
+      setJobStatus(job.status);
+      if (typeof job.progress === "number") setProgress(job.progress);
+      if (job.status === "completed") {
+        finishWith({ completed: true });
+        return;
+      }
+      if (job.status === "failed") {
+        finishWith({
+          err: job.error || {
+            code: "unknown", retryable: true, retry_action: "retry",
+            user_message: "Image generation failed.", technical: "",
+          },
+        });
+        return;
+      }
+      if (Date.now() - startedAtRef.current > POLL_TIMEOUT_MS) {
+        finishWith({
+          err: {
+            code: "timeout", retryable: true, retry_action: "retry",
+            user_message: "Generation took longer than 3 minutes. Try a shorter prompt, lower quality, or fewer images.",
+            technical: "frontend poll timeout after 3 min",
+          },
+        });
+      }
+    } catch (e) {
+      // Transient errors during polling — keep going unless we've exceeded the cap.
+      if (Date.now() - startedAtRef.current > POLL_TIMEOUT_MS) {
+        finishWith({ err: parseAxiosError(e) });
+      }
+    }
+  };
 
   const run = async () => {
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setProgress(0); setJobStatus("pending");
     try {
-      await axios.post(`${API}/media/ai-image`,
+      const res = await axios.post(`${API}/media/ai-image`,
         { prompt, headline: headline || null, style, count, quality, folder },
-        { headers: getAuthHeader(), timeout: 90000 });
-      onGenerated();
+        { headers: getAuthHeader(), timeout: 15000 });
+      const id = res.data && res.data.job_id;
+      if (!id) {
+        finishWith({
+          err: {
+            code: "unknown", retryable: true, retry_action: "retry",
+            user_message: "The server didn't return a job ID. Please try again.",
+            technical: "missing job_id in 202 response",
+          },
+        });
+        return;
+      }
+      startedAtRef.current = Date.now();
+      pollOnce(id);
+      pollRef.current = setInterval(() => pollOnce(id), POLL_INTERVAL_MS);
     } catch (e) {
-      setError(parseAxiosError(e));
-    } finally {
-      setBusy(false);
+      finishWith({ err: parseAxiosError(e) });
     }
   };
 
@@ -139,6 +218,10 @@ const AiImageGenerator = (props) => {
     const el = document.querySelector('[data-testid="ai-image-prompt"]');
     if (el) el.focus();
   };
+
+  const statusLabel = jobStatus === "pending" ? "Queued…"
+    : jobStatus === "processing" ? "Generating image… this can take 60–90 seconds."
+    : "Working…";
 
   return (
     <Section title="AI Image Generator" icon={Sparkles} testId="ai-image-gen">
@@ -175,6 +258,22 @@ const AiImageGenerator = (props) => {
           </div>
         </div>
       </div>
+
+      {busy ? (
+        <div className="mt-3 p-3 bg-cream border border-gold/40 rounded-sm" data-testid="ai-image-progress">
+          <div className="flex items-center gap-2 text-sm text-navy">
+            <Loader2 className="w-4 h-4 animate-spin text-gold" />
+            <span data-testid="ai-image-status-label">{statusLabel}</span>
+          </div>
+          <div className="mt-2 h-1.5 bg-navy/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gold transition-all duration-500"
+              style={{ width: `${Math.max(5, progress)}%` }}
+              data-testid="ai-image-progress-bar"
+            />
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mt-3">

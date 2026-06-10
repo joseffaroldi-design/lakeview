@@ -9,7 +9,8 @@ Endpoints (all under /api/media):
   DELETE /assets/{asset_id}   — hard delete (file + record)
   POST   /assets/{asset_id}/duplicate
 
-  POST   /ai-image            — generate AI image(s) via emergent LLM (gpt-image-1)
+  POST   /ai-image            — enqueue async job (returns 202 + job_id immediately)
+  GET    /ai-image/job/{id}   — poll for AI image job status / result
   POST   /video/render        — start a slideshow render job from N media_assets
   GET    /video/jobs          — list render jobs
   GET    /video/jobs/{job_id} — single job status
@@ -321,13 +322,35 @@ class AiImageRequest(BaseModel):
     tags: Optional[List[str]] = None
 
 
-@router.post("/ai-image")
-async def generate_ai_image(
-    body: AiImageRequest,
-    authorization: str = Header(None),
-    session_token: str = Cookie(None),
-):
-    await verify_session(authorization, session_token)
+# ---- Async job architecture ------------------------------------------------
+# AI image generation takes ~60-85s end-to-end, which exceeds Cloudflare's 60s
+# idle-connection limit in production. We therefore enqueue a background job,
+# return 202 + job_id immediately, and let the frontend poll until done.
+# State lives in the `ai_image_jobs` collection.
+
+_ai_image_tasks: set = set()
+
+
+def _spawn_ai_image_task(coro):
+    """Fire-and-forget background task with a strong reference so it isn't GC'd."""
+    task = asyncio.create_task(coro)
+    _ai_image_tasks.add(task)
+    task.add_done_callback(_ai_image_tasks.discard)
+    return task
+
+
+async def _run_ai_image_job(job_id: str, body: AiImageRequest) -> None:
+    """Background worker — does the actual generation and updates job state."""
+    import logging
+    img_log = logging.getLogger("uvicorn.error")
+
+    async def _update(**fields: Any) -> None:
+        fields["updated_at"] = _now()
+        await db.ai_image_jobs.update_one({"id": job_id}, {"$set": fields})
+
+    async def _fail(err) -> None:
+        await _update(status="failed", error=err.to_payload(), progress=0)
+
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         from errors import StructuredError, report_failure
@@ -337,11 +360,10 @@ async def generate_ai_image(
             technical="EMERGENT_LLM_KEY env var is empty",
         )
         await report_failure(db, surface="ai_image", err=err)
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
+        await _fail(err)
+        return
 
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    import logging
-    img_log = logging.getLogger("uvicorn.error")
 
     full_prompt = body.prompt
     if body.style:
@@ -349,34 +371,38 @@ async def generate_ai_image(
     if body.headline:
         full_prompt += f". Include headline: '{body.headline}' tastefully overlaid in restaurant typography."
 
+    await _update(status="processing", progress=10)
+
     client = OpenAIImageGeneration(api_key=key)
     try:
-        # 85s outer timeout matches our 90s frontend axios timeout. The underlying
-        # litellm HTTP call has its own connect/read timeouts as a second safety net.
+        # Background path — no Cloudflare in the loop, so we can afford a generous
+        # ceiling. 180s comfortably covers worst-case 4×high-quality runs.
         image_bytes_list = await asyncio.wait_for(
             client.generate_images(
                 prompt=full_prompt, model="gpt-image-1",
                 number_of_images=body.count, quality=body.quality,
             ),
-            timeout=85.0,
+            timeout=180.0,
         )
     except asyncio.TimeoutError:
         from errors import StructuredError, report_failure
         err = StructuredError(
             code="timeout", status=504, retryable=True, retry_action="retry",
-            user_message="Image generation took too long (over 85 seconds). Try a shorter prompt, lower quality, or fewer images.",
-            technical="client.generate_images timed out after 85s",
+            user_message="Image generation took too long (over 3 minutes). Try a shorter prompt, lower quality, or fewer images.",
+            technical="client.generate_images timed out after 180s",
         )
         await report_failure(db, surface="ai_image", err=err,
                              prompt=full_prompt[:120], quality=body.quality, count=body.count)
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
+        await _fail(err)
+        return
     except Exception as e:  # noqa: BLE001
         from errors import classify_llm_error, report_failure
         err = classify_llm_error(e, surface="image generation")
-        img_log.exception("[ai-image] generation raised — code=%s", err.code)
+        img_log.exception("[ai-image] job=%s generation raised — code=%s", job_id, err.code)
         await report_failure(db, surface="ai_image", err=err,
                              prompt=full_prompt[:120], quality=body.quality, count=body.count)
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
+        await _fail(err)
+        return
 
     if not image_bytes_list:
         from errors import StructuredError, report_failure
@@ -386,7 +412,10 @@ async def generate_ai_image(
             technical="empty image_bytes_list from provider",
         )
         await report_failure(db, surface="ai_image", err=err, prompt=full_prompt[:120])
-        raise HTTPException(status_code=err.status, detail=err.to_payload())
+        await _fail(err)
+        return
+
+    await _update(progress=80)
 
     saved = []
     for img_bytes in image_bytes_list:
@@ -394,7 +423,6 @@ async def generate_ai_image(
         rel = f"{aid}.png"
         path = STORAGE_DIR / rel
         path.write_bytes(img_bytes)
-        # measure
         try:
             with Image.open(io.BytesIO(img_bytes)) as im:
                 w, h = im.size
@@ -417,8 +445,78 @@ async def generate_ai_image(
         }
         await db.media_assets.insert_one(doc)
         saved.append({k: v for k, v in doc.items() if k != "_id"})
-    img_log.info("[ai-image] generated %s image(s) for prompt=%r", len(saved), full_prompt[:120])
-    return {"assets": saved, "count": len(saved)}
+
+    img_log.info("[ai-image] job=%s generated %s image(s)", job_id, len(saved))
+    await _update(
+        status="completed",
+        progress=100,
+        result={"assets": saved, "count": len(saved)},
+    )
+
+
+@router.post("/ai-image", status_code=202)
+async def enqueue_ai_image(
+    body: AiImageRequest,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Enqueue an AI image generation job and return immediately.
+
+    Returns 202 with `{job_id, status: "pending"}` in under 1 second so Cloudflare
+    never times out. The frontend polls `GET /ai-image/job/{job_id}` until the
+    job reaches `completed` or `failed`.
+    """
+    await verify_session(authorization, session_token)
+
+    # Fail fast if the key is missing — surface a structured error synchronously
+    # so the form shows it immediately instead of via a polled job.
+    if not os.environ.get("EMERGENT_LLM_KEY"):
+        from errors import StructuredError, report_failure
+        err = StructuredError(
+            code="key_missing", status=500, retryable=False,
+            user_message="AI image generation isn't configured on this server. Ask your admin to set EMERGENT_LLM_KEY.",
+            technical="EMERGENT_LLM_KEY env var is empty",
+        )
+        await report_failure(db, surface="ai_image", err=err)
+        raise HTTPException(status_code=err.status, detail=err.to_payload())
+
+    job_id = str(uuid.uuid4())
+    now = _now()
+    await db.ai_image_jobs.insert_one({
+        "id": job_id,
+        "status": "pending",
+        "prompt": body.prompt,
+        "headline": body.headline,
+        "style": body.style,
+        "count": body.count,
+        "quality": body.quality,
+        "folder": body.folder,
+        "tags": body.tags or [],
+        "progress": 0,
+        "created_at": now,
+        "updated_at": now,
+        "result": None,
+        "error": None,
+    })
+
+    _spawn_ai_image_task(_run_ai_image_job(job_id, body))
+
+    return {"job_id": job_id, "status": "pending"}
+
+
+@router.get("/ai-image/job/{job_id}")
+async def get_ai_image_job(
+    job_id: str,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Poll endpoint — returns full job state, including `result` once complete
+    or `error` (structured) on failure."""
+    await verify_session(authorization, session_token)
+    job = await db.ai_image_jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
 def _classify_image_error(exc: Exception) -> Dict[str, Any]:

@@ -370,14 +370,29 @@ export const RestaurantAutomationCenter = (props) => {
   const [plugin, setPlugin] = useState(null);
 
   const load = useCallback(async () => {
-    try {
-      const [m, p] = await Promise.all([
-        axios.get(`${API}/menu`),
-        axios.get(`${API}/ai-ads/plugins/restaurant`, { headers: getAuthHeader() }),
-      ]);
-      setMenu(m.data.categories || []);
-      setPlugin(p.data);
-    } catch (e) { console.error(e); }
+    // Use allSettled so a single endpoint failure doesn't leave the page stuck on
+    // "Loading automation center…" forever. Both calls now send auth headers so
+    // they work in production envs where /api/menu is gated.
+    const headers = getAuthHeader();
+    const [m, p] = await Promise.allSettled([
+      axios.get(`${API}/menu`, { headers }),
+      axios.get(`${API}/ai-ads/plugins/restaurant`, { headers }),
+    ]);
+    if (m.status === "fulfilled") {
+      // /api/menu returns either {categories:[...]} or a bare list, depending on caller.
+      const data = m.value.data;
+      setMenu(Array.isArray(data) ? data : (data.categories || []));
+    } else {
+      console.error("menu load failed:", m.reason);
+      setMenu([]);
+    }
+    if (p.status === "fulfilled") {
+      setPlugin(p.value.data);
+    } else {
+      console.error("plugin load failed:", p.reason);
+      // Surface a minimal plugin shape so the UI exits the loading state.
+      setPlugin({ id: "restaurant", label: "Restaurant", templates: [], error: String(p.reason).slice(0, 200) });
+    }
   }, [getAuthHeader]);
 
   useEffect(() => { load(); }, [load]);

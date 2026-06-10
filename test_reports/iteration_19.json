@@ -1,0 +1,46 @@
+{
+  "summary": "Tested the async-job/polling refactor of POST /api/media/ai-image. Backend: 9/9 pytest cases PASS — enqueue returns 202 in <1s, auth enforced on both POST and GET, 404 on unknown job, real lifecycle pending→processing→completed in ~13s for a low-quality 1024x1024 image, generated asset accessible via /api/media/thumb/{id} returning image/png, and regression endpoints (/api/media/health with ffmpeg_available=true, /api/ai-ads/plugins incl. 'restaurant', /api/ai-ads/plugins/restaurant, /api/menu) all 200. Frontend: Login + nav to Promotions → Media sub-tab → AI Images section works; Automation Center loads with NO infinite spinner (PASS). HOWEVER — CRITICAL bug found: the AI Image Generator UI is broken because the React component's default style string is 70 characters, but the backend Pydantic schema enforces style max_length=60. Clicking 'Generate 1 Image' POSTs the default style and the server returns HTTP 422 ({type:'string_too_long',loc:['body','style'],ctx:{max_length:60}}). The progress card never appears and the StructuredErrorCard shows 'Unexpected error / Request failed.' This regression makes the new async architecture untestable end-to-end via UI, even though the backend works perfectly via direct curl/pytest.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/media/ai-image", "issue": "style max_length=60 is too tight — frontend default is 70 chars. Either raise to max_length=200 in routers/media.py:AiImageRequest, or coordinate with FE to shorten the default."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AiImageGenerator (MediaStudio.jsx line 124)", "issue": "Default style 'Food photography, natural light, appetizing, restaurant menu hero shot' is 70 chars > backend max_length=60 → POST returns 422 → StructuredErrorCard 'Unexpected error / Request failed' shown, no job is enqueued, progress card never appears. Clean-room user CANNOT generate an AI image unless they manually shorten Style.", "selector": "[data-testid='ai-image-run']", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "AI Image generation end-to-end via UI", "issue": "Async polling + progress card + completion path are 100% unreachable from the UI today because step 1 (POST) fails validation with 422 before a job_id is ever returned. Direct API testing confirms the new async architecture itself is solid — the bug is purely the FE default value.", "affected_selectors": ["[data-testid='ai-image-progress']", "[data-testid='ai-image-status-label']", "[data-testid='ai-image-progress-bar']", "[data-testid='ai-image-error']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ai_image_async.py",
+    "/app/test_reports/pytest/pytest_ai_image_async.xml"
+  ],
+  "action_items": [
+    "FIX the FE/BE mismatch on `style`. Recommended (faster, safer): in /app/backend/routers/media.py change `style: Optional[constr(max_length=60)]` to `max_length=200` to match the actual default and historical free-form usage. Alternative: shorten the FE default in /app/frontend/src/pages/dashboard/aiads/MediaStudio.jsx line 124 to <=60 chars, but other call sites and saved styles may already exceed 60.",
+    "After the fix, re-test the UI flow (Promotions → Media → AI Images → Generate 1 Image) — expect progress card to appear immediately, status label to update from pending → processing, and the card to clear without ai-image-error appearing within ~30s.",
+    "(Optional) Add a Pydantic validation_error → StructuredError mapper so 422 surfaces as a user-friendly 'Style is too long' instead of generic 'Unexpected error'."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/routers/media.py is still ~1298 lines — well past the 700-line guideline. Splitting into media/{upload,edit,ai_image,video,export,assets}.py with a shared deps module would significantly help maintainability.",
+    "The 422 case isn't classified by errors.classify_llm_error, so the UI falls back to 'Unexpected error / Request failed.' which hides the real reason (style too long). Consider intercepting Pydantic validation errors at the route layer and emitting a StructuredError with code='validation' + the specific field message.",
+    "media.py line 354: `os.environ.get('EMERGENT_LLM_KEY')` is read inside both the route and the worker — fine but duplicated. Extract once into a module-level constant or a dependency.",
+    "Background task registry `_ai_image_tasks` is in-process only — if the backend restarts mid-generation, the job stays 'processing' forever (same orphan pattern flagged for video renders in iter18). Recommend a startup janitor that marks ai_image_jobs with status in ('pending','processing') older than N minutes as failed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ai_image_async.py (new file — 9 pytest tests covering auth, enqueue speed, 404, full lifecycle, regression endpoints)"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 — auth POST/GET, enqueue <2s, 404 unknown job, full pending→processing→completed lifecycle with asset accessible via /thumb/, media/health, ai-ads plugins, ai-ads/plugins/restaurant, /api/menu)",
+    "frontend": "50% — Automation Center spinner regression: FIXED (no infinite loading). AI Image Generator: BROKEN at submit due to 422 style validation; progress UI and polling code never get a chance to run."
+  },
+  "test_credentials": {"admin_password": "Lakeview872"},
+  "seed_data_creation": "One real AI-generated image was created via the backend lifecycle test (folder 'Promotions', tags includes 'ai-generated', source='ai_image'). Identifiable by ai_prompt = 'Plate of beignets with powdered sugar...'.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend async-job architecture is correct and fast (~13s for low/1 image; well under 60s Cloudflare ceiling because each HTTP roundtrip is <1s). The ONLY blocker is the style max_length=60 vs frontend default 70-char mismatch causing a 422 before any job is enqueued. Once that single field constraint is relaxed (or the FE default shortened), the UI E2E flow should complete cleanly — progress card appears, status label updates pending→processing, progress bar animates, then progress card disappears with no error card. Quick repro: `curl -X POST .../api/media/ai-image -d '{\"prompt\":\"x\",\"style\":\"Food photography, natural light, appetizing, restaurant menu hero shot\",\"count\":1,\"quality\":\"low\"}' -H Authorization:...` returns 422 string_too_long on style. Removing `style` from the body returns 202.",
+  "rca of the issue": "Root cause: schema/UI drift. /app/backend/routers/media.py line ~319 declares `style: Optional[constr(max_length=60)] = \"Food photography, natural light, appetizing, restaurant menu hero shot\"` — the default literal itself is 70 chars, which violates its own max_length=60 constraint when the FE echoes the value back. Pydantic only validates client-supplied values (not the server default), so direct curl without a `style` key succeeds (this is why the iter18 pytest+production smoke missed it). The frontend MediaStudio.jsx:124 mirrors that long default into useState and always sends it. Reproduction (confirmed via curl above): POST /api/media/ai-image with the default style → HTTP 422 with string_too_long on 'style'. Mitigation: raise `max_length` to 200 on the Pydantic field. The async-job architecture itself is sound and verified end-to-end via pytest."
+}

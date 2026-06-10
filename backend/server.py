@@ -105,6 +105,9 @@ async def on_startup():
         await db.media_assets.create_index("id", name="media_id", unique=True, sparse=True)
         await db.render_jobs.create_index([("status", 1), ("created_at", -1)], name="render_status_created")
         await db.render_jobs.create_index("id", name="render_id", unique=True, sparse=True)
+        # ai_image_jobs: AI image generation polling (Cloudflare bypass)
+        await db.ai_image_jobs.create_index([("status", 1), ("created_at", -1)], name="aij_status_created")
+        await db.ai_image_jobs.create_index("id", name="aij_id", unique=True, sparse=True)
         logger.info("MongoDB indexes ensured on hot collections")
     except Exception as e:  # noqa: BLE001
         logger.warning("Index creation skipped: %s", e)
