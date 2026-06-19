@@ -10,6 +10,7 @@ import AiAdsTab from "@/pages/dashboard/AiAdsTab";
 import HomeTab from "@/pages/dashboard/HomeTab";
 import CustomersTab from "@/pages/dashboard/CustomersTab";
 import LibraryTab from "@/pages/dashboard/LibraryTab";
+import AnalyticsTab from "@/pages/dashboard/AnalyticsTab";
 import PromoteThisItem from "@/pages/dashboard/aiads/PromoteThisItem";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
