@@ -18,7 +18,7 @@ import auth
 from routers import (
     cms, specials, analytics, loyalty, messaging,
     catering, newsletter, misc, ai_ads, media, home,
-    marketing_pack, billing,
+    marketing_pack, billing, ai_designer,
 )
 
 logging.basicConfig(
@@ -49,6 +49,7 @@ api_router.include_router(media.router)
 api_router.include_router(home.router)
 api_router.include_router(marketing_pack.router)
 api_router.include_router(billing.router)
+api_router.include_router(ai_designer.router)
 app.include_router(api_router)
 
 # CORS
@@ -86,6 +87,11 @@ async def on_startup():
         # ai_image_jobs: AI image generation polling (Cloudflare bypass)
         await db.ai_image_jobs.create_index([("status", 1), ("created_at", -1)], name="aij_status_created")
         await db.ai_image_jobs.create_index("id", name="aij_id", unique=True, sparse=True)
+        # ai_design_jobs: AI Designer themed variations
+        await db.ai_design_jobs.create_index([("status", 1), ("created_at", -1)], name="adj_status_created")
+        await db.ai_design_jobs.create_index("id", name="adj_id", unique=True, sparse=True)
+        await db.ai_design_templates.create_index("id", name="adt_id", unique=True, sparse=True)
+        await db.ai_design_templates.create_index([("created_at", -1)], name="adt_created")
         # marketing_packs: Promote This Item 2.0
         await db.marketing_packs.create_index([("status", 1), ("created_at", -1)], name="mpk_status_created")
         await db.marketing_packs.create_index("id", name="mpk_id", unique=True, sparse=True)
@@ -107,9 +113,11 @@ async def on_startup():
     try:
         from routers.media import cleanup_orphan_render_jobs, cleanup_orphan_ai_image_jobs
         from routers.marketing_pack import cleanup_orphan_marketing_packs
+        from routers.ai_designer import cleanup_orphan_ai_design_jobs
         await cleanup_orphan_render_jobs()
         await cleanup_orphan_ai_image_jobs()
         await cleanup_orphan_marketing_packs()
+        await cleanup_orphan_ai_design_jobs()
     except Exception as e:  # noqa: BLE001
         logger.warning("Orphan job cleanup skipped: %s", e)
 

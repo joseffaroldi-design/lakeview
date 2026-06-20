@@ -870,3 +870,45 @@ The fix is in preview only. User must redeploy. After deploy:
 - `AnalyticsTab.jsx`: Updated `QUICK_ACTIONS` strip — replaced retired tabs (`specials`, `ai-ads/automations`, `ai-ads/calendar`, `ai-ads/queue`, `ai-ads/providers`) with the 5 surviving routes (menu, promotions, library, customers, home). Cleaned unused lucide imports.
 
 **Verified** via screenshot E2E: login → click Analytics tab → 401 total views, devices/browsers/page views render. Home "View analytics" tile also navigates correctly.
+
+
+---
+
+## Sprint 13 — AI Designer (Feb 2026)
+
+**User request**: Add an AI Designer that takes a food photo + item name + bullet features + price + theme, and generates 1–5 redesigned marketing graphics. The uploaded food photo must remain the actual hero image (no AI-replaced food).
+
+**User-locked decisions**:
+1. Lives inside Promote tab as a sub-mode (alongside Marketing Pack).
+2. User picks 1–5 variations, default 2.
+3. True image-edit mode (`litellm.aimage_edit` with food photo as reference).
+4. Features field accepts one-per-line OR auto-converts pasted comma-separated text.
+5. Cost preview + explicit confirmation before each run; no hard daily cap.
+6. Bonus: save winners as templates for reuse on future photos.
+
+**Backend** — new `/app/backend/routers/ai_designer.py`:
+- `GET  /api/ai-designer/themes` — list 5 preset themes (Luxury / Vintage / Modern / Social / Cajun)
+- `POST /api/ai-designer/estimate` — cost preview (no spend)
+- `POST /api/ai-designer/generate` — 202 + `job_id`; async background job
+- `GET  /api/ai-designer/job/{id}` — poll status + variation results
+- `GET  /api/ai-designer/templates` — list saved winners
+- `POST /api/ai-designer/jobs/{id}/save-template` — mark a variation a "winner"
+- `POST /api/ai-designer/from-template/{tpl_id}?source_asset_id=…` — re-run a saved theme on a new photo
+
+**New collections**:
+- `ai_design_jobs`: state machine (pending → processing → completed/failed) with per-variation result array.
+- `ai_design_templates`: saved winners (theme + name + features + price + preview asset).
+
+**Integration**: Uses `litellm.aimage_edit()` with `api_base=https://integrations.emergentagent.com/llm` and `EMERGENT_LLM_KEY` so spend flows through the Emergent Universal Key budget. Source image is padded to 1024×1024 PNG before sending. Each successful variation is saved to `media_assets` (folder "AI Designer", tag `ai-designer`) so it appears in the Library. Failed variations are reported but not billed. Budget pre-flight via `billing.check_can_afford` and `billing.record_usage` per image.
+
+**Frontend** — new `/app/frontend/src/pages/dashboard/aiads/AiDesigner.jsx`, surfaced via a sub-mode toggle in `AiAdsTab.jsx`:
+- Step 1: Pick photo (upload or library)
+- Step 2: Form (name, bullet features w/ auto-split, price, quality, 1–5 theme cards)
+- Cost estimate refreshes live as themes/quality change
+- Confirm modal with itemized cost + balance-after preview
+- Step 3: Progress with live per-variation thumbnails
+- Step 4: Review — download + save-as-template per design
+
+**Known footgun (carried over)**: The visual-edits Babel metadata plugin (`/app/frontend/plugins/visual-edits/babel-metadata-plugin.js`) infinitely recurses if a JSX `.map()`/`.filter()` is called on a MemberExpression (e.g. `job.variations.map(...)`). Always assign to a local Identifier first (`const variations = job.variations || []; ... variations.map(...)`). Hit this once during this sprint — pattern fixed.
+
+**Verified**: Backend `/themes`, `/estimate`, `/templates` curl OK. Frontend UI smoke-tested via screenshot — form renders, 2 themes pre-selected, cost estimate live ($0.084 for 2 medium variations, balance $9.98). Real image-edit generation NOT yet triggered (deliberate — owner controls first paid run via confirm modal).
