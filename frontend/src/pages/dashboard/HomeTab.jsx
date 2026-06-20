@@ -278,7 +278,14 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
             <Stat label="Most promoted" value={week.mostPromotedItem || "—"} icon={Utensils} testId="week-promoted" />
             <Stat label="Best platform" value={week.bestPlatform || "—"}     icon={TrendingUp} testId="week-platform" />
             <Stat label="Loyalty growth" value={`+${week.loyaltyGrowth}`}    icon={Users} testId="week-loyalty" />
-            <Stat label="View analytics" value=""                            icon={BarChart3} testId="week-analytics" />
+            <button
+              type="button"
+              onClick={() => onNavigate && onNavigate("analytics")}
+              className="text-left focus:outline-none focus:ring-2 focus:ring-gold rounded-lg"
+              data-testid="week-analytics-btn"
+            >
+              <Stat label="View analytics" value="Open →" icon={BarChart3} tone="gold" testId="week-analytics" />
+            </button>
           </div>
         </div>
 

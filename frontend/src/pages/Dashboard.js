@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon,
+  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon, BarChart3,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -22,6 +22,7 @@ const TABS = [
   { id: "promotions",  label: "Promote",    icon: Megaphone },
   { id: "library",     label: "Library",    icon: ImageIcon },
   { id: "customers",   label: "Customers",  icon: Users },
+  { id: "analytics",   label: "Analytics",  icon: BarChart3 },
 ];
 
 const Dashboard = () => {
@@ -158,6 +159,9 @@ const Dashboard = () => {
         )}
         {activeTab === "customers" && (
           <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
+        )}
+        {activeTab === "analytics" && (
+          <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />
         )}
         {/* Sprint 12D: Settings tab retired */}
       </main>

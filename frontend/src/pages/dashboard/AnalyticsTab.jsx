@@ -3,19 +3,17 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart3, TrendingUp, Calendar, Users, Monitor, Smartphone, Tablet,
-  Globe, Clock, MousePointer, Pencil, ImageIcon, Sparkles, Send, Link2,
-  CalendarDays, ListChecks,
+  Globe, Clock, MousePointer, Pencil, ImageIcon, Sparkles,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const QUICK_ACTIONS = [
   { id: "menu", icon: Pencil, label: "Edit Menu", help: "Add or update menu items", tab: "menu" },
-  { id: "special", icon: ImageIcon, label: "Create Special", help: "Run a daily / weekly promo", tab: "specials" },
-  { id: "promote", icon: Sparkles, label: "Promote Item", help: "AI campaign for any menu item", tab: "ai-ads", subTab: "automations" },
-  { id: "schedule", icon: CalendarDays, label: "Schedule Posts", help: "Open the content calendar", tab: "ai-ads", subTab: "calendar" },
-  { id: "queue", icon: ListChecks, label: "Publish Queue", help: "What's queued / published", tab: "ai-ads", subTab: "queue" },
-  { id: "providers", icon: Link2, label: "Connect Providers", help: "Facebook · IG · SendGrid · Twilio", tab: "ai-ads", subTab: "providers" },
+  { id: "promote", icon: Sparkles, label: "Promote Item", help: "AI campaign for any menu item", tab: "promotions" },
+  { id: "library", icon: ImageIcon, label: "Media Library", help: "Browse photos and assets", tab: "library" },
+  { id: "customers", icon: Users, label: "Customers", help: "Subscribers, loyalty, inquiries", tab: "customers" },
+  { id: "home", icon: BarChart3, label: "Back to Home", help: "Daily check-in dashboard", tab: "home" },
 ];
 
 const QuickActionsStrip = ({ onJump }) => {

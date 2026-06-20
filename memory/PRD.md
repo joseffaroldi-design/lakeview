@@ -856,3 +856,17 @@ The fix is in preview only. User must redeploy. After deploy:
 ### If production still flaps after deploy
 - Set `MARKETING_PACK_VIDEO=0` to skip video — proves whether ffmpeg is the OOM cause.
 - Contact Emergent Support to increase the production pod's memory request/limit.
+
+
+---
+
+## Sprint 12D-FIX — Restore Analytics Access (Feb 2026)
+
+**Why**: During Sprint 12D demolition the Analytics tab was unhooked from navigation. User explicitly asked "Allow me to access analytics".
+
+**Changes**:
+- `Dashboard.js`: Added 6th top-level tab `analytics` (BarChart3 icon) and render block for `<AnalyticsTab onSwitchTab={switchTab} />`.
+- `HomeTab.jsx`: Converted the dead "View analytics" stat tile into a clickable button (`data-testid="week-analytics-btn"`) that navigates to the analytics tab.
+- `AnalyticsTab.jsx`: Updated `QUICK_ACTIONS` strip — replaced retired tabs (`specials`, `ai-ads/automations`, `ai-ads/calendar`, `ai-ads/queue`, `ai-ads/providers`) with the 5 surviving routes (menu, promotions, library, customers, home). Cleaned unused lucide imports.
+
+**Verified** via screenshot E2E: login → click Analytics tab → 401 total views, devices/browsers/page views render. Home "View analytics" tile also navigates correctly.
