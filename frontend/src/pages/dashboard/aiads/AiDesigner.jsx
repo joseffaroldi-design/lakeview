@@ -11,7 +11,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   Sparkles, Upload, Image as ImageIcon, Loader2, Download, RefreshCw,
-  ArrowLeft, BookmarkPlus, Bookmark, Wand2, Plus, X,
+  ArrowLeft, BookmarkPlus, Bookmark, Wand2, X, Check, Mail, MessageSquare, FileText, Hash,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -152,6 +152,7 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates }) => 
   const [price, setPrice] = useState("");
   const [quality, setQuality] = useState("medium");
   const [picked, setPicked] = useState(["luxury", "modern"]);
+  const [autoCopy, setAutoCopy] = useState(true);
   const [estimate, setEstimate] = useState(null);
   const [estimating, setEstimating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -233,6 +234,7 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates }) => 
         price: price.trim() || null,
         themes: picked,
         quality,
+        auto_copy: autoCopy,
       }, { headers: getAuthHeader(), timeout: 30000 });
       onJobStarted(r.data.job_id, picked);
     } catch (e) {
@@ -375,6 +377,23 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates }) => 
 
           {error ? <StructuredErrorCard error={error} testId="designer-form-error" onRetry={() => setError(null)} /> : null}
 
+          <label className="flex items-start gap-2 cursor-pointer p-2.5 bg-cream border border-gold/30 rounded-md" data-testid="designer-auto-copy-row">
+            <input
+              type="checkbox"
+              checked={autoCopy}
+              onChange={(e) => setAutoCopy(e.target.checked)}
+              className="mt-0.5"
+              data-testid="designer-auto-copy"
+            />
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-navy">Also write marketing copy <span className="text-muted-foreground font-normal">(recommended)</span></p>
+              <p className="text-[11px] text-muted-foreground">
+                Auto-generates Facebook / Instagram / GBP / SMS / Email + hashtags right after the design.
+                Adds ~$0.001 — uses your virtual balance.
+              </p>
+            </div>
+          </label>
+
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={onBack} className="border-navy/20" data-testid="designer-back">
               <ArrowLeft className="w-4 h-4 mr-1" /> Back
@@ -511,12 +530,141 @@ const Progress = ({ getAuthHeader, jobId, onCompleted, onFailed, onCancel, expec
 
 // ---------- Step 4: Review ------------------------------------------------
 
+// Small helper: copy a string to clipboard and flash "Copied!" state.
+const useCopier = () => {
+  const [copiedKey, setCopiedKey] = useState(null);
+  const copy = useCallback(async (key, text) => {
+    try {
+      await navigator.clipboard.writeText(text || "");
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1500);
+    } catch (e) { /* ignore */ }
+  }, []);
+  return { copiedKey, copy };
+};
+
+const CopyButton = ({ id, text, label, icon: Icon, copiedKey, copy, testId }) => {
+  const isCopied = copiedKey === id;
+  return (
+    <button
+      type="button"
+      onClick={() => copy(id, text)}
+      className={`inline-flex items-center gap-1 text-xs font-semibold py-1.5 px-2.5 rounded border transition-colors ${
+        isCopied ? "bg-green-50 border-green-300 text-green-800" : "bg-card border-navy/20 text-navy hover:bg-navy/5"
+      }`}
+      data-testid={testId}
+    >
+      {isCopied ? <Check className="w-3 h-3" /> : Icon ? <Icon className="w-3 h-3" /> : null}
+      {isCopied ? "Copied!" : label}
+    </button>
+  );
+};
+
+const CopyPackPanel = ({ copyPack }) => {
+  const { copiedKey, copy } = useCopier();
+  const cp = copyPack || {};
+  const hashtagText = (cp.hashtags || []).map((h) => `#${h}`).join(" ");
+  const emailFull = `Subject: ${cp.email?.subject || ""}\n\n${cp.email?.body || ""}`;
+  const igFull = `${cp.ig_post || ""}\n\n${hashtagText}`;
+
+  return (
+    <div className="space-y-3" data-testid="designer-copy-pack">
+      {/* Facebook */}
+      <div className="border border-navy/15 rounded-md overflow-hidden">
+        <div className="flex items-center justify-between bg-navy/5 px-3 py-1.5">
+          <span className="text-xs font-semibold text-navy flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Facebook post</span>
+          <div className="flex gap-1.5">
+            <CopyButton id="fb" text={cp.fb_post} label="Copy Caption" icon={Check} copiedKey={copiedKey} copy={copy} testId="copy-fb" />
+            <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" className="text-xs underline text-navy/70 hover:text-navy" data-testid="open-fb">Open Facebook</a>
+          </div>
+        </div>
+        <p className="text-sm text-navy whitespace-pre-line p-3" data-testid="fb-post-text">{cp.fb_post || "—"}</p>
+      </div>
+
+      {/* Instagram */}
+      <div className="border border-navy/15 rounded-md overflow-hidden">
+        <div className="flex items-center justify-between bg-navy/5 px-3 py-1.5">
+          <span className="text-xs font-semibold text-navy flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Instagram post</span>
+          <div className="flex gap-1.5">
+            <CopyButton id="ig" text={igFull} label="Copy Caption + Tags" icon={Check} copiedKey={copiedKey} copy={copy} testId="copy-ig" />
+            <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" className="text-xs underline text-navy/70 hover:text-navy" data-testid="open-ig">Open Instagram</a>
+          </div>
+        </div>
+        <p className="text-sm text-navy whitespace-pre-line p-3" data-testid="ig-post-text">{cp.ig_post || "—"}</p>
+      </div>
+
+      {/* GBP */}
+      <div className="border border-navy/15 rounded-md overflow-hidden">
+        <div className="flex items-center justify-between bg-navy/5 px-3 py-1.5">
+          <span className="text-xs font-semibold text-navy flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Google Business Profile</span>
+          <CopyButton id="gbp" text={cp.gbp} label="Copy" icon={Check} copiedKey={copiedKey} copy={copy} testId="copy-gbp" />
+        </div>
+        <p className="text-sm text-navy whitespace-pre-line p-3" data-testid="gbp-text">{cp.gbp || "—"}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* SMS */}
+        <div className="border border-navy/15 rounded-md overflow-hidden">
+          <div className="flex items-center justify-between bg-navy/5 px-3 py-1.5">
+            <span className="text-xs font-semibold text-navy flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> SMS</span>
+            <CopyButton id="sms" text={cp.sms} label="Copy SMS" icon={Check} copiedKey={copiedKey} copy={copy} testId="copy-sms" />
+          </div>
+          <p className="text-sm text-navy whitespace-pre-line p-3" data-testid="sms-text">{cp.sms || "—"}</p>
+          <p className="text-[10px] text-muted-foreground px-3 pb-2">{(cp.sms || "").length}/160 chars</p>
+        </div>
+
+        {/* Email */}
+        <div className="border border-navy/15 rounded-md overflow-hidden">
+          <div className="flex items-center justify-between bg-navy/5 px-3 py-1.5">
+            <span className="text-xs font-semibold text-navy flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Email</span>
+            <CopyButton id="email" text={emailFull} label="Copy Email" icon={Check} copiedKey={copiedKey} copy={copy} testId="copy-email" />
+          </div>
+          <div className="p-3">
+            <p className="text-xs font-semibold text-navy mb-1" data-testid="email-subject">Subject: {cp.email?.subject || "—"}</p>
+            <p className="text-sm text-navy whitespace-pre-line" data-testid="email-body">{cp.email?.body || "—"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Hashtags */}
+      <div className="border border-navy/15 rounded-md overflow-hidden">
+        <div className="flex items-center justify-between bg-navy/5 px-3 py-1.5">
+          <span className="text-xs font-semibold text-navy flex items-center gap-1.5"><Hash className="w-3.5 h-3.5" /> Hashtags</span>
+          <CopyButton id="tags" text={hashtagText} label="Copy Hashtags" icon={Check} copiedKey={copiedKey} copy={copy} testId="copy-hashtags" />
+        </div>
+        <p className="text-sm text-navy p-3 font-mono leading-relaxed" data-testid="hashtags-text">{hashtagText || "—"}</p>
+      </div>
+    </div>
+  );
+};
+
 const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates }) => {
   const [savingIdx, setSavingIdx] = useState(null);
   const [savedIdxs, setSavedIdxs] = useState({});
+  const [copyPack, setCopyPack] = useState(job.copy_pack || null);
+  const [showCopy, setShowCopy] = useState(Boolean(job.copy_pack));
+  const [generatingCopy, setGeneratingCopy] = useState(false);
+  const [copyError, setCopyError] = useState(null);
 
   const successes = (job.variations || []).filter((v) => v.status === "completed");
   const failures = (job.variations || []).filter((v) => v.status === "failed");
+  const hasCopy = Boolean(copyPack);
+
+  // If autoCopy was on but the job-poll responded BEFORE the copy_pack saved, fetch once.
+  useEffect(() => {
+    if (hasCopy) return;
+    let cancelled = false;
+    axios.get(`${API}/ai-designer/jobs/${job.id}/copy`, { headers: getAuthHeader() })
+      .then((r) => {
+        if (cancelled) return;
+        if (r.data.has_copy && r.data.copy_pack) {
+          setCopyPack(r.data.copy_pack);
+          setShowCopy(true);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [job.id, getAuthHeader, hasCopy]);
 
   const saveAsTemplate = async (idx) => {
     setSavingIdx(idx);
@@ -531,11 +679,24 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates }) => {
     }
   };
 
+  const generateCopy = async () => {
+    setGeneratingCopy(true); setCopyError(null);
+    try {
+      const r = await axios.post(`${API}/ai-designer/jobs/${job.id}/copy`, {}, { headers: getAuthHeader(), timeout: 60000 });
+      setCopyPack(r.data.copy_pack);
+      setShowCopy(true);
+    } catch (e) {
+      setCopyError(parseAxiosError(e));
+    } finally {
+      setGeneratingCopy(false);
+    }
+  };
+
   return (
     <div className="space-y-4" data-testid="designer-step-review">
       <Section title="Your designs are ready" icon={Wand2} testId="designer-review">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {successes.map((v, i) => {
+          {successes.map((v) => {
             const actualIdx = (job.variations || []).indexOf(v);
             return (
               <div key={v.asset_id} className="rounded-md overflow-hidden border-2 border-navy/10 bg-card" data-testid={`designer-result-${v.theme}`}>
@@ -577,12 +738,38 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates }) => {
             {failures.length} variation{failures.length === 1 ? "" : "s"} failed ({failures.map((f) => f.theme).join(", ")}). You weren&apos;t charged for failures.
           </div>
         ) : null}
-        <div className="flex gap-2 mt-4">
+        <div className="flex flex-wrap gap-2 mt-4 items-center">
           <Button variant="outline" onClick={onStartOver} className="border-navy/20" data-testid="designer-start-over">
             <RefreshCw className="w-4 h-4 mr-1" /> Design another
           </Button>
+          {hasCopy ? (
+            <Button
+              onClick={() => setShowCopy((s) => !s)}
+              className="bg-navy text-cream hover:bg-navy/90"
+              data-testid="designer-view-copy"
+            >
+              <FileText className="w-4 h-4 mr-1" /> {showCopy ? "Hide" : "View"} Existing Copy
+            </Button>
+          ) : (
+            <Button
+              onClick={generateCopy}
+              disabled={generatingCopy}
+              className="bg-gold text-navy hover:bg-gold/90"
+              data-testid="designer-generate-copy"
+            >
+              {generatingCopy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+              {generatingCopy ? "Writing copy…" : "Generate Marketing Pack Copy"}
+            </Button>
+          )}
         </div>
+        {copyError ? <div className="mt-3"><StructuredErrorCard error={copyError} testId="designer-copy-error" onRetry={() => setCopyError(null)} /></div> : null}
       </Section>
+
+      {showCopy && hasCopy ? (
+        <Section title="Marketing copy" icon={FileText} testId="designer-copy-section">
+          <CopyPackPanel copyPack={copyPack} />
+        </Section>
+      ) : null}
     </div>
   );
 };

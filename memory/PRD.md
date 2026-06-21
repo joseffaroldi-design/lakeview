@@ -912,3 +912,27 @@ The fix is in preview only. User must redeploy. After deploy:
 **Known footgun (carried over)**: The visual-edits Babel metadata plugin (`/app/frontend/plugins/visual-edits/babel-metadata-plugin.js`) infinitely recurses if a JSX `.map()`/`.filter()` is called on a MemberExpression (e.g. `job.variations.map(...)`). Always assign to a local Identifier first (`const variations = job.variations || []; ... variations.map(...)`). Hit this once during this sprint — pattern fixed.
 
 **Verified**: Backend `/themes`, `/estimate`, `/templates` curl OK. Frontend UI smoke-tested via screenshot — form renders, 2 themes pre-selected, cost estimate live ($0.084 for 2 medium variations, balance $9.98). Real image-edit generation NOT yet triggered (deliberate — owner controls first paid run via confirm modal).
+
+
+---
+
+## Sprint 13B — One-Continuous-Flow: Design → Copy → Open Channel (Feb 2026)
+
+**User request**: After a design completes, expose a one-click "Generate Marketing Pack Copy" button. Reuse the same item name / features / price / theme already entered. Save copy alongside the design. Add Copy Caption / Copy SMS / Copy Email buttons. Show "View Existing Copy" if a copy pack already exists. Bonus: opt-in "Generate Graphic + Copy" checkbox to auto-chain at generation time.
+
+**Backend** — additions to `/app/backend/routers/ai_designer.py`:
+- `GenerateRequest.auto_copy: bool = False` — when true, the background worker calls `_write_designer_copy()` immediately after the last design completes and stamps `copy_pack` onto the job.
+- `GET /api/ai-designer/jobs/{id}/copy` — returns `{ has_copy, copy_pack, copy_error }`.
+- `POST /api/ai-designer/jobs/{id}/copy` — idempotent generator: if `copy_pack` exists returns it; otherwise calls `_write_designer_copy()` with the job's item_name / features / price / first-completed-theme label, persists to `ai_design_jobs.copy_pack`, returns it.
+- New `_write_designer_copy()` — single structured LLM call (text only — pennies) returns: `fb_post` (60–100 words, ends w/ CTA), `ig_post` (30–50 words, 2–3 emojis, hook question), `gbp` (80–180 words), `sms` (≤140 chars), `email{subject, body}` and `hashtags[]` (8–12, no `#` prefix). Auto-copy failures don't fail the design job — they stamp `copy_error` so the owner can retry from the Review screen.
+
+**Frontend** — updates to `AiDesigner.jsx`:
+- Form: new **"Also write marketing copy (recommended)"** checkbox, default ON. Sends `auto_copy: true` in the generate POST.
+- Review screen: if `job.copy_pack` is present (after auto-copy or polling /copy), shows a **"View / Hide Existing Copy"** toggle. Otherwise shows **"Generate Marketing Pack Copy"** button (1-click, no form). Also re-fetches `/copy` once on mount in case the auto-copy finished after the design poll returned.
+- New `CopyPackPanel` component renders six sections — Facebook post, Instagram post (with hashtag block appended), GBP, SMS, Email (subject + body), Hashtags — each with a per-section copy-to-clipboard button (visual "Copied!" flash). Facebook + Instagram sections also include "Open Facebook" / "Open Instagram" links so the owner can paste immediately.
+
+**Flow**: Upload photo → fill name/features/price → check (or leave) auto-copy → Generate → wait → designs land in Review **with copy already written** → tap "View Existing Copy" → tap "Copy Caption" → tap "Open Facebook" → paste & post. Zero tab switching.
+
+**Test IDs added**: `designer-auto-copy`, `designer-auto-copy-row`, `designer-generate-copy`, `designer-view-copy`, `designer-copy-section`, `designer-copy-pack`, `copy-fb`, `copy-ig`, `copy-gbp`, `copy-sms`, `copy-email`, `copy-hashtags`, `open-fb`, `open-ig`, `fb-post-text`, `ig-post-text`, `gbp-text`, `sms-text`, `email-subject`, `email-body`, `hashtags-text`.
+
+**Verified**: Backend `/copy` GET/POST return correct 404 on bogus IDs. Frontend renders the auto-copy checkbox (checked by default), cost line shows $0.084 + copy note. End-to-end paid generation NOT yet triggered (owner controls first run via confirm modal).

@@ -107,6 +107,7 @@ class GenerateRequest(BaseModel):
     price: Optional[constr(max_length=40)] = None
     themes: List[constr(min_length=2, max_length=20)] = Field(default_factory=lambda: ["luxury", "modern"])
     quality: constr(pattern=r"^(low|medium|high)$") = "medium"
+    auto_copy: bool = False
 
 
 class SaveTemplateRequest(BaseModel):
@@ -203,6 +204,59 @@ async def _call_image_edit(image_bytes: bytes, prompt: str, quality: str) -> byt
         r.raise_for_status()
         return r.content
     raise RuntimeError("Provider response had neither b64_json nor url")
+
+
+async def _write_designer_copy(item_name: str, features: List[str], price: Optional[str], theme_label: str) -> Dict[str, Any]:
+    """Generate the marketing copy pack for a finished design.
+
+    Returns a dict with: fb_post, ig_post, gbp, sms, email{subject,body}, hashtags.
+    Single structured LLM call to keep the tone consistent across channels.
+    """
+    from ai_engine.client import generate_structured
+
+    feat_text = "\n".join(f"- {f}" for f in features) if features else "(none)"
+    price_str = (price or "").strip() or "(omit)"
+    sys_prompt = (
+        "You are a New Orleans restaurant marketing copywriter for Lakeview "
+        "Burgers & Seafood. Write warm, mouth-watering, locally flavored copy. "
+        "Output ONLY a valid JSON object — no markdown."
+    )
+    usr_prompt = (
+        f"Item: {item_name}\n"
+        f"Features:\n{feat_text}\n"
+        f"Price: {price_str}\n"
+        f"Visual theme: {theme_label}\n\n"
+        "Generate a complete marketing pack:\n"
+        " - fb_post: 60-100 words, Facebook-style conversational, 1 emoji max, "
+        "ends with a clear CTA on its own line.\n"
+        " - ig_post: 30-50 words, punchy and Instagram-native, 2-3 emojis sprinkled "
+        "naturally, ends with a hook question or CTA.\n"
+        " - gbp: 80-180 words for Google Business Profile, leads with the offer, "
+        "ends with a clear next step.\n"
+        " - sms: under 140 chars, includes the item name + price, ends with CTA.\n"
+        " - email_subject: 4-7 words, attention-grabbing, no clickbait punctuation.\n"
+        " - email_body: 60-120 words, friendly, includes the features + price + CTA. "
+        "Plain text only (no HTML).\n"
+        " - hashtags: 8-12 relevant hashtags as strings (no '#' prefix)."
+    )
+    schema = (
+        '{"fb_post":"string","ig_post":"string","gbp":"string","sms":"string",'
+        '"email_subject":"string","email_body":"string","hashtags":["string"]}'
+    )
+    wrapped = await generate_structured(db, system_prompt=sys_prompt, user_prompt=usr_prompt, schema_hint=schema)
+    out = wrapped.get("data") or {}
+    return {
+        "fb_post": (out.get("fb_post") or "").strip()[:2000],
+        "ig_post": (out.get("ig_post") or "").strip()[:2000],
+        "gbp": (out.get("gbp") or "").strip()[:1500],
+        "sms": (out.get("sms") or "").strip()[:160],
+        "email": {
+            "subject": (out.get("email_subject") or "").strip()[:120],
+            "body": (out.get("email_body") or "").strip()[:2000],
+        },
+        "hashtags": [h.lstrip("#").strip() for h in (out.get("hashtags") or [])][:15],
+        "generated_at": _now(),
+    }
 
 
 async def _save_design_asset(img_bytes: bytes, item_name: str, theme_id: str, ai_prompt: str) -> Dict[str, Any]:
@@ -339,6 +393,24 @@ async def _run_design_job(job_id: str, body: GenerateRequest, themes: List[str])
 
     await update(status="completed", progress=100, variations=variations)
     logger.info("[ai-designer] job=%s completed %d/%d variations", job_id, len(successes), total)
+
+    # Optional auto-copy: kick off marketing copy generation immediately. Failures here
+    # don't fail the design job — owner can retry from the Review screen.
+    if body.auto_copy:
+        try:
+            primary_theme = THEMES.get(successes[0]["theme"], {}).get("label", successes[0]["theme"])
+            copy_pack = await _write_designer_copy(body.item_name, body.features, body.price, primary_theme)
+            await db.ai_design_jobs.update_one(
+                {"id": job_id},
+                {"$set": {"copy_pack": copy_pack, "updated_at": _now()}},
+            )
+            logger.info("[ai-designer] job=%s auto-copy completed", job_id)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[ai-designer] job=%s auto-copy failed: %s", job_id, e)
+            await db.ai_design_jobs.update_one(
+                {"id": job_id},
+                {"$set": {"copy_error": str(e)[:300], "updated_at": _now()}},
+            )
 
 
 def _prepare_for_edit(src_bytes: bytes) -> bytes:
@@ -560,6 +632,70 @@ async def generate_from_template(
         {"$set": {"last_used_at": _now()}, "$inc": {"uses": 1}},
     )
     return resp
+
+
+@router.get("/jobs/{job_id}/copy")
+async def get_copy(
+    job_id: str,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Return the marketing copy pack saved alongside a finished design (if any)."""
+    await verify_session(authorization, session_token)
+    job = await db.ai_design_jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {
+        "has_copy": bool(job.get("copy_pack")),
+        "copy_pack": job.get("copy_pack"),
+        "copy_error": job.get("copy_error"),
+    }
+
+
+@router.post("/jobs/{job_id}/copy")
+async def write_copy(
+    job_id: str,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Generate (or re-generate) the marketing copy pack for a completed design job.
+
+    Reuses the job's item_name / features / price / first-completed-theme so the owner
+    doesn't have to fill out another form. Idempotent: if a copy_pack already exists,
+    returns it unchanged unless `?force=1` is passed.
+    """
+    await verify_session(authorization, session_token)
+    job = await db.ai_design_jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Job hasn't completed yet")
+
+    if job.get("copy_pack"):
+        return {"copy_pack": job["copy_pack"], "regenerated": False}
+
+    successes = [v for v in (job.get("variations") or []) if v.get("status") == "completed"]
+    if not successes:
+        raise HTTPException(status_code=400, detail="No completed designs to write copy for")
+
+    primary_theme = THEMES.get(successes[0]["theme"], {}).get("label", successes[0]["theme"])
+    try:
+        copy_pack = await _write_designer_copy(
+            job["item_name"], job.get("features") or [], job.get("price"), primary_theme,
+        )
+    except Exception as e:  # noqa: BLE001
+        from errors import classify_llm_error
+        err = classify_llm_error(e, surface="ai_designer")
+        await db.ai_design_jobs.update_one(
+            {"id": job_id}, {"$set": {"copy_error": err.user_message or str(e)[:300], "updated_at": _now()}},
+        )
+        raise HTTPException(status_code=err.status or 500, detail=err.to_payload())
+
+    await db.ai_design_jobs.update_one(
+        {"id": job_id},
+        {"$set": {"copy_pack": copy_pack, "copy_error": None, "updated_at": _now()}},
+    )
+    return {"copy_pack": copy_pack, "regenerated": True}
 
 
 async def cleanup_orphan_ai_design_jobs() -> None:
