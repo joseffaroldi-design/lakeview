@@ -936,3 +936,37 @@ The fix is in preview only. User must redeploy. After deploy:
 **Test IDs added**: `designer-auto-copy`, `designer-auto-copy-row`, `designer-generate-copy`, `designer-view-copy`, `designer-copy-section`, `designer-copy-pack`, `copy-fb`, `copy-ig`, `copy-gbp`, `copy-sms`, `copy-email`, `copy-hashtags`, `open-fb`, `open-ig`, `fb-post-text`, `ig-post-text`, `gbp-text`, `sms-text`, `email-subject`, `email-body`, `hashtags-text`.
 
 **Verified**: Backend `/copy` GET/POST return correct 404 on bogus IDs. Frontend renders the auto-copy checkbox (checked by default), cost line shows $0.084 + copy note. End-to-end paid generation NOT yet triggered (owner controls first run via confirm modal).
+
+
+---
+
+## Sprint 13C — Recent AI Designs Rail (Feb 2026)
+
+**Goal**: Owners reopen previous designs (with copy pack intact) without burning credits.
+
+**Backend** — 2 routes added, ZERO new collections:
+- `GET /api/ai-designer/jobs/recent?limit=5` — last completed jobs, pinned first (cap 3 pins). Projects only the fields the rail needs (`id`, `item_name`, `themes`, `variations`, `created_at`, `copy_pack`, `is_pinned`, `price`, `features`, `quality`).
+- `POST /api/ai-designer/jobs/{id}/pin` — toggle `is_pinned` boolean on the existing `ai_design_jobs` doc. Caps total pins at 3 (HTTP 400 if exceeded).
+
+**Frontend** — single new component, NO new tabs / sub-tabs:
+- `RecentDesignsRail` rendered ABOVE the PickPhoto step when `step === "pick"`. Lazy-loaded thumbnails (`loading="lazy"`), pinned-first ordering, label "Reopen without spending credits — copy is already saved."
+- Card shows: thumbnail · item_name · theme_label · relative time · `COPY READY` / `NO COPY` badge · variation count · `PINNED` badge. Actions: **Open** (primary) + **Duplicate** (icon button) + Pin toggle.
+- **Open**: fetches `GET /job/{id}` (zero credits) → jumps to Review step. Review renders the saved copy pack behind a **"View Existing Copy"** button (panel hidden by default for reopened jobs; per literal Sprint 13C spec).
+- **Duplicate**: pre-fills `initialValues` prop on `Designer` (`item_name`, `features`, `price`, `themes`, `quality`) and keeps user on PickPhoto so they upload a fresh photo. No automatic generation.
+- Empty state: "No AI Designs yet" + helper text. No "Create First Design" CTA needed because the PickPhoto step is right below it.
+
+**Success criteria** — all PASS:
+1. ✅ Last 5 completed designs visible (cap 5; pinned first up to 3)
+2. ✅ Clicking a design reopens the Review screen
+3. ✅ Saved copy pack displays instantly (one click)
+4. ✅ Zero credits consumed on open / copy / download
+5. ✅ Duplicate flow pre-fills name/features/price/theme, requires new photo
+6. ✅ No new collections (`is_pinned` is a boolean field on existing docs)
+7. ✅ No new top-level tabs
+8. ✅ No new sub-tabs
+
+**Verified end-to-end** via seeded job: rail populated → pin → unpin → Open → "View Existing Copy" button → click → 6 channel sections render (FB/IG/GBP/SMS/Email/Hashtags) → "Copy SMS" → clipboard contains "$20.95" → button flashes "Copied!" → Open Facebook link works. Duplicate → pick new photo → form pre-filled with name "Smash Burger Demo", price "$20.95", 5 features, Luxury theme pre-selected.
+
+**LOC delta**: backend +~60, frontend +~150.
+
+**Components added**: `RecentDesignsRail`, `formatRelative` helper. `Designer` extended with optional `initialValues` prop. `Review` extended with optional `fromRecent` prop (defaults copy panel to hidden when reopened).

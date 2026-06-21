@@ -698,6 +698,83 @@ async def write_copy(
     return {"copy_pack": copy_pack, "regenerated": True}
 
 
+@router.get("/jobs/recent")
+async def list_recent_jobs(
+    limit: int = 5,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Return the last N completed AI Designer jobs, pinned first.
+
+    Used by the "Recent AI Designs" rail on the Promote tab. Cheap projection —
+    only the fields the rail needs. No credits consumed.
+    """
+    await verify_session(authorization, session_token)
+    limit = max(1, min(20, int(limit or 5)))
+
+    projection = {
+        "_id": 0, "id": 1, "item_name": 1, "themes": 1, "variations": 1,
+        "created_at": 1, "copy_pack": 1, "is_pinned": 1, "price": 1, "features": 1,
+        "quality": 1, "source_asset_id": 1,
+    }
+    pinned = await db.ai_design_jobs.find(
+        {"status": "completed", "is_pinned": True}, projection,
+    ).sort("created_at", -1).limit(3).to_list(length=3)
+
+    pinned_ids = {p["id"] for p in pinned}
+    remaining = max(0, limit - len(pinned))
+    others_cur = db.ai_design_jobs.find(
+        {"status": "completed", "id": {"$nin": list(pinned_ids)}}, projection,
+    ).sort("created_at", -1).limit(remaining)
+    others = await others_cur.to_list(length=remaining)
+
+    def summarize(j: Dict[str, Any]) -> Dict[str, Any]:
+        successes = [v for v in (j.get("variations") or []) if v.get("status") == "completed"]
+        first = successes[0] if successes else None
+        return {
+            "id": j["id"],
+            "item_name": j.get("item_name") or "Untitled",
+            "primary_theme": (j.get("themes") or [""])[0],
+            "primary_theme_label": THEMES.get((j.get("themes") or [""])[0], {}).get("label", ""),
+            "thumb_asset_id": first["asset_id"] if first else None,
+            "variation_count": len(successes),
+            "has_copy": bool(j.get("copy_pack")),
+            "is_pinned": bool(j.get("is_pinned")),
+            "price": j.get("price"),
+            "features": j.get("features") or [],
+            "quality": j.get("quality", "medium"),
+            "created_at": j.get("created_at"),
+        }
+
+    return {"jobs": [summarize(j) for j in (pinned + others)]}
+
+
+@router.post("/jobs/{job_id}/pin")
+async def toggle_pin(
+    job_id: str,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Toggle `is_pinned` on a completed job. Caps total pins at 3."""
+    await verify_session(authorization, session_token)
+    job = await db.ai_design_jobs.find_one({"id": job_id}, {"_id": 0, "is_pinned": 1, "status": 1})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Only completed jobs can be pinned")
+
+    will_pin = not bool(job.get("is_pinned"))
+    if will_pin:
+        pin_count = await db.ai_design_jobs.count_documents({"is_pinned": True, "status": "completed"})
+        if pin_count >= 3:
+            raise HTTPException(status_code=400, detail="Maximum 3 pinned designs. Unpin one first.")
+
+    await db.ai_design_jobs.update_one(
+        {"id": job_id}, {"$set": {"is_pinned": will_pin, "updated_at": _now()}},
+    )
+    return {"id": job_id, "is_pinned": will_pin}
+
+
 async def cleanup_orphan_ai_design_jobs() -> None:
     """Mark in-flight jobs as failed at startup (their asyncio tasks died with the prev process)."""
     orphan_err = {

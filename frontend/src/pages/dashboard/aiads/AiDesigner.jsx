@@ -12,6 +12,7 @@ import axios from "axios";
 import {
   Sparkles, Upload, Image as ImageIcon, Loader2, Download, RefreshCw,
   ArrowLeft, BookmarkPlus, Bookmark, Wand2, X, Check, Mail, MessageSquare, FileText, Hash,
+  Pin, Copy as CopyIcon, Folder,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -144,14 +145,15 @@ const ThemeCard = ({ theme, selected, onToggle }) => (
   </button>
 );
 
-const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates }) => {
+const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initialValues }) => {
+  const init = initialValues || {};
   const [themes, setThemes] = useState([]);
   const [themesLoading, setThemesLoading] = useState(true);
-  const [name, setName] = useState("");
-  const [featuresText, setFeaturesText] = useState("");
-  const [price, setPrice] = useState("");
-  const [quality, setQuality] = useState("medium");
-  const [picked, setPicked] = useState(["luxury", "modern"]);
+  const [name, setName] = useState(init.item_name || "");
+  const [featuresText, setFeaturesText] = useState((init.features || []).join("\n"));
+  const [price, setPrice] = useState(init.price || "");
+  const [quality, setQuality] = useState(init.quality || "medium");
+  const [picked, setPicked] = useState(init.themes && init.themes.length ? init.themes : ["luxury", "modern"]);
   const [autoCopy, setAutoCopy] = useState(true);
   const [estimate, setEstimate] = useState(null);
   const [estimating, setEstimating] = useState(false);
@@ -638,11 +640,14 @@ const CopyPackPanel = ({ copyPack }) => {
   );
 };
 
-const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates }) => {
+const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates, fromRecent = false }) => {
   const [savingIdx, setSavingIdx] = useState(null);
   const [savedIdxs, setSavedIdxs] = useState({});
   const [copyPack, setCopyPack] = useState(job.copy_pack || null);
-  const [showCopy, setShowCopy] = useState(Boolean(job.copy_pack));
+  // Default-show copy panel only on fresh jobs (auto-copy users expect to see results
+  // immediately). When reopened from the Recent rail, show the "View Existing Copy"
+  // button instead — matches the Sprint 13C spec.
+  const [showCopy, setShowCopy] = useState(Boolean(job.copy_pack) && !fromRecent);
   const [generatingCopy, setGeneratingCopy] = useState(false);
   const [copyError, setCopyError] = useState(null);
 
@@ -775,6 +780,145 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates }) => {
 };
 
 
+// ---------- Recent designs rail (Sprint 13C) ------------------------------
+
+const formatRelative = (iso) => {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const diff = (Date.now() - d.getTime()) / 1000;
+    if (diff < 3600) return `${Math.max(1, Math.round(diff / 60))}m ago`;
+    if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+    if (diff < 86400 * 7) return `${Math.round(diff / 86400)}d ago`;
+    return d.toLocaleDateString();
+  } catch (e) { return ""; }
+};
+
+const RecentDesignsRail = ({ getAuthHeader, onOpen, onDuplicate, refreshKey }) => {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pinningId, setPinningId] = useState(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    axios.get(`${API}/ai-designer/jobs/recent?limit=5`, { headers: getAuthHeader() })
+      .then((r) => setJobs(r.data.jobs || []))
+      .catch(() => setJobs([]))
+      .finally(() => setLoading(false));
+  }, [getAuthHeader]);
+
+  useEffect(() => { reload(); }, [reload, refreshKey]);
+
+  const togglePin = async (jobId) => {
+    setPinningId(jobId);
+    try {
+      await axios.post(`${API}/ai-designer/jobs/${jobId}/pin`, {}, { headers: getAuthHeader() });
+      reload();
+    } catch (e) { /* swallow — non-fatal */ }
+    finally { setPinningId(null); }
+  };
+
+  if (loading) {
+    return (
+      <Section title="Recent AI Designs" icon={Folder} testId="designer-recent-rail">
+        <Loader2 className="w-4 h-4 animate-spin text-gold" />
+      </Section>
+    );
+  }
+
+  if (jobs.length === 0) {
+    return (
+      <Section title="Recent AI Designs" icon={Folder} testId="designer-recent-rail">
+        <div className="text-center py-6" data-testid="designer-recent-empty">
+          <Folder className="w-8 h-8 mx-auto text-navy/30 mb-2" />
+          <p className="text-sm font-semibold text-navy">No AI Designs yet</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Generate your first design below — it&apos;ll show up here for one-tap reuse.
+          </p>
+        </div>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="Recent AI Designs" icon={Folder} testId="designer-recent-rail">
+      <p className="text-[11px] text-muted-foreground mb-3 flex items-center gap-1" data-testid="designer-recent-cost-label">
+        <Check className="w-3 h-3 text-green-600" />
+        Reopen without spending credits — copy is already saved.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-testid="designer-recent-grid">
+        {jobs.map((j) => (
+          <div
+            key={j.id}
+            className={`rounded-md overflow-hidden border-2 bg-card hover:shadow-md transition-shadow ${j.is_pinned ? "border-gold" : "border-navy/15"}`}
+            data-testid={`designer-recent-card-${j.id}`}
+          >
+            <div className="relative">
+              {j.thumb_asset_id ? (
+                <img
+                  src={`${API}/media/thumb/${j.thumb_asset_id}`}
+                  alt={j.item_name}
+                  loading="lazy"
+                  className="w-full aspect-square object-cover bg-cream"
+                />
+              ) : (
+                <div className="w-full aspect-square bg-cream flex items-center justify-center"><ImageIcon className="w-6 h-6 text-navy/30" /></div>
+              )}
+              <button
+                type="button"
+                onClick={() => togglePin(j.id)}
+                disabled={pinningId === j.id}
+                title={j.is_pinned ? "Unpin" : "Pin (max 3)"}
+                className={`absolute top-1 right-1 p-1 rounded ${j.is_pinned ? "bg-gold text-navy" : "bg-card/90 text-navy/60 hover:text-navy"}`}
+                data-testid={`designer-recent-pin-${j.id}`}
+              >
+                {pinningId === j.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pin className={`w-3 h-3 ${j.is_pinned ? "fill-current" : ""}`} />}
+              </button>
+              {j.is_pinned ? (
+                <span className="absolute top-1 left-1 text-[9px] font-bold uppercase bg-gold text-navy px-1 py-0.5 rounded">Pinned</span>
+              ) : null}
+            </div>
+            <div className="p-2">
+              <p className="text-xs font-semibold text-navy truncate" title={j.item_name}>{j.item_name}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{j.primary_theme_label || j.primary_theme}</p>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] text-muted-foreground">{formatRelative(j.created_at)}</span>
+                <span
+                  className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${j.has_copy ? "bg-green-100 text-green-800" : "bg-navy/10 text-navy/70"}`}
+                  data-testid={`designer-recent-copy-badge-${j.id}`}
+                >
+                  {j.has_copy ? "Copy Ready" : "No Copy"}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{j.variation_count} variation{j.variation_count === 1 ? "" : "s"}</p>
+              <div className="flex gap-1 mt-2">
+                <button
+                  type="button"
+                  onClick={() => onOpen(j.id)}
+                  className="flex-1 bg-gold text-navy text-[11px] font-semibold py-1 px-1 rounded hover:bg-gold/90"
+                  data-testid={`designer-recent-open-${j.id}`}
+                >
+                  Open
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDuplicate(j)}
+                  title="Use this name/features/price/theme on a new photo"
+                  className="inline-flex items-center justify-center border border-navy/20 text-navy text-[11px] font-semibold py-1 px-1.5 rounded hover:bg-navy/5"
+                  data-testid={`designer-recent-duplicate-${j.id}`}
+                >
+                  <CopyIcon className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+};
+
+
 // ---------- Top-level -----------------------------------------------------
 
 const AiDesigner = ({ getAuthHeader }) => {
@@ -783,8 +927,12 @@ const AiDesigner = ({ getAuthHeader }) => {
   const [jobId, setJobId] = useState(null);
   const [expectedCount, setExpectedCount] = useState(1);
   const [completedJob, setCompletedJob] = useState(null);
+  const [reopenedFromRail, setReopenedFromRail] = useState(false);
   const [error, setError] = useState(null);
   const [templates, setTemplates] = useState([]);
+  const [initialValues, setInitialValues] = useState(null);
+  const [recentRefreshKey, setRecentRefreshKey] = useState(0);
+  const [openingId, setOpeningId] = useState(null);
 
   const loadTemplates = useCallback(() => {
     axios.get(`${API}/ai-designer/templates`, { headers: getAuthHeader() })
@@ -796,6 +944,39 @@ const AiDesigner = ({ getAuthHeader }) => {
 
   const startOver = () => {
     setStep("pick"); setAsset(null); setJobId(null); setCompletedJob(null); setError(null);
+    setInitialValues(null);
+    setReopenedFromRail(false);
+    setRecentRefreshKey((k) => k + 1);
+  };
+
+  // Sprint 13C: Open a previously completed job — read-only, no credits spent.
+  const openExisting = async (id) => {
+    setOpeningId(id);
+    try {
+      const r = await axios.get(`${API}/ai-designer/job/${id}`, { headers: getAuthHeader() });
+      setCompletedJob(r.data);
+      setReopenedFromRail(true);
+      setStep("review");
+      setError(null);
+    } catch (e) {
+      setError(parseAxiosError(e));
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
+  // Sprint 13C: Duplicate — pre-fill form values, owner uploads a new photo.
+  const duplicateJob = (recentJob) => {
+    setInitialValues({
+      item_name: recentJob.item_name,
+      features: recentJob.features || [],
+      price: recentJob.price || "",
+      themes: recentJob.primary_theme ? [recentJob.primary_theme] : [],
+      quality: recentJob.quality || "medium",
+    });
+    setAsset(null);
+    setStep("pick");
+    setError(null);
   };
 
   return (
@@ -814,12 +995,28 @@ const AiDesigner = ({ getAuthHeader }) => {
         <StructuredErrorCard error={error} testId="designer-top-error" onRetry={() => setError(null)} />
       ) : null}
 
-      {step === "pick" && <PickPhoto getAuthHeader={getAuthHeader} onSelected={(a) => { setAsset(a); setStep("form"); }} />}
+      {step === "pick" && (
+        <>
+          <RecentDesignsRail
+            getAuthHeader={getAuthHeader}
+            onOpen={openExisting}
+            onDuplicate={duplicateJob}
+            refreshKey={recentRefreshKey}
+          />
+          {openingId ? (
+            <div className="text-xs text-muted-foreground flex items-center gap-2" data-testid="designer-opening-spinner">
+              <Loader2 className="w-3 h-3 animate-spin" /> Opening saved design…
+            </div>
+          ) : null}
+          <PickPhoto getAuthHeader={getAuthHeader} onSelected={(a) => { setAsset(a); setStep("form"); }} />
+        </>
+      )}
       {step === "form" && asset && (
         <Designer
           getAuthHeader={getAuthHeader}
           asset={asset}
           templates={templates}
+          initialValues={initialValues}
           onBack={() => setStep("pick")}
           onJobStarted={(jid, themes) => { setJobId(jid); setExpectedCount(themes.length); setStep("progress"); }}
         />
@@ -838,6 +1035,7 @@ const AiDesigner = ({ getAuthHeader }) => {
         <Review
           getAuthHeader={getAuthHeader}
           job={completedJob}
+          fromRecent={reopenedFromRail}
           onStartOver={startOver}
           onReloadTemplates={loadTemplates}
         />
