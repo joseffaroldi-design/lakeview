@@ -167,6 +167,10 @@ async def _call_image_edit(image_bytes: bytes, prompt: str, quality: str) -> byt
     """Single-image edit via litellm. Returns PNG bytes of the generated graphic.
 
     Uses the Emergent LLM proxy so cost is debited from EMERGENT_LLM_KEY balance.
+
+    NOTE: litellm.aimage_edit only accepts a BytesIO / raw-bytes / file-handle for
+    `image`. Passing the OpenAI-style ("name", fileobj, mime) tuple causes httpx's
+    multipart writer to crash with "tuple has no attribute 'read'".
     """
     import litellm
 
@@ -174,11 +178,8 @@ async def _call_image_edit(image_bytes: bytes, prompt: str, quality: str) -> byt
     if not key:
         raise RuntimeError("EMERGENT_LLM_KEY not configured")
 
-    # litellm.aimage_edit accepts a file-like or tuple (name, fileobj, mimetype)
-    file_tuple = ("input.png", io.BytesIO(image_bytes), "image/png")
-
     resp = await litellm.aimage_edit(
-        image=file_tuple,
+        image=io.BytesIO(image_bytes),
         prompt=prompt,
         model="gpt-image-1",
         n=1,
