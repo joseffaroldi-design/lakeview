@@ -1,17 +1,19 @@
-"""AI Designer (Sprint 13D) — themed marketing graphics with FOOD-PRESERVING composition.
+"""AI Designer — themed marketing graphics via deterministic PIL composition.
 
-Pipeline (Option A from the spec):
+Pipeline:
   1. Owner uploads a food photo + item name + bullet features + price + ONE theme.
-  2. For EVERY run we produce EXACTLY 3 variations (A/B/C) of the chosen theme.
+  2. EVERY run produces EXACTLY 3 variations (A/B/C) using 3 different layouts.
   3. For each variation we:
-       a) ask gpt-image-1 to generate a themed BACKGROUND only — no food, no text.
+       a) render a themed decorative background using PIL only (no AI).
        b) cut out the food using rembg (with rounded-rect fallback).
-       c) composite food on the AI background using PIL — original pixels preserved.
-       d) draw item name, feature bullets, price badge, restaurant branding via PIL.
+       c) crop to the food's bounding box and scale to ~55% of the canvas.
+       d) composite the food on top of the PIL background — original pixels preserved.
+       e) draw item name, feature bullets, price badge, restaurant branding via PIL.
   4. Final PNG is saved to media_assets as an "active" image.
 
-The food image is NEVER sent through gpt-image-1 — the spec is explicit: do not let
-AI redraw the food. We control every pixel on top of the AI background with PIL.
+The food image is NEVER sent through any AI model. Backgrounds are deterministic
+PIL renders. Designs cost $0 per run; only the optional auto-copy step (one
+structured LLM text call) consumes credits (~$0.001).
 
 Routes:
   GET   /ai-designer/themes
@@ -28,11 +30,9 @@ Routes:
 """
 from __future__ import annotations
 
-import asyncio
 import io
 import logging
 import os
-import textwrap
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -57,20 +57,11 @@ FONT_SERIF        = "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
 FONT_SANS_BOLD    = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
 FONT_SANS         = "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
 
-# Reusable guardrail injected into every background prompt.
-PROMPT_GUARDRAIL = (
-    "STRICT RULES: Output an abstract decorative canvas. ZERO photographs, ZERO objects, "
-    "ZERO food, ZERO plates, ZERO products, ZERO logos, ZERO numbers, ZERO prices, "
-    "ZERO letters, ZERO words, ZERO badges, ZERO labels, ZERO signs of any kind. "
-    "If you find yourself drawing text, numbers, or any recognizable object, STOP and "
-    "leave that area empty. Treat this as pure decorative wallpaper art."
-)
-
 
 # ---------------------------------------------------------------- Theme styles
-# Each theme defines: human label, 3 background prompt variants (for A/B/C), and
-# PIL drawing constants (fonts, colors, badge styling). The 3 prompt variants are
-# what give a single-theme run real visual variety.
+# Each theme defines: human label, and PIL drawing constants (fonts, colors,
+# badge styling). Variations come from 3 layout templates applied to the same
+# theme, giving 3 visually distinct designs per run.
 
 THEME_STYLES: Dict[str, Dict[str, Any]] = {
     "luxury": {
@@ -81,17 +72,6 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (212, 175, 55)},
         "price": {"bg": (212, 175, 55), "fg": (16, 16, 16), "ring": (255, 220, 120), "font": FONT_SERIF_BOLD},
         "branding_color": (180, 160, 110),
-        "bg_prompts": [
-            "Abstract decorative wallpaper. Matte black field. Symmetric art-deco gold "
-            "filigree borders along all four edges only. Subtle gold particle haze near the "
-            f"corners. Center is solid black and empty. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Deep charcoal velvet background. Two diagonal "
-            "gold-leaf ribbons — one in the top-right corner, one in the bottom-left corner. "
-            f"Center is empty velvet. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Black marble texture with thin diagonal gold "
-            "veining. Soft amber glow from the upper-left edge. Center area is plain dark "
-            f"marble. {PROMPT_GUARDRAIL}",
-        ],
     },
     "vintage": {
         "label": "Vintage Diner",
@@ -101,16 +81,6 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (160, 30, 30)},
         "price": {"bg": (220, 50, 50), "fg": (255, 245, 220), "ring": (255, 245, 220), "font": FONT_SERIF_BOLD},
         "branding_color": (90, 50, 30),
-        "bg_prompts": [
-            "Abstract decorative wallpaper. Cream beige paper texture across the entire canvas. "
-            "Red-and-white checkerboard ribbon strip along the top and bottom edges only. "
-            f"Center is plain cream. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Cream background with vertical burgundy and cream "
-            f"stripes filling only the leftmost and rightmost 10 percent. Center is plain cream. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Pastel cream canvas with a thick burgundy curved "
-            "frame border. Small red polka-dot dust scattered only in the four corners. Center "
-            f"is plain cream. {PROMPT_GUARDRAIL}",
-        ],
     },
     "modern": {
         "label": "Modern Restaurant",
@@ -120,17 +90,6 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (24, 28, 48)},
         "price": {"bg": (24, 28, 48), "fg": (255, 245, 215), "ring": (215, 195, 130), "font": FONT_SERIF_BOLD},
         "branding_color": (130, 130, 140),
-        "bg_prompts": [
-            "Abstract decorative wallpaper. Off-white linen paper texture across the entire "
-            "canvas. A single thin navy hairline rectangular frame inset 60 pixels from every "
-            f"edge. Otherwise plain off-white. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Off-white paper with a faint warm beige radial "
-            "vignette. A muted gold thin diagonal line accent appearing only in the bottom-right "
-            f"corner. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Soft off-white concrete texture. A single muted-green "
-            "botanical line illustration of an olive branch positioned only in the very top-left "
-            f"corner. Center is plain. {PROMPT_GUARDRAIL}",
-        ],
     },
     "social": {
         "label": "Bright Social",
@@ -140,15 +99,6 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (220, 60, 40)},
         "price": {"bg": (220, 50, 50), "fg": (255, 245, 220), "ring": (255, 200, 90), "font": FONT_SANS_BOLD},
         "branding_color": (110, 60, 30),
-        "bg_prompts": [
-            "Abstract decorative wallpaper. Warm orange-to-yellow radial gradient covering the "
-            "entire canvas. Small pastel confetti sprinkles scattered only in the four corners. "
-            f"Center is bright and clean. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Coral-to-yellow gradient. Faint white circle dots "
-            f"scattered only along the outer edges. Center is plain. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Peach-to-amber gradient. A single playful wavy red "
-            f"ribbon arc in the top-right corner. Center is plain bright peach. {PROMPT_GUARDRAIL}",
-        ],
     },
     "cajun": {
         "label": "Cajun / Bayou",
@@ -158,17 +108,6 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (220, 100, 30)},
         "price": {"bg": (220, 130, 40), "fg": (30, 20, 10), "ring": (245, 210, 80), "font": FONT_SERIF_BOLD},
         "branding_color": (200, 170, 100),
-        "bg_prompts": [
-            "Abstract decorative wallpaper. Deep burnt-orange canvas with faint paprika-dust "
-            "speckle texture only along the four edges. Hand-painted feel. Center is plain "
-            f"burnt-orange. {PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Forest-green and burnt-orange split-diagonal palette. "
-            "Faint silhouettes of cypress branches only in two opposite corners. Center is plain. "
-            f"{PROMPT_GUARDRAIL}",
-            "Abstract decorative wallpaper. Deep terracotta canvas with subtle bay-leaf shape "
-            "outlines scattered only along the outer border. Hand-drawn line accents only at the "
-            f"edges. Center is plain terracotta. {PROMPT_GUARDRAIL}",
-        ],
     },
 }
 
@@ -183,7 +122,6 @@ LAYOUTS = ["centered", "asym_left", "stacked"]
 class EstimateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     theme: constr(min_length=2, max_length=20) = "modern"
-    quality: constr(pattern=r"^(low|medium|high)$") = "medium"
 
 
 class GenerateRequest(BaseModel):
@@ -193,9 +131,7 @@ class GenerateRequest(BaseModel):
     features: List[constr(max_length=80)] = Field(default_factory=list)
     price: Optional[constr(max_length=40)] = None
     theme: constr(min_length=2, max_length=20) = "modern"
-    quality: constr(pattern=r"^(low|medium|high)$") = "medium"
     auto_copy: bool = False
-    remove_food_bg: bool = True  # owner can opt out of rembg if photo already has clean bg
 
 
 class SaveTemplateRequest(BaseModel):
@@ -248,23 +184,13 @@ def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFon
 
 # ---------------------------------------------------------------- Background generation
 
-async def _generate_themed_background(theme_id: str, variant_idx: int, quality: str) -> bytes:
-    """Generate a decorative background panel — PIL-only, no AI.
-
-    Sprint 13D pivot: gpt-image-1 reliably hallucinates rogue price badges and
-    text into restaurant-themed backgrounds despite explicit guardrails. To
-    guarantee a clean canvas under the food photo (which is the source of truth),
-    we now generate the background deterministically with PIL using theme-specific
-    color palettes, gradients, and decorative shapes. Cost per variation: $0.00.
-
-    `variant_idx` (0/1/2) selects between three PIL pattern variants per theme.
-    `quality` is accepted for API parity but ignored — PIL output is always crisp.
-    """
-    return _pil_background(theme_id, variant_idx)
-
 
 def _pil_background(theme_id: str, variant_idx: int) -> bytes:
-    """Render a deterministic decorative background for a theme + variant."""
+    """Render a deterministic decorative background for a theme + variant.
+
+    `variant_idx` (0/1/2) selects between three PIL pattern variants per theme.
+    PIL output is always crisp — no AI image generation involved.
+    """
     style = THEME_STYLES[theme_id]
     bg_color = style["bg_color"]
     accent = style["title"]["color"]
@@ -506,37 +432,25 @@ def _wavy_ribbon(draw: ImageDraw.ImageDraw, color, start, end, width: int = 40) 
         draw.ellipse((x - width // 2, y - width // 2, x + width // 2, y + width // 2), fill=color)
 
 
-def _solid_background(theme_id: str) -> bytes:
-    """Fallback if AI background generation fails — solid theme color so the run still ships."""
-    bg_color = THEME_STYLES[theme_id]["bg_color"]
-    canvas = Image.new("RGB", (CANVAS, CANVAS), bg_color)
-    buf = io.BytesIO()
-    canvas.save(buf, "PNG")
-    return buf.getvalue()
-
-
 # ---------------------------------------------------------------- Food preparation
 
-def _prepare_food_cutout(food_bytes: bytes, target_max: int, remove_bg: bool) -> Image.Image:
+def _prepare_food_cutout(food_bytes: bytes, target_max: int) -> Image.Image:
     """Return RGBA food image cropped to the food's actual bounding box, scaled
     so the longest side equals `target_max`.
 
     The food pixels themselves are NEVER altered — we only modify the alpha channel
     (via rembg) and then crop down to the visible region. This keeps the food
     occupying the requested portion of the final canvas even when the source photo
-    had a lot of surrounding empty space (e.g. tabletop / sky).
+    had a lot of surrounding empty space (e.g. tabletop / sky). Falls back to a
+    rounded-rect mask if rembg fails for any reason.
     """
     src = Image.open(io.BytesIO(food_bytes)).convert("RGBA")
-    cut: Image.Image
-    if remove_bg:
-        try:
-            from rembg import remove  # lazy import — cold-start cost only on first use
-            out = remove(food_bytes)
-            cut = Image.open(io.BytesIO(out)).convert("RGBA")
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[ai-designer] rembg failed (%s); falling back to rounded-rect mask", e)
-            cut = _rounded_rect_mask(src, radius_pct=0.08)
-    else:
+    try:
+        from rembg import remove  # lazy import — cold-start cost only on first use
+        out = remove(food_bytes)
+        cut = Image.open(io.BytesIO(out)).convert("RGBA")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[ai-designer] rembg failed (%s); falling back to rounded-rect mask", e)
         cut = _rounded_rect_mask(src, radius_pct=0.08)
 
     # Crop to the actual visible (non-transparent) bounding box so we scale to the
@@ -834,7 +748,7 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
 
     # Pre-process food cutout ONCE — same cutout used in all 3 variations
     try:
-        food_rgba = _prepare_food_cutout(food_bytes, target_max=int(CANVAS * 0.65), remove_bg=body.remove_food_bg)
+        food_rgba = _prepare_food_cutout(food_bytes, target_max=int(CANVAS * 0.65))
     except Exception as e:  # noqa: BLE001
         await fail("Couldn't read your source photo. Try a different image.", str(e))
         return
@@ -846,7 +760,7 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
     for idx, variant in enumerate(VARIATION_LABELS):
         layout = LAYOUTS[idx]
         try:
-            bg_bytes = await _generate_themed_background(body.theme, idx, body.quality)
+            bg_bytes = _pil_background(body.theme, idx)
             graphic_bytes = _compose_design(bg_bytes, food_rgba,
                                             body.item_name, body.features, body.price,
                                             body.theme, layout)
@@ -868,7 +782,6 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
             "status": "completed",
             "asset_id": saved["id"],
             "asset": saved,
-            "bg_source": "pil",
             "cost_usd": 0.0,
         })
         await update(progress=int(100 * (idx + 1) / total), variations=variations)
@@ -925,7 +838,7 @@ async def estimate(
     authorization: str = Header(None),
     session_token: str = Cookie(None),
 ):
-    """Cost preview. Sprint 13D: PIL backgrounds are free — only auto-copy costs."""
+    """Cost preview. AI Designer designs are free — only optional auto-copy uses credits."""
     await verify_session(authorization, session_token)
     _normalize_theme(body.theme)
     status = await billing.get_status(db)
@@ -934,7 +847,6 @@ async def estimate(
     return {
         "theme": body.theme,
         "count": 3,
-        "quality": body.quality,
         "per_image_cost_usd": 0.0,
         "total_cost_usd": 0.0,
         "with_copy_cost_usd": round(copy_cost, 4),
@@ -950,8 +862,8 @@ async def enqueue_generate(
     authorization: str = Header(None),
     session_token: str = Cookie(None),
 ):
-    """Sprint 13D: PIL composition runs entirely server-side, free. Only auto-copy
-    consumes LLM credits (~$0.001), and we still pre-flight it if requested."""
+    """Enqueue an AI Designer run — always produces exactly 3 PIL-composed variations.
+    Designs are free; only optional auto-copy (LLM text call) consumes credits."""
     await verify_session(authorization, session_token)
     _normalize_theme(body.theme)
     await _get_active_asset(body.source_asset_id)
@@ -978,7 +890,6 @@ async def enqueue_generate(
         "source_asset_id": body.source_asset_id,
         "item_name": body.item_name, "features": body.features, "price": body.price,
         "themes": [body.theme], "theme": body.theme,
-        "quality": body.quality, "remove_food_bg": body.remove_food_bg,
         "progress": 0, "variations": [],
         "estimated_cost_usd": 0.0,
         "created_at": now, "updated_at": now, "error": None,
@@ -1007,7 +918,7 @@ async def list_recent_jobs(
     projection = {
         "_id": 0, "id": 1, "item_name": 1, "themes": 1, "theme": 1, "variations": 1,
         "created_at": 1, "copy_pack": 1, "is_pinned": 1, "price": 1, "features": 1,
-        "quality": 1, "source_asset_id": 1,
+        "source_asset_id": 1,
     }
     pinned = await db.ai_design_jobs.find(
         {"status": "completed", "is_pinned": True}, projection,
@@ -1034,7 +945,6 @@ async def list_recent_jobs(
             "is_pinned": bool(j.get("is_pinned")),
             "price": j.get("price"),
             "features": j.get("features") or [],
-            "quality": j.get("quality", "medium"),
             "created_at": j.get("created_at"),
         }
 
@@ -1090,7 +1000,6 @@ async def save_template(
         "item_name": job["item_name"],
         "features": job.get("features") or [],
         "price": job.get("price"),
-        "quality": job.get("quality", "medium"),
         "source_job_id": job_id,
         "preview_asset_id": v["asset_id"],
         "note": body.note,
@@ -1115,7 +1024,6 @@ async def generate_from_template(
         features=tpl.get("features") or [],
         price=tpl.get("price"),
         theme=tpl["theme"],
-        quality=tpl.get("quality", "medium"),
     )
     resp = await enqueue_generate(body, authorization=authorization, session_token=session_token)
     await db.ai_design_templates.update_one(

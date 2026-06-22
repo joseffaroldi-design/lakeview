@@ -19,6 +19,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import BillingCard from "./BillingCard";
+import TodaysPick from "./home/TodaysPick";
+import PickDifferentModal from "./home/PickDifferentModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -70,6 +72,8 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
   const [health, setHealth] = useState({ level: "green", issues: [] });
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [topItems, setTopItems] = useState([]);
+  const [todaysPick, setTodaysPick] = useState(null);
+  const [pickDifferentOpen, setPickDifferentOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,13 +83,14 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const ymd = todayYMD();
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-        const [summaryRes, healthRes, suggestRes, specialsRes, inqRes, statsRes] = await Promise.allSettled([
+        const [summaryRes, healthRes, suggestRes, specialsRes, inqRes, statsRes, todaysPickRes] = await Promise.allSettled([
           axios.get(`${API}/home/summary`, { headers }),
           axios.get(`${API}/home/health`, { headers }),
           axios.get(`${API}/home/promote-suggestions?limit=3`, { headers }),
           axios.get(`${API}/specials`, { headers }),
           axios.get(`${API}/catering-inquiries`, { headers }),
           axios.get(`${API}/ai-ads/stats`, { headers }).catch(() => ({ data: {} })),
+          axios.get(`${API}/todays-pick/today`, { headers }).catch(() => ({ data: null })),
         ]);
 
         if (cancelled) return;
@@ -96,6 +101,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const specials = specialsRes.status === "fulfilled" ? specialsRes.value.data || [] : [];
         const inquiries = inqRes.status === "fulfilled" ? inqRes.value.data || [] : [];
         const stats = statsRes.status === "fulfilled" ? statsRes.value.data || {} : {};
+        const pick = todaysPickRes.status === "fulfilled" ? todaysPickRes.value.data : null;
 
         setToday({
           scheduledToday: summary.scheduled || 0,
@@ -107,6 +113,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         setHealth(healthData);
         setTopItems(top3);
         setMenuItems([]);  // no longer needed — using top3 instead
+        setTodaysPick(pick);
 
         setWeek({
           mostPromotedItem: stats.most_used_goal || "—",
@@ -179,6 +186,51 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
     return () => { cancelled = true; };
   }, [getAuthHeader, onNavigate, onPromote]);
 
+  const refreshTodaysPick = async () => {
+    try {
+      const headers = getAuthHeader();
+      const res = await axios.get(`${API}/todays-pick/today`, { headers });
+      setTodaysPick(res.data);
+    } catch (err) {
+      console.error("Failed to refresh Today's Pick:", err);
+    }
+  };
+
+  const handleAcceptPick = async () => {
+    try {
+      const headers = getAuthHeader();
+      await axios.patch(`${API}/todays-pick/metrics`, { accepted: true }, { headers });
+      await refreshTodaysPick();
+    } catch (err) {
+      console.error("Failed to mark as accepted:", err);
+    }
+  };
+
+  const handleRejectPick = async () => {
+    try {
+      const headers = getAuthHeader();
+      await axios.patch(`${API}/todays-pick/metrics`, { rejected: true }, { headers });
+      await refreshTodaysPick();
+    } catch (err) {
+      console.error("Failed to mark as rejected:", err);
+    }
+  };
+
+  const handleOverrideItem = async (item) => {
+    try {
+      const headers = getAuthHeader();
+      await axios.post(
+        `${API}/todays-pick/override`,
+        { item_key: item.item_key, reason: "Manual selection" },
+        { headers }
+      );
+      await refreshTodaysPick();
+    } catch (err) {
+      console.error("Failed to override pick:", err);
+      alert("Failed to update Today's Pick. Please try again.");
+    }
+  };
+
   // Featured = first top-3 item (fallback null)
   const featuredItem = topItems[0] || null;
   void menuItems; // legacy state, no longer rendered
@@ -209,6 +261,15 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           </div>
         </div>
       </div>
+
+      {/* TODAY'S PICK — Full-width hero at top */}
+      <TodaysPick
+        pick={todaysPick}
+        onRefresh={refreshTodaysPick}
+        onAccept={handleAcceptPick}
+        onReject={handleRejectPick}
+        onPickDifferent={() => setPickDifferentOpen(true)}
+      />
 
       {/* QUICK ACTIONS — top of fold */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-8" data-testid="home-quick-actions">
@@ -336,6 +397,14 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           </div>
         </div>
       ) : null}
+
+      {/* Pick Different Item Modal */}
+      <PickDifferentModal
+        isOpen={pickDifferentOpen}
+        onClose={() => setPickDifferentOpen(false)}
+        getAuthHeader={getAuthHeader}
+        onSelect={handleOverrideItem}
+      />
     </section>
   );
 };

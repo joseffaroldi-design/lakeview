@@ -18,7 +18,7 @@ import auth
 from routers import (
     cms, specials, analytics, loyalty, messaging,
     catering, newsletter, misc, ai_ads, media, home,
-    marketing_pack, billing, ai_designer,
+    marketing_pack, billing, ai_designer, todays_pick,
 )
 
 logging.basicConfig(
@@ -50,6 +50,7 @@ api_router.include_router(home.router)
 api_router.include_router(marketing_pack.router)
 api_router.include_router(billing.router)
 api_router.include_router(ai_designer.router)
+api_router.include_router(todays_pick.router)
 app.include_router(api_router)
 
 # CORS
@@ -64,6 +65,10 @@ app.add_middleware(
 
 SCHEDULER_INTERVAL_SECONDS = 30  # Retained constant; scheduler loop removed in Sprint 12D
 _scheduler_task = None  # always None — publishing pipeline retired
+
+# Sprint 13A: APScheduler for Today's Pick daily cron
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+_daily_scheduler = None
 
 
 @app.on_event("startup")
@@ -151,8 +156,28 @@ async def on_startup():
 
     # Sprint 12D: scheduler loop removed (publishing pipeline retired)
     logger.info("Backend startup complete — Sprint 12D demolition active")
+    
+    # ---- 9. Start APScheduler for Today's Pick (Sprint 13A) ----
+    global _daily_scheduler
+    try:
+        _daily_scheduler = AsyncIOScheduler()
+        # Daily at 6:00 AM UTC
+        _daily_scheduler.add_job(
+            todays_pick.generate_todays_pick_job,
+            'cron',
+            hour=6,
+            minute=0,
+            id='todays_pick_daily',
+            replace_existing=True,
+        )
+        _daily_scheduler.start()
+        logger.info("Today's Pick scheduler started (runs daily at 6 AM UTC)")
+    except Exception as e:
+        logger.error(f"Failed to start Today's Pick scheduler: {e}")
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
     client.close()
+    if _daily_scheduler:
+        _daily_scheduler.shutdown(wait=False)

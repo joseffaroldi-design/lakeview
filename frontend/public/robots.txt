@@ -4,4 +4,4 @@ Disallow: /login
 Disallow: /dashboard
 Disallow: /api/
 
-Sitemap: https://lakeview-admin-dash.preview.emergentagent.com/sitemap.xml
+Sitemap: https://food-graphics-lab.preview.emergentagent.com/sitemap.xml

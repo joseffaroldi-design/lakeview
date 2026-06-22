@@ -19,7 +19,7 @@ import pytest
 import requests
 from PIL import Image
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://lakeview-admin-dash.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://food-graphics-lab.preview.emergentagent.com").rstrip("/")
 ADMIN_PASSWORD = "Lakeview872"
 
 EXPECTED_FORMAT_DIMS = {

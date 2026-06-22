@@ -1,11 +1,13 @@
 /**
- * AI Designer — themed marketing graphic variations via gpt-image-1 image-edit.
+ * AI Designer — themed marketing graphics via deterministic PIL composition.
  *
  * Lives inside the Promote tab as an alternative to the standard Marketing Pack.
- * Owner uploads (or picks) a photo, types item name + bullet features + price,
- * picks 1–5 themes, sees an estimated cost, confirms, and gets one designed
- * graphic per theme. Winning variations can be saved as templates and re-run on
- * future photos.
+ * Owner picks a photo, enters item name + bullet features + price, picks ONE
+ * theme, and receives exactly 3 designed graphics (different layouts). The
+ * uploaded food photo is preserved pixel-for-pixel; designs are free. Optional
+ * auto-copy writes a marketing pack (FB / IG / GBP / SMS / Email / hashtags)
+ * for ~$0.001 per run. Winners can be saved as templates and reused on future
+ * photos via the Recent Designs rail.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
@@ -21,8 +23,6 @@ import StructuredErrorCard, { parseAxiosError } from "./StructuredErrorCard";
 
 const POLL_MS = 4000;
 const POLL_TIMEOUT_MS = 6 * 60 * 1000;
-
-const QUALITY_LABEL = { low: "Low (fast, ~$0.01/img)", medium: "Medium (recommended, ~$0.04/img)", high: "High (best, ~$0.08/img)" };
 
 // ---------- Step 1: Pick photo --------------------------------------------
 
@@ -69,8 +69,8 @@ const PickPhoto = ({ getAuthHeader, onSelected }) => {
     <Section title="1. Pick the food photo" icon={ImageIcon} testId="designer-step-pick">
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          We&apos;ll use your photo as the actual hero — the AI only redesigns the background,
-          text, and badges around it.
+          We use your photo as the actual hero — your original food photo is preserved
+          pixel-for-pixel. Designs are free. Each run creates 3 designs.
         </p>
         {error ? <StructuredErrorCard error={error} testId="designer-pick-error" onRetry={() => setError(null)} /> : null}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -152,7 +152,6 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
   const [name, setName] = useState(init.item_name || "");
   const [featuresText, setFeaturesText] = useState((init.features || []).join("\n"));
   const [price, setPrice] = useState(init.price || "");
-  const [quality, setQuality] = useState(init.quality || "medium");
   const [picked, setPicked] = useState(init.themes && init.themes.length ? [init.themes[0]] : ["modern"]);
   const [autoCopy, setAutoCopy] = useState(true);
   const [estimate, setEstimate] = useState(null);
@@ -180,7 +179,6 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
   // Load themes once on mount. `getAuthHeader` identity may change on each parent
   // render, so we intentionally exclude it from deps to avoid an infinite fetch loop
   // that would keep cancelling itself before the response lands.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let cancelled = false;
     axios.get(`${API}/ai-designer/themes`, { headers: getAuthHeader() })
@@ -189,20 +187,20 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
     return () => { cancelled = true; };
   }, []);
 
-  // Refresh estimate when theme or quality change (Sprint 13D: single theme, always 3 variations)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Refresh estimate when theme changes (single theme, always 3 variations,
+  // designs are always free — estimate just confirms tier + auto-copy budget).
   useEffect(() => {
     let cancelled = false;
     if (picked.length === 0) { setEstimate(null); return; }
     setEstimating(true);
-    axios.post(`${API}/ai-designer/estimate`, { theme: picked[0], quality }, { headers: getAuthHeader() })
+    axios.post(`${API}/ai-designer/estimate`, { theme: picked[0] }, { headers: getAuthHeader() })
       .then((r) => { if (!cancelled) setEstimate(r.data); })
       .catch(() => { /* non-fatal */ })
       .finally(() => { if (!cancelled) setEstimating(false); });
     return () => { cancelled = true; };
-  }, [picked, quality]);
+  }, [picked]);
 
-  // Sprint 13D: theme is now single-select (was multi-pick). Always exactly 3 variations.
+  // Single-select theme. Always exactly 3 variations are produced.
   const togglePick = (themeId) => setPicked([themeId]);
 
   // Auto-convert pasted text into bullets
@@ -234,7 +232,6 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
         features,
         price: price.trim() || null,
         theme: picked[0],
-        quality,
         auto_copy: autoCopy,
       }, { headers: getAuthHeader(), timeout: 30000 });
       onJobStarted(r.data.job_id, [picked[0]]);
@@ -250,7 +247,6 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
     setName(tpl.item_name || "");
     setFeaturesText((tpl.features || []).join("\n"));
     setPrice(tpl.price || "");
-    setQuality(tpl.quality || "medium");
     setPicked([tpl.theme]);
   };
 
@@ -369,8 +365,8 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
             <div className="flex-1">
               <p className="text-xs font-semibold text-navy">Also write marketing copy <span className="text-muted-foreground font-normal">(recommended)</span></p>
               <p className="text-[11px] text-muted-foreground">
-                Auto-generates Facebook / Instagram / GBP / SMS / Email + hashtags right after the design.
-                Adds ~$0.001 — uses your virtual balance.
+                Designs are free. Marketing copy uses a small amount of AI credit (~$0.001) to write your
+                Facebook / Instagram / GBP / SMS / Email + hashtags.
               </p>
             </div>
           </label>
@@ -406,6 +402,7 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
             <p className="text-sm text-muted-foreground mb-4">
               You&apos;re about to generate <strong>3 design variations</strong> using the <strong>{pickedLabels()}</strong> theme.
               Layouts: <em>centered</em>, <em>side-by-side</em>, and <em>stacked</em>.
+              Your original food photo will be preserved pixel-for-pixel.
             </p>
             <div className="bg-card border-2 border-navy/10 rounded-md p-3 mb-4 text-sm">
               <div className="flex justify-between"><span>3 designs (PIL composition)</span><span className="font-mono text-green-700">FREE</span></div>
@@ -458,7 +455,7 @@ const Progress = ({ getAuthHeader, jobId, onCompleted, onFailed, onCancel, expec
           onFailed(r.data.error || { user_message: "Design generation failed.", retry_action: "retry" });
         } else if (Date.now() - startedRef.current > POLL_TIMEOUT_MS) {
           if (pollRef.current) clearInterval(pollRef.current);
-          onFailed({ user_message: "Generation took too long. Try fewer themes or lower quality.", retry_action: "retry" });
+          onFailed({ user_message: "Generation took too long. Try again.", retry_action: "retry" });
         }
       } catch (e) { /* keep polling */ }
     };
@@ -1102,7 +1099,6 @@ const AiDesigner = ({ getAuthHeader }) => {
       features: recentJob.features || [],
       price: recentJob.price || "",
       themes: recentJob.primary_theme ? [recentJob.primary_theme] : [],
-      quality: recentJob.quality || "medium",
     });
     setAsset(null);
     setStep("pick");
