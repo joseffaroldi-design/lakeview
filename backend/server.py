@@ -157,21 +157,21 @@ async def on_startup():
     # Sprint 12D: scheduler loop removed (publishing pipeline retired)
     logger.info("Backend startup complete — Sprint 12D demolition active")
     
-    # ---- 9. Start APScheduler for Today's Pick (Sprint 13A) ----
+    # ---- 9. Start APScheduler for Today's Pick (Sprint 13A → 14A) ----
     global _daily_scheduler
     try:
         _daily_scheduler = AsyncIOScheduler()
-        # Daily at 6:00 AM UTC
+        # Sprint 14A: Run at 5:30 AM UTC (generate graphics + copy before owner wakes up)
         _daily_scheduler.add_job(
             todays_pick.generate_todays_pick_job,
             'cron',
-            hour=6,
-            minute=0,
+            hour=5,
+            minute=30,
             id='todays_pick_daily',
             replace_existing=True,
         )
         _daily_scheduler.start()
-        logger.info("Today's Pick scheduler started (runs daily at 6 AM UTC)")
+        logger.info("Today's Pick scheduler started (runs daily at 5:30 AM UTC with graphics)")
     except Exception as e:
         logger.error(f"Failed to start Today's Pick scheduler: {e}")
 
