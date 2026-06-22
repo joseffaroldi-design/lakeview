@@ -132,6 +132,11 @@ class GenerateRequest(BaseModel):
     price: Optional[constr(max_length=40)] = None
     theme: constr(min_length=2, max_length=20) = "modern"
     auto_copy: bool = False
+    # Sprint 15B.3: rembg/background removal is now OPT-IN. Default is False
+    # so normal generation uses a rounded-rect fallback mask — eliminates the
+    # ~5-15s synchronous rembg call per job that was wedging the single-worker
+    # production pod. Users can enable it via the "Remove background" checkbox.
+    remove_background: bool = False
 
 
 class SaveTemplateRequest(BaseModel):
@@ -434,23 +439,24 @@ def _wavy_ribbon(draw: ImageDraw.ImageDraw, color, start, end, width: int = 40) 
 
 # ---------------------------------------------------------------- Food preparation
 
-def _prepare_food_cutout(food_bytes: bytes, target_max: int) -> Image.Image:
+def _prepare_food_cutout(food_bytes: bytes, target_max: int, use_rembg: bool = False) -> Image.Image:
     """Return RGBA food image cropped to the food's actual bounding box, scaled
     so the longest side equals `target_max`.
 
-    The food pixels themselves are NEVER altered — we only modify the alpha channel
-    (via rembg) and then crop down to the visible region. This keeps the food
-    occupying the requested portion of the final canvas even when the source photo
-    had a lot of surrounding empty space (e.g. tabletop / sky). Falls back to a
-    rounded-rect mask if rembg fails for any reason.
+    Sprint 15B.3: rembg is now OPT-IN via `use_rembg`. When False (default), we
+    skip the expensive rembg call entirely and apply a rounded-rect alpha mask.
+    This keeps generation fast and unblocks the single-worker production pod.
     """
     src = Image.open(io.BytesIO(food_bytes)).convert("RGBA")
-    try:
-        from rembg import remove  # lazy import — cold-start cost only on first use
-        out = remove(food_bytes)
-        cut = Image.open(io.BytesIO(out)).convert("RGBA")
-    except Exception as e:  # noqa: BLE001
-        logger.warning("[ai-designer] rembg failed (%s); falling back to rounded-rect mask", e)
+    if use_rembg:
+        try:
+            from rembg import remove  # lazy import — only paid when explicitly opted in
+            out = remove(food_bytes)
+            cut = Image.open(io.BytesIO(out)).convert("RGBA")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[ai-designer] rembg failed (%s); falling back to rounded-rect mask", e)
+            cut = _rounded_rect_mask(src, radius_pct=0.08)
+    else:
         cut = _rounded_rect_mask(src, radius_pct=0.08)
 
     # Crop to the actual visible (non-transparent) bounding box so we scale to the
@@ -746,9 +752,14 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
         await fail("Couldn't load your source photo from storage. Try again.", str(e))
         return
 
-    # Pre-process food cutout ONCE — same cutout used in all 3 variations
+    # Pre-process food cutout ONCE — same cutout used in all 3 variations.
+    # Sprint 15B.3: only run rembg if the user explicitly opted in.
     try:
-        food_rgba = _prepare_food_cutout(food_bytes, target_max=int(CANVAS * 0.65))
+        food_rgba = _prepare_food_cutout(
+            food_bytes,
+            target_max=int(CANVAS * 0.65),
+            use_rembg=bool(getattr(body, "remove_background", False)),
+        )
     except Exception as e:  # noqa: BLE001
         await fail("Couldn't read your source photo. Try a different image.", str(e))
         return

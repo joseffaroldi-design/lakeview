@@ -147,16 +147,18 @@ async def on_startup():
         logger.warning("Object storage init skipped: %s", e)
 
     # ---- 8. Media Studio infra: ensure ffmpeg + (optionally) pre-warm rembg model.
-    # rembg pre-warm loads ~170 MB of u2net at startup. To keep memory headroom
-    # on production pods, this is now OPT-IN: set REMBG_PREWARM=1 to enable.
-    # When skipped, the model loads lazily on the first background-removal call.
+    # Sprint 15B.3: BOTH ffmpeg-ensure and rembg-prewarm are now fully off the
+    # critical startup path. ffmpeg-install runs as a background task (was
+    # blocking startup up to 120s if apt-get had to install the binary).
+    # rembg is opt-in via REMBG_PREWARM=1; default skips and loads lazily on
+    # the first user-triggered "Remove background" call.
     try:
         from bootstrap import ensure_ffmpeg, prewarm_rembg
-        await asyncio.to_thread(ensure_ffmpeg)
+        asyncio.create_task(asyncio.to_thread(ensure_ffmpeg))
         if os.environ.get("REMBG_PREWARM", "").lower() in ("1", "true", "yes"):
             asyncio.create_task(prewarm_rembg())
         else:
-            logger.info("[bootstrap] rembg pre-warm skipped (set REMBG_PREWARM=1 to enable). Model loads on first use.")
+            logger.info("[bootstrap] rembg pre-warm skipped (set REMBG_PREWARM=1 to enable). Model loads on first explicit Remove-Background request.")
     except Exception as e:  # noqa: BLE001
         logger.warning("Media bootstrap skipped: %s", e)
 

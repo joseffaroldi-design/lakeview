@@ -208,11 +208,17 @@ const Designer = ({
   const [price, setPrice] = useState(init.price || "");
   const [picked, setPicked] = useState(init.themes && init.themes.length ? [init.themes[0]] : ["modern"]);
   const [autoCopy, setAutoCopy] = useState(true);
+  // Sprint 15B.3: rembg/background-removal is now opt-in. Default OFF so the
+  // single-worker production pod isn't blocked by the ~5-15s rembg call.
+  const [removeBackground, setRemoveBackground] = useState(false);
   const [estimate, setEstimate] = useState(null);
   const [estimating, setEstimating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  // Sprint 15B.3: AbortController for cancelling in-flight generation if the
+  // component unmounts mid-request (e.g. user navigates away).
+  const submitAbortRef = useRef(null);
 
   // Parse features (one per line, auto-split commas)
   const parseFeatures = (text) => {
@@ -278,9 +284,16 @@ const Designer = ({
   };
 
   const submit = async () => {
+    // Sprint 15B.3: hard guard against double-submission. Even if the button
+    // is disabled in markup, fast enter-key or programmatic clicks could fire
+    // twice; this short-circuits the duplicate.
+    if (submitting) return;
     if (!name.trim()) { setError({ user_message: "Add an item name first." }); return; }
     if (picked.length === 0) { setError({ user_message: "Pick at least one theme." }); return; }
     setSubmitting(true); setError(null);
+    // Build an AbortController so navigation away cancels the request
+    if (submitAbortRef.current) submitAbortRef.current.abort();
+    submitAbortRef.current = new AbortController();
     try {
       const r = await axios.post(`${API}/ai-designer/generate`, {
         source_asset_id: asset.id,
@@ -289,19 +302,40 @@ const Designer = ({
         price: price.trim() || null,
         theme: picked[0],
         auto_copy: autoCopy,
-      }, { headers: getAuthHeader(), timeout: 30000 });
+        remove_background: removeBackground,
+      }, { headers: getAuthHeader(), timeout: 45000, signal: submitAbortRef.current.signal });
       onJobStarted(r.data.job_id, [picked[0]], {
         item_name: name.trim(),
         theme: picked[0],
         auto_copy: autoCopy,
+        remove_background: removeBackground,
       });
     } catch (e) {
-      setError(parseAxiosError(e));
+      // Sprint 15B.3: friendlier message for AI Designer specifically.
+      // The global toast (route-aware) still fires for 5xx so the owner has
+      // diagnostic detail, but inline form copy is gentle.
+      if (e.code === "ERR_CANCELED" || e.name === "CanceledError" || e.message === "canceled") {
+        // User navigated away — silent.
+        return;
+      }
+      const status = (e.response && e.response.status) || 0;
+      if (status === 0 || status >= 500 || e.code === "ECONNABORTED") {
+        setError({ user_message: "AI Designer is busy. Try again in a moment." });
+      } else {
+        setError(parseAxiosError(e));
+      }
       setShowConfirm(false);
     } finally {
       setSubmitting(false);
     }
   };
+
+  // Sprint 15B.3: cancel any in-flight generation if the user navigates away.
+  useEffect(() => () => {
+    if (submitAbortRef.current) {
+      try { submitAbortRef.current.abort(); } catch (_) { /* noop */ }
+    }
+  }, []);
 
   const applyTemplate = (tpl) => {
     setName(tpl.item_name || "");
@@ -445,18 +479,36 @@ const Designer = ({
             </div>
           </label>
 
+          {/* Sprint 15B.3: opt-in background removal. Default OFF so the
+              normal flow is fast and won't block the production worker. */}
+          <label className="flex items-start gap-2 cursor-pointer p-2.5 bg-white border border-navy/15 rounded-md" data-testid="designer-remove-bg-row">
+            <input
+              type="checkbox"
+              checked={removeBackground}
+              onChange={(e) => setRemoveBackground(e.target.checked)}
+              className="mt-0.5"
+              data-testid="designer-remove-bg"
+            />
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-navy">Remove background from food photo <span className="text-muted-foreground font-normal">(slower)</span></p>
+              <p className="text-[11px] text-muted-foreground">
+                Cleaner cutouts but adds ~5–15 s per generation. Leave off for fast designs that use a rounded crop instead.
+              </p>
+            </div>
+          </label>
+
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" onClick={onBack} className="border-navy/20" data-testid="designer-back">
+            <Button variant="outline" onClick={onBack} disabled={submitting} className="border-navy/20" data-testid="designer-back">
               <ArrowLeft className="w-4 h-4 mr-1" /> Back
             </Button>
             <Button
-              onClick={() => setShowConfirm(true)}
+              onClick={() => { if (!submitting) setShowConfirm(true); }}
               disabled={submitting || picked.length === 0 || !name.trim()}
               className="bg-gold text-navy hover:bg-gold/90 flex-1"
               data-testid="designer-generate-btn"
             >
               {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              Generate 3 designs
+              {submitting ? "Generating…" : "Generate 3 designs"}
             </Button>
           </div>
         </div>
@@ -495,7 +547,7 @@ const Designer = ({
               <Button variant="outline" onClick={() => setShowConfirm(false)} className="flex-1" data-testid="designer-confirm-cancel">Cancel</Button>
               <Button onClick={submit} disabled={submitting} className="bg-gold text-navy hover:bg-gold/90 flex-1" data-testid="designer-confirm-yes">
                 {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Generate now
+                {submitting ? "Generating…" : "Generate now"}
               </Button>
             </div>
           </div>
