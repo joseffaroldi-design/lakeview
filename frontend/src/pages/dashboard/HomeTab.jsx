@@ -88,7 +88,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           axios.get(`${API}/home/health`, { headers }),
           axios.get(`${API}/home/promote-suggestions?limit=3`, { headers }),
           axios.get(`${API}/specials`, { headers }),
-          axios.get(`${API}/catering-inquiries`, { headers }),
+          axios.get(`${API}/catering/inquiries`, { headers }),
           axios.get(`${API}/ai-ads/stats`, { headers }).catch(() => ({ data: {} })),
           axios.get(`${API}/todays-pick/today`, { headers }).catch(() => ({ data: null })),
         ]);
@@ -99,7 +99,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const healthData = healthRes.status === "fulfilled" ? healthRes.value.data || {} : { level: "green", issues: [] };
         const top3 = suggestRes.status === "fulfilled" ? suggestRes.value.data.items || [] : [];
         const specials = specialsRes.status === "fulfilled" ? specialsRes.value.data || [] : [];
-        const inquiries = inqRes.status === "fulfilled" ? inqRes.value.data || [] : [];
+        const inquiries = inqRes.status === "fulfilled" ? (inqRes.value.data && inqRes.value.data.inquiries) || [] : [];
         const stats = statsRes.status === "fulfilled" ? statsRes.value.data || {} : {};
         const pick = todaysPickRes.status === "fulfilled" ? todaysPickRes.value.data : null;
 
