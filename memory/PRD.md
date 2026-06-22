@@ -1111,3 +1111,23 @@ Collections dropped:
 ### On hold (explicit user mandate)
 - Sprint 14B.2 (progress bars / ETA) — pending 14 days of Sprint 14B.1A abandonment data.
 - Sprint 12E (collection consolidation), Sprint 12F (stateless JWT migration), AiDesigner refactor.
+
+### Sprint 15B.4 — RecentDesignsRail over-fetch hotfix (Feb 2026)
+**Problem**: Post-deploy validation of Sprint 15B.2 surfaced 5–6 redundant `/api/ai-designer/jobs/recent` calls during AI Designer boot. Root cause: `RecentDesignsRail` had a single `useEffect(() => reload(), [reload, refreshKey])` that fired on every parent re-render in prefetch mode because `reload` depended on `onRetryJobs`, whose identity flipped 4× during the staggered boot orchestrator's ingest sequence.
+
+**Fix** (`frontend/src/pages/dashboard/aiads/AiDesigner.jsx:1063–1102`):
+- Split the auto-fetch into two effects:
+  1. **Legacy effect**: only runs when `usingPrefetch=false` — fetches on mount + `refreshKey` change. Identical behavior to pre-15B.2.
+  2. **Prefetch effect**: only runs when `usingPrefetch=true` — uses a `useRef` to compare current vs. last-seen `refreshKey`. Skips mount entirely. Calls `onRetryJobs` exactly once per actual `refreshKey` increment. Deps exclude `onRetryJobs` (its identity flips during boot).
+- Imperative `reload()` (called from `togglePin`) preserved for both modes.
+
+**Regression test**: `/app/frontend/test_recent_rail_no_overfetch.js` — pure-logic Node test with mocked hooks/axios. 4 scenarios, 8 assertions, all green:
+1. prefetch=true + 4 boot re-renders → 0 fetches, 0 onRetryJobs calls
+2. prefetch=true + refreshKey 0→1 → 0 direct fetches, exactly 1 onRetryJobs
+3. prefetch=false (legacy) → 1 fetch on mount, +1 on refreshKey bump
+4. Mixed sequence (mount + 3 cosmetic re-renders + 2 key bumps) → 0 direct fetches, 2 onRetryJobs
+
+**Validation**: Lint clean. Frontend compiles with only pre-existing unrelated warnings (lines 250/263 missing-deps on theme/estimate effects — out of scope).
+
+**Impact**: Restores Sprint 15B.2 boot orchestrator contract — exactly 4 staggered `/jobs/recent`-class calls during boot, not 8–10. Production single-worker pod no longer hammered by RecentDesignsRail identity-change cascade.
+

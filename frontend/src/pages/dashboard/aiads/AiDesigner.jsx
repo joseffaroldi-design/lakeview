@@ -1060,9 +1060,11 @@ const RecentDesignsRail = ({
   const error = usingPrefetch ? prefetchedJobsError : null;
   const [pinningId, setPinningId] = useState(null);
 
+  // `reload` is invoked imperatively (e.g. after pinning) and supports both
+  // modes. In prefetch mode we delegate to the parent's retry handle so the
+  // shared boot orchestrator can re-fetch /jobs/recent exactly once.
   const reload = useCallback(() => {
     if (usingPrefetch) {
-      // Parent owns the data; ask it to re-fetch.
       if (onRetryJobs) onRetryJobs();
       return;
     }
@@ -1073,7 +1075,28 @@ const RecentDesignsRail = ({
       .finally(() => setLoadingLocal(false));
   }, [getAuthHeader, usingPrefetch, onRetryJobs]);
 
-  useEffect(() => { reload(); }, [reload, refreshKey]);
+  // Sprint 15B.4: Legacy (non-prefetch) mode — auto-fetch on mount and
+  // whenever `refreshKey` changes. When prefetch is active, this effect must
+  // do NOTHING: the parent boot orchestrator already streams jobs in via
+  // `prefetchedJobs`, and re-triggering on every parent re-render (which
+  // happens 4× during the staggered boot as `onRetryJobs` identity flips)
+  // cascades into 5–6 redundant /jobs/recent calls.
+  useEffect(() => {
+    if (usingPrefetch) return;
+    reload();
+  }, [reload, refreshKey, usingPrefetch]);
+
+  // Sprint 15B.4: Prefetch mode — only ask parent to re-fetch when
+  // `refreshKey` actually increments (e.g. after a new generation completes
+  // or a pin toggle). Skip the initial mount and ignore identity changes of
+  // `onRetryJobs` so the boot sequence isn't amplified.
+  const lastRefreshKeyRef = useRef(refreshKey);
+  useEffect(() => {
+    if (!usingPrefetch) return;
+    if (lastRefreshKeyRef.current === refreshKey) return;
+    lastRefreshKeyRef.current = refreshKey;
+    if (onRetryJobs) onRetryJobs();
+  }, [refreshKey, usingPrefetch]);
 
   const togglePin = async (jobId) => {
     setPinningId(jobId);
