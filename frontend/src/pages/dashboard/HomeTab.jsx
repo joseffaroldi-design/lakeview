@@ -196,41 +196,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
     }
   };
 
-  const handleAcceptPick = async () => {
-    try {
-      const headers = getAuthHeader();
-      await axios.patch(`${API}/todays-pick/metrics`, { accepted: true }, { headers });
-      await refreshTodaysPick();
-    } catch (err) {
-      console.error("Failed to mark as accepted:", err);
-    }
-  };
-
-  const handleRejectPick = async () => {
-    try {
-      const headers = getAuthHeader();
-      await axios.patch(`${API}/todays-pick/metrics`, { rejected: true }, { headers });
-      await refreshTodaysPick();
-    } catch (err) {
-      console.error("Failed to mark as rejected:", err);
-    }
-  };
-
-  const handleOverrideItem = async (item) => {
-    try {
-      const headers = getAuthHeader();
-      await axios.post(
-        `${API}/todays-pick/override`,
-        { item_key: item.item_key, reason: "Manual selection" },
-        { headers }
-      );
-      await refreshTodaysPick();
-    } catch (err) {
-      console.error("Failed to override pick:", err);
-      alert("Failed to update Today's Pick. Please try again.");
-    }
-  };
-
   // Featured = first top-3 item (fallback null)
   const featuredItem = topItems[0] || null;
   void menuItems; // legacy state, no longer rendered
@@ -266,145 +231,40 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
       <TodaysPick
         pick={todaysPick}
         onRefresh={refreshTodaysPick}
-        onAccept={handleAcceptPick}
-        onReject={handleRejectPick}
-        onPickDifferent={() => setPickDifferentOpen(true)}
+        getAuthHeader={getAuthHeader}
       />
 
-      {/* QUICK ACTIONS — top of fold */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-8" data-testid="home-quick-actions">
-        <Button
-          onClick={() => setPromoteOpen(true)}
-          disabled={topItems.length === 0}
-          className="bg-gold text-navy hover:bg-gold/90 h-auto py-3 flex-col gap-1"
-          data-testid="qa-promote">
-          <Megaphone className="w-5 h-5" />
-          <span className="text-xs font-semibold">Promote Something</span>
-        </Button>
-        <Button
-          onClick={() => onNavigate && onNavigate("promotions", "active")}
-          variant="outline"
-          className="border-navy/20 h-auto py-3 flex-col gap-1"
-          data-testid="qa-special">
-          <Gift className="w-5 h-5 text-gold" />
-          <span className="text-xs text-navy font-semibold">Add Special</span>
-        </Button>
-        <Button
-          onClick={() => onNavigate && onNavigate("promotions", "media")}
-          variant="outline"
-          className="border-navy/20 h-auto py-3 flex-col gap-1"
-          data-testid="qa-upload">
-          <ImageIcon className="w-5 h-5 text-gold" />
-          <span className="text-xs text-navy font-semibold">Upload Photo</span>
-        </Button>
-        <Button
-          onClick={() => onNavigate && onNavigate("promotions", "builder")}
-          variant="outline"
-          className="border-navy/20 h-auto py-3 flex-col gap-1"
-          data-testid="qa-campaign">
-          <Sparkles className="w-5 h-5 text-gold" />
-          <span className="text-xs text-navy font-semibold">Create Campaign</span>
-        </Button>
-        <Button
-          onClick={() => onNavigate && onNavigate("promotions", "calendar")}
-          variant="outline"
-          className="border-navy/20 h-auto py-3 flex-col gap-1"
-          data-testid="qa-calendar">
-          <CalendarIcon className="w-5 h-5 text-gold" />
-          <span className="text-xs text-navy font-semibold">View Calendar</span>
-        </Button>
+      {/* BILLING CARD */}
+      <BillingCard getAuthHeader={getAuthHeader} />
+
+      {/* TODAY — KPIs (REDUCED FROM 7 TO 4) */}
+      <div className="mb-6">
+        <h3 className="font-serif text-lg text-navy font-semibold mb-3 flex items-center gap-2">
+          <CalendarIcon className="w-5 h-5 text-navy" />
+          Today&apos;s Snapshot
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Stat label="Active Promos" value={today.activePromos} icon={Megaphone} tone="navy" testId="home-active-promos" />
+          <Stat label="New Inquiries" value={today.newInquiries} icon={Users} tone={today.newInquiries > 0 ? "gold" : "navy"} testId="home-new-inquiries" />
+          <Stat label="This Week" value={topItems.length > 0 ? `${topItems.length} items` : "—"} icon={TrendingUp} tone="navy" testId="home-week-summary" />
+          <Stat label="View Analytics" value="→" icon={BarChart3} tone="navy" testId="home-analytics-link" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* AI BUDGET (full width on mobile, left col on desktop) */}
-        <div className="lg:col-span-2">
-          <BillingCard />
-        </div>
-
-        {/* TODAY */}
-        <div>
-          <h3 className="font-serif text-lg text-navy font-bold mb-3">Today</h3>
-          <div className="grid grid-cols-2 gap-3" data-testid="home-today">
-            <Stat label="Scheduled today" value={today.scheduledToday} icon={CalendarIcon} testId="today-scheduled" />
-            <Stat label="Active promos"   value={today.activePromos}   icon={Megaphone}    testId="today-active" tone="gold" />
-            <Stat label="New subscribers" value={today.newSubs}        icon={UserPlus}     testId="today-subs" />
-            <Stat label="New inquiries"   value={today.newInquiries}   icon={ChefHat}      testId="today-inquiries" />
-            {today.failed > 0 ? (
-              <div className="col-span-2"><Stat label="Failed publishes" value={today.failed} icon={AlertTriangle} tone="red" testId="today-failed" /></div>
-            ) : null}
-          </div>
-
-          <h3 className="font-serif text-lg text-navy font-bold mb-3 mt-6">This Week</h3>
-          <div className="grid grid-cols-2 gap-3" data-testid="home-week">
-            <Stat label="Most promoted" value={week.mostPromotedItem || "—"} icon={Utensils} testId="week-promoted" />
-            <Stat label="Best platform" value={week.bestPlatform || "—"}     icon={TrendingUp} testId="week-platform" />
-            <Stat label="Loyalty growth" value={`+${week.loyaltyGrowth}`}    icon={Users} testId="week-loyalty" />
-            <button
-              type="button"
-              onClick={() => onNavigate && onNavigate("analytics")}
-              className="text-left focus:outline-none focus:ring-2 focus:ring-gold rounded-lg"
-              data-testid="week-analytics-btn"
-            >
-              <Stat label="View analytics" value="Open →" icon={BarChart3} tone="gold" testId="week-analytics" />
-            </button>
-          </div>
-        </div>
-
-        {/* AI SUGGESTIONS */}
-        <div>
-          <h3 className="font-serif text-lg text-navy font-bold mb-3 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-gold" /> What I&apos;d do next
+      {/* SUGGESTIONS */}
+      {suggestions.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-serif text-lg text-navy font-semibold mb-3 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-gold" />
+            Suggested Actions
           </h3>
-          <div className="space-y-2" data-testid="home-suggestions">
-            {suggestions.map((s) => (
-              <Suggestion key={s.id} {...s} testId={`suggestion-${s.id}`} />
+          <div className="space-y-2">
+            {suggestions.slice(0, 3).map((s) => (
+              <Suggestion key={s.id} {...s} />
             ))}
           </div>
         </div>
-      </div>
-
-      {promoteOpen ? (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
-          onClick={(e) => e.target === e.currentTarget && setPromoteOpen(false)}
-          data-testid="promote-picker-modal">
-          <div className="bg-card rounded-lg max-w-lg w-full overflow-hidden shadow-2xl border-2 border-gold/30">
-            <div className="px-5 py-3 border-b border-navy/10 bg-cream flex items-center gap-2">
-              <Megaphone className="w-4 h-4 text-gold" />
-              <h3 className="font-serif text-navy font-semibold">Pick an item to promote</h3>
-            </div>
-            <div className="p-4 space-y-2">
-              <p className="text-xs text-muted-foreground mb-3">These 3 items are most overdue for attention:</p>
-              {topItems.map((it, idx) => (
-                <button
-                  key={it.id || it.name}
-                  type="button"
-                  onClick={() => { setPromoteOpen(false); onPromote && onPromote({ name: it.name, description: it.description, price: it.price }, it.category); }}
-                  className="w-full text-left border-2 border-navy/10 hover:border-gold/40 rounded p-3 transition-colors group"
-                  data-testid={`promote-pick-${idx}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-navy">{it.name}</p>
-                      <p className="text-xs text-muted-foreground">{it.category}</p>
-                      <p className="text-xs text-gold mt-1">{it.reason}</p>
-                    </div>
-                    <Megaphone className="w-4 h-4 text-navy/30 group-hover:text-gold flex-shrink-0 mt-1" />
-                  </div>
-                </button>
-              ))}
-              <button onClick={() => setPromoteOpen(false)} className="w-full text-xs text-muted-foreground hover:text-navy py-2 mt-2"
-                data-testid="promote-picker-cancel">Cancel</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Pick Different Item Modal */}
-      <PickDifferentModal
-        isOpen={pickDifferentOpen}
-        onClose={() => setPickDifferentOpen(false)}
-        getAuthHeader={getAuthHeader}
-        onSelect={handleOverrideItem}
-      />
+      )}
     </section>
   );
 };
