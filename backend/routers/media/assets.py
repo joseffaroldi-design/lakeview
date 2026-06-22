@@ -156,12 +156,12 @@ async def media_stats(authorization: str = Header(None), session_token: str = Co
     videos_total = await db.media_assets.count_documents({"kind": "video", "status": "active"})
     ai_images = await db.media_assets.count_documents({"source": "ai_image", "status": "active"})
     rendered = await db.media_assets.count_documents({"source": "video_render", "status": "active"})
-    jobs_active = await db.render_jobs.count_documents({"status": {"$in": ["queued", "processing"]}})
+    # Sprint 15B: render_jobs collection dropped with MediaStudio. Queue counter retained at 0 for API back-compat.
     return {
         "images_uploaded": images_total - ai_images,
         "videos_uploaded": videos_total - rendered,
         "ai_images_generated": ai_images,
         "videos_rendered": rendered,
-        "active_render_jobs": jobs_active,
+        "active_render_jobs": 0,
         "total_assets": images_total + videos_total,
     }

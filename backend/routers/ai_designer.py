@@ -1009,27 +1009,7 @@ async def save_template(
     return {k: val for k, val in tpl.items() if k != "_id"}
 
 
-@router.post("/from-template/{template_id}", status_code=202)
-async def generate_from_template(
-    template_id: str, source_asset_id: str,
-    authorization: str = Header(None), session_token: str = Cookie(None),
-):
-    await verify_session(authorization, session_token)
-    tpl = await db.ai_design_templates.find_one({"id": template_id}, {"_id": 0})
-    if not tpl:
-        raise HTTPException(status_code=404, detail="Template not found")
-    body = GenerateRequest(
-        source_asset_id=source_asset_id,
-        item_name=tpl["item_name"],
-        features=tpl.get("features") or [],
-        price=tpl.get("price"),
-        theme=tpl["theme"],
-    )
-    resp = await enqueue_generate(body, authorization=authorization, session_token=session_token)
-    await db.ai_design_templates.update_one(
-        {"id": template_id}, {"$set": {"last_used_at": _now()}, "$inc": {"uses": 1}},
-    )
-    return resp
+# Sprint 15B: POST /from-template/{template_id} removed — never called from frontend.
 
 
 # ---------------------------------------------------------------- Copy pack endpoints

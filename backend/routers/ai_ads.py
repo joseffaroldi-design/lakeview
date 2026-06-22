@@ -1,152 +1,35 @@
-"""AI Ad Builder routes — Phase 1 + Phase 2 (AI Marketing Studio).
+"""AI Ads — minimal surface after Sprint 15B carcass removal.
 
-Endpoints:
-  --- Phase 1 ---
-  POST /api/ai-ads/generate              — master generation (5 headlines + ...)
-  POST /api/ai-ads/campaigns             — save / upsert a campaign
-  GET  /api/ai-ads/campaigns             — list saved campaigns
-  GET  /api/ai-ads/campaigns/{id}        — fetch one campaign
-  DELETE /api/ai-ads/campaigns/{id}      — delete a campaign
-  GET  /api/ai-ads/templates             — list templates + catalog
-  GET  /api/ai-ads/config                — current model config
-  PUT  /api/ai-ads/config                — update model config
-  GET  /api/ai-ads/stats                 — usage analytics
+Sprint 15B: 9 of 10 routes were never called from the frontend (legacy from
+pre-Marketing-Pack era). Only `/api/ai-ads/stats` survives — it's still used
+by `HomeTab.jsx` to render the "most-used platform / goal" KPI tiles.
 
-  --- Phase 2 ---
-  POST /api/ai-ads/generate/{kind}       — specialty: social/email/sms/image_concept/video_concept
-  GET  /api/ai-ads/assets                — Creative Library list (with filters)
-  POST /api/ai-ads/assets                — save an asset
-  PUT  /api/ai-ads/assets/{id}           — patch (favorite/archive/rename/etc.)
-  DELETE /api/ai-ads/assets/{id}         — delete
-  GET  /api/ai-ads/providers             — provider abstraction catalog
-  GET  /api/ai-ads/settings              — settings doc bag
-  PUT  /api/ai-ads/settings              — update settings doc bag
+Removed routes (all returned 410 Gone or were unused):
+  /templates, /generate/{kind}, /assets (GET/POST), /assets/{id} (PUT/DELETE),
+  /assets/{id}/duplicate, /assets/bulk, /assets/export
+
+The `ai_generations` collection is retained — it backs the /stats KPIs.
 """
-import uuid
-import asyncio
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Any, Dict
+from datetime import datetime, timezone
+from typing import Dict
 
-from fastapi import APIRouter, HTTPException, Header, Cookie, Request, Query
-from pydantic import BaseModel, Field, ConfigDict, constr
+from fastapi import APIRouter, Cookie, Header
 
 from config import db
 from auth import verify_session
-from rate_limit import limiter
-from ai_engine.client import generate_structured, get_active_model, set_active_model
-from ai_engine.prompts import (
-    build_master_user_prompt,
-    resolve_system_prompt,
-    MASTER_SCHEMA_HINT,
-)
-from ai_engine.templates import (
-    get_templates,
-    get_template,
-    GOALS,
-    PLATFORMS,
-    TONES,
-)
-from ai_engine.providers import list_providers, get_setting, set_setting
-# Sprint 12D: ai_engine.generators + ai_engine.plugins deleted. Routes that
-# depended on them (/plugins, /generate/*, /plugins/{id}/promote) are removed.
 
 router = APIRouter(prefix="/ai-ads")
 
-# Sprint 12C — Task 2: ai_assets collection retired and merged into media_assets.
-# Every CRUD operation in this file now operates on media_assets filtered by
-# source="ai_ads_legacy", preserving the public /api/ai-ads/assets contract.
 LEGACY_SOURCE = "ai_ads_legacy"
-
-
-def _legacy_q(extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Scope a query to the legacy ai-ads text-asset rows in media_assets."""
-    q: Dict[str, Any] = {"source": LEGACY_SOURCE}
-    if extra:
-        q.update(extra)
-    return q
-
-
-# ----- Models -----
-
-class GenerateRequest(BaseModel):
-    name: Optional[constr(strip_whitespace=True, max_length=200)] = None
-    goal: constr(strip_whitespace=True, max_length=100)
-    platform: constr(strip_whitespace=True, max_length=50)
-    audience: Optional[constr(strip_whitespace=True, max_length=1000)] = None
-    offer: Optional[constr(strip_whitespace=True, max_length=1000)] = None
-    budget: Optional[float] = None
-    tone: constr(strip_whitespace=True, max_length=50)
-    template_id: Optional[str] = None
-    industry: Optional[constr(strip_whitespace=True, max_length=50)] = "restaurant"
-    context: Optional[constr(strip_whitespace=True, max_length=4000)] = None
-    variation_seed: Optional[int] = None  # incremented for "Generate More" button
-
-
-class CampaignSave(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: Optional[str] = None
-    name: constr(strip_whitespace=True, min_length=1, max_length=200)
-    goal: str
-    platform: str
-    audience: Optional[str] = None
-    offer: Optional[str] = None
-    budget: Optional[float] = None
-    tone: str
-    template_id: Optional[str] = None
-    industry: Optional[str] = "restaurant"
-    context: Optional[str] = None
-    output: Dict[str, Any]
-    status: Optional[constr(pattern=r"^(draft|scheduled|active|archived)$")] = "draft"
-    is_favorite: Optional[bool] = False
-
-
-class ModelConfig(BaseModel):
-    provider: constr(strip_whitespace=True, max_length=50)
-    model: constr(strip_whitespace=True, max_length=100)
-
-
-# ----- Helpers -----
-
-async def _persist_generation(brief: Dict[str, Any], output: Dict[str, Any], model_used: str) -> str:
-    """Audit trail: every generation is saved with its prompt + output."""
-    gen_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc)
-    await db.ai_generations.insert_one({
-        "id": gen_id,
-        "brief": brief,
-        "output": output,
-        "model_used": model_used,
-        "created_at": now.isoformat(),
-        # Sprint 12C — Task 5: 90-day TTL retention (matches publish_logs)
-        "expires_at": now + timedelta(days=90),
-    })
-    return gen_id
-
-
-# ----- Routes -----
-
-@router.get("/templates")
-async def list_templates(industry: Optional[str] = None, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    return {
-        "templates": get_templates(industry),
-        "goals": GOALS,
-        "platforms": PLATFORMS,
-        "tones": TONES,
-    }
-
-
-# Sprint 12D: /config + /generate endpoints retired (SettingsPanel deleted; use marketing_pack)
 
 
 @router.get("/stats")
 async def get_stats(authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Quick KPI summary + Phase 5 usage analytics."""
+    """Quick KPI summary surfaced on the Home dashboard."""
     await verify_session(authorization, session_token)
     total_campaigns = await db.ai_campaigns.count_documents({})
     total_generations = await db.ai_generations.count_documents({})
 
-    # Phase 5: breakdowns
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
     gens_this_month = await db.ai_generations.count_documents({"created_at": {"$gte": month_start}})
@@ -165,7 +48,6 @@ async def get_stats(authorization: str = Header(None), session_token: str = Cook
     goals_agg = await db.ai_generations.aggregate(goal_pipeline).to_list(20)
     most_used_goal = goals_agg[0]["_id"] if goals_agg else None
 
-    # Asset counts per kind
     kind_pipeline = [
         {"$match": {"source": LEGACY_SOURCE}},
         {"$group": {"_id": "$kind", "count": {"$sum": 1}}},
@@ -183,288 +65,3 @@ async def get_stats(authorization: str = Header(None), session_token: str = Cook
         "platforms_breakdown": {p["_id"]: p["count"] for p in platforms if p["_id"]},
         "goals_breakdown": {g["_id"]: g["count"] for g in goals_agg if g["_id"]},
     }
-
-
-# =====================================================
-# Phase 2 — Specialty generators
-# =====================================================
-
-class SpecialtyBrief(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    name: Optional[constr(strip_whitespace=True, max_length=200)] = None
-    goal: Optional[constr(strip_whitespace=True, max_length=100)] = None
-    tone: Optional[constr(strip_whitespace=True, max_length=50)] = None
-    platform: Optional[constr(strip_whitespace=True, max_length=50)] = None
-    audience: Optional[constr(strip_whitespace=True, max_length=1000)] = None
-    offer: Optional[constr(strip_whitespace=True, max_length=1000)] = None
-    industry: Optional[constr(strip_whitespace=True, max_length=50)] = "restaurant"
-    context: Optional[constr(strip_whitespace=True, max_length=4000)] = None
-    # Specialty-specific:
-    email_type: Optional[constr(strip_whitespace=True, max_length=50)] = None
-    asset_subtype: Optional[constr(strip_whitespace=True, max_length=100)] = None
-    duration_seconds: Optional[int] = None
-
-
-@router.post("/generate/{kind}")
-@limiter.limit("15/minute")
-async def generate_specialty(kind: str, request: Request, body: SpecialtyBrief, authorization: str = Header(None), session_token: str = Cookie(None)):
-    raise HTTPException(status_code=410, detail="Deprecated in Sprint 12B — use POST /api/marketing-pack/generate instead")
-
-
-# =====================================================
-# Phase 2 — Creative Library (assets)
-# =====================================================
-
-ASSET_KINDS = {"ad_copy", "social_post", "email", "sms", "image_concept", "video_concept", "image_file", "video_file"}
-
-
-class AssetSave(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: Optional[str] = None
-    kind: constr(strip_whitespace=True, max_length=50)  # one of ASSET_KINDS
-    title: constr(strip_whitespace=True, min_length=1, max_length=200)
-    platform: Optional[str] = None
-    industry: Optional[str] = "restaurant"
-    campaign_id: Optional[str] = None
-    payload: Dict[str, Any]
-    tags: Optional[List[str]] = []
-    is_favorite: Optional[bool] = False
-    status: Optional[constr(pattern=r"^(draft|scheduled|active|archived)$")] = "active"
-
-
-class AssetPatch(BaseModel):
-    title: Optional[str] = None
-    tags: Optional[List[str]] = None
-    is_favorite: Optional[bool] = None
-    status: Optional[constr(pattern=r"^(draft|scheduled|active|archived)$")] = None
-    payload: Optional[Dict[str, Any]] = None
-
-
-@router.get("/assets")
-async def list_assets(
-    kind: Optional[str] = Query(None),
-    platform: Optional[str] = Query(None),
-    industry: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    is_favorite: Optional[bool] = Query(None),
-    campaign_id: Optional[str] = Query(None),
-    q: Optional[str] = Query(None, max_length=200),
-    date_from: Optional[str] = Query(None),
-    date_to: Optional[str] = Query(None),
-    authorization: str = Header(None),
-    session_token: str = Cookie(None),
-):
-    await verify_session(authorization, session_token)
-    query: Dict[str, Any] = {"source": LEGACY_SOURCE}
-    if kind:
-        query["kind"] = kind
-    if platform:
-        query["platform"] = platform
-    if industry:
-        query["industry"] = industry
-    if status:
-        query["status"] = status
-    if is_favorite is not None:
-        query["is_favorite"] = is_favorite
-    if campaign_id:
-        query["campaign_id"] = campaign_id
-    if q:
-        query["$or"] = [
-            {"title": {"$regex": q, "$options": "i"}},
-            {"tags": {"$elemMatch": {"$regex": q, "$options": "i"}}},
-        ]
-    if date_from or date_to:
-        rng: Dict[str, Any] = {}
-        if date_from:
-            rng["$gte"] = date_from
-        if date_to:
-            rng["$lte"] = date_to
-        query["created_at"] = rng
-
-    items = await db.media_assets.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return {"assets": items, "total": len(items)}
-
-
-@router.post("/assets")
-async def save_asset(payload: AssetSave, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    if payload.kind not in ASSET_KINDS:
-        raise HTTPException(status_code=400, detail=f"Invalid kind. Allowed: {sorted(ASSET_KINDS)}")
-    now = datetime.now(timezone.utc).isoformat()
-    if payload.id:
-        existing = await db.media_assets.find_one(_legacy_q({"id": payload.id}), {"_id": 0})
-        if not existing:
-            raise HTTPException(status_code=404, detail="Asset not found")
-        update = payload.model_dump(exclude_unset=True)
-        update["updated_at"] = now
-        await db.media_assets.update_one(_legacy_q({"id": payload.id}), {"$set": update})
-        return {**existing, **update}
-
-    new_id = str(uuid.uuid4())
-    doc = payload.model_dump()
-    doc["id"] = new_id
-    doc["created_at"] = now
-    doc["updated_at"] = now
-    doc["uploaded_at"] = now
-    doc["source"] = LEGACY_SOURCE
-    doc.setdefault("filename", (doc.get("title") or "Untitled")[:160])
-    doc.setdefault("mime", "application/json")
-    doc.setdefault("storage_path", None)
-    await db.media_assets.insert_one(doc)
-    return {k: v for k, v in doc.items() if k != "_id"}
-
-
-@router.put("/assets/{asset_id}")
-async def patch_asset(asset_id: str, patch: AssetPatch, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    update = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if v is not None}
-    if not update:
-        raise HTTPException(status_code=400, detail="No fields to patch")
-    update["updated_at"] = datetime.now(timezone.utc).isoformat()
-    result = await db.media_assets.update_one(_legacy_q({"id": asset_id}), {"$set": update})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Asset not found")
-    return await db.media_assets.find_one(_legacy_q({"id": asset_id}), {"_id": 0})
-
-
-@router.delete("/assets/{asset_id}")
-async def delete_asset(asset_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    result = await db.media_assets.delete_one(_legacy_q({"id": asset_id}))
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Asset not found")
-    return {"message": "Deleted"}
-
-
-@router.post("/assets/{asset_id}/duplicate")
-async def duplicate_asset(asset_id: str, authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Duplicate a creative asset (preserves payload, resets id/status/favorite/timestamps)."""
-    await verify_session(authorization, session_token)
-    original = await db.media_assets.find_one(_legacy_q({"id": asset_id}), {"_id": 0})
-    if not original:
-        raise HTTPException(status_code=404, detail="Asset not found")
-    now = datetime.now(timezone.utc).isoformat()
-    clone = {**original}
-    clone["id"] = str(uuid.uuid4())
-    clone["title"] = f"{original.get('title') or 'Untitled'} (Copy)"
-    clone["status"] = "draft"
-    clone["is_favorite"] = False
-    clone["created_at"] = now
-    clone["updated_at"] = now
-    clone["uploaded_at"] = now
-    clone["source"] = LEGACY_SOURCE
-    await db.media_assets.insert_one(clone)
-    return {k: v for k, v in clone.items() if k != "_id"}
-
-
-# =====================================================
-# Phase 2 — Providers + Settings: RETIRED in Sprint 12D
-# =====================================================
-# /providers, /settings, /config endpoints removed; SettingsPanel UI deleted.
-
-
-# =====================================================
-# Phase 3 — Industry Plugins: RETIRED in Sprint 12D
-# =====================================================
-# /plugins, /plugins/{id}, /plugins/{id}/promote removed.
-# Use POST /api/marketing-pack/generate instead.
-
-
-# =====================================================
-# Phase 4 — Bulk actions + Export
-# =====================================================
-
-class BulkActionRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    ids: List[str]
-    action: constr(pattern=r"^(archive|unarchive|delete|favorite|unfavorite)$")
-
-
-@router.post("/assets/bulk")
-async def bulk_action(payload: BulkActionRequest, authorization: str = Header(None), session_token: str = Cookie(None)):
-    await verify_session(authorization, session_token)
-    if not payload.ids:
-        raise HTTPException(status_code=400, detail="No asset ids supplied")
-    if payload.action == "delete":
-        res = await db.media_assets.delete_many(_legacy_q({"id": {"$in": payload.ids}}))
-        return {"deleted": res.deleted_count}
-    update: Dict[str, Any] = {"updated_at": datetime.now(timezone.utc).isoformat()}
-    if payload.action == "archive":
-        update["status"] = "archived"
-    elif payload.action == "unarchive":
-        update["status"] = "active"
-    elif payload.action == "favorite":
-        update["is_favorite"] = True
-    elif payload.action == "unfavorite":
-        update["is_favorite"] = False
-    res = await db.media_assets.update_many(_legacy_q({"id": {"$in": payload.ids}}), {"$set": update})
-    return {"updated": res.modified_count, "action": payload.action}
-
-
-def _flatten_payload(payload: Any) -> str:
-    """Best-effort text flatten for TXT export."""
-    if payload is None:
-        return ""
-    if isinstance(payload, str):
-        return payload
-    if isinstance(payload, list):
-        return "\n".join(_flatten_payload(x) for x in payload)
-    if isinstance(payload, dict):
-        out = []
-        for k, v in payload.items():
-            out.append(f"{k}: {_flatten_payload(v)}")
-        return "\n".join(out)
-    return str(payload)
-
-
-@router.post("/assets/export")
-async def export_assets(
-    payload: Dict[str, Any],
-    authorization: str = Header(None),
-    session_token: str = Cookie(None),
-):
-    """Export selected assets. payload: {ids: [...], format: 'txt'|'csv'|'json'}."""
-    await verify_session(authorization, session_token)
-    ids = payload.get("ids") or []
-    fmt = (payload.get("format") or "txt").lower()
-    if not ids:
-        raise HTTPException(status_code=400, detail="No asset ids supplied")
-    if fmt not in {"txt", "csv", "json"}:
-        raise HTTPException(status_code=400, detail="format must be txt|csv|json")
-
-    assets = await db.media_assets.find(_legacy_q({"id": {"$in": ids}}), {"_id": 0}).to_list(1000)
-    if fmt == "json":
-        return {"format": "json", "data": assets}
-    if fmt == "csv":
-        # Minimal CSV: id,title,kind,platform,status,created_at,content
-        import csv
-        import io
-        buf = io.StringIO()
-        writer = csv.writer(buf)
-        writer.writerow(["id", "title", "kind", "platform", "status", "created_at", "content"])
-        for a in assets:
-            writer.writerow([
-                a.get("id"),
-                a.get("title"),
-                a.get("kind"),
-                a.get("platform") or "",
-                a.get("status") or "",
-                a.get("created_at") or "",
-                _flatten_payload(a.get("payload")).replace("\n", " | "),
-            ])
-        return {"format": "csv", "data": buf.getvalue()}
-    # TXT
-    blocks = []
-    for a in assets:
-        blocks.append(
-            f"### {a.get('title')}\n"
-            f"Type: {a.get('kind')}  |  Platform: {a.get('platform') or '—'}  |  "
-            f"Status: {a.get('status') or '—'}  |  Created: {a.get('created_at') or '—'}\n\n"
-            f"{_flatten_payload(a.get('payload'))}\n"
-        )
-    return {"format": "txt", "data": "\n\n---\n\n".join(blocks)}
-
-
-# =====================================================
-# Phase 5 — Extended Analytics (deleted in Sprint 12B with AnalyticsDashboard)
-# =====================================================

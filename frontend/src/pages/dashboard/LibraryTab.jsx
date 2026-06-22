@@ -1,11 +1,8 @@
 /**
  * LibraryTab — flat asset grid + search, no folders, no sub-tabs.
  *
- * Sprint 12D introduces this as a top-level tab to replace the
- * MediaStudio folder browser + CreativeLibrary duplicate.
- *
- * Editor functionality (crop/resize/text/bg-removal) is reached via
- * "Edit" on each asset row — MediaStudio remains as the editor.
+ * Sprint 12D introduced this as a top-level tab to replace the now-removed
+ * MediaStudio folder browser.
  */
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";

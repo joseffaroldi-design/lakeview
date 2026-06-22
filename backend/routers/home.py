@@ -68,7 +68,13 @@ async def home_summary(authorization: str = Header(None), session_token: str = C
 
 @router.get("/health")
 async def home_health(authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Composite health pill — green/yellow/red based on subsystem state."""
+    """Composite health pill — green/yellow/red based on subsystem state.
+
+    Sprint 15B: ffmpeg and rembg are no longer "red" triggers. They're optional
+    subsystems used by Marketing Pack slideshow (ffmpeg) and AI Designer food
+    cutout (rembg). Today's Pick and the rest of the platform run without them.
+    Only a missing LLM key — which kills *everything* — keeps the pill red.
+    """
     await verify_session(authorization, session_token)
     import shutil
     from bootstrap import rembg_state
@@ -77,18 +83,16 @@ async def home_health(authorization: str = Header(None), session_token: str = Co
     rembg = rembg_state()
     llm_key_ok = bool(os.environ.get("EMERGENT_LLM_KEY"))
 
-    # Sprint 12D: provider/scheduler health removed (publishing pipeline retired).
-    # Health now reflects ONLY things we actually run: ffmpeg, rembg, LLM key.
-
     issues = []
     if not ffmpeg_ok:
-        issues.append("Video rendering offline")
+        issues.append("Slideshow video rendering offline (ffmpeg missing)")
     if not llm_key_ok:
         issues.append("AI key missing")
     if not rembg.get("model_ready"):
         issues.append("Background removal warming up")
 
-    if not ffmpeg_ok or not llm_key_ok:
+    # Only LLM key drives "red" — without it, no AI features work at all.
+    if not llm_key_ok:
         level = "red"
     elif issues:
         level = "yellow"

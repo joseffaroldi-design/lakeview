@@ -1048,3 +1048,66 @@ Goal: Instrument the AI Designer to measure abandonment **before** building prog
 
 ### Backlog (P2 — explicitly on hold)
 - Sprint 12E (collection consolidation), Sprint 12F (stateless JWT migration), `AiDesigner.jsx` refactor into subcomponents.
+
+
+## Sprint 15 + 15B — Audit + Carcass Removal (Feb 22, 2026)
+
+### Sprint 15: Zero-BS Platform Audit
+- Read-only audit produced `/app/SPRINT_15_AUDIT.md`.
+- Identified Top 20 bugs, 20 dead-code candidates, 10 duplicates, 10 UX friction points.
+- Overall production readiness scored **56/100** pre-cleanup.
+
+### Sprint 15B: Carcass Removal + 3 HIGH bug fixes
+
+**HIGH bugs fixed:**
+1. **Route-aware error toast** (`frontend/src/index.js`) — 5xx no longer pops a global "Server error" toast on the public site; admin-only routes still show context (URL + status code).
+2. **admin_sessions TTL + cleanup** (`backend/auth.py`, `backend/server.py`) — `expires_at` now stored as native BSON Date; TTL index `as_ttl` created; startup bulk-cleanup ran once (412 expired → 27 active).
+3. **Dashboard health pill** (`backend/routers/home.py`) — ffmpeg/rembg no longer drive "red" level (they're optional subsystems used only by Marketing Pack slideshow + AI Designer cutout). Only missing LLM key triggers red.
+
+**Code deleted (~1,800 LOC + 4 collections + 13 endpoints):**
+
+Frontend:
+- `frontend/src/pages/dashboard/aiads/MediaStudio.jsx` (622 LOC) — orphan
+- `frontend/src/pages/dashboard/aiads/ImageEditor.jsx` (388 LOC) — only imported by MediaStudio
+
+Backend routers:
+- `backend/routers/media/ai_image.py` — deleted (POST /media/ai-image, GET /media/ai-image/job/{id})
+- `backend/routers/media/video.py` — deleted (POST /media/video/render, GET /media/video/jobs, GET /media/video/jobs/{id})
+- `backend/routers/media/edit.py` — deleted (POST /media/edit)
+- `backend/routers/media/export.py` — deleted (POST /media/export-social, GET /media/social-formats)
+- `backend/routers/ai_ads.py` rewritten 471→67 LOC; kept only `GET /ai-ads/stats` (HomeTab KPIs). Removed: /templates, /generate/{kind}, /assets (GET/POST/PUT/DELETE/duplicate/bulk/export).
+- `backend/routers/ai_designer.py`: removed `POST /from-template/{id}`.
+- `backend/routers/misc.py`: removed `POST /upload-image` (superseded by /media/upload).
+- `backend/routers/media/__init__.py` + `health.py` + `assets.py` updated to drop references to dead collections.
+- `backend/server.py` updated to remove `cleanup_orphan_render_jobs` + `cleanup_orphan_ai_image_jobs` hooks and dead-collection indexes; added `as_ttl` and one-time session cleanup.
+
+Collections dropped:
+- `ai_image_jobs` (18 docs)
+- `render_jobs` (38 docs)
+- `ai_design_templates` (0 docs — will auto-recreate empty on first save)
+- `button_clicks` (1 doc)
+
+### Validation results — Sprint 15B
+- ✅ Backend boots clean, lint clean, all indexes ensured.
+- ✅ All **13 deleted routes return 404** under curl.
+- ✅ All **18 retained routes return 200** (verified: auth, home, ai-designer themes/templates/jobs/recent, today's pick, media/assets/stats/health, marketing-pack, loyalty, messages/history, billing/status, ai-ads/stats).
+- ✅ Public site: no "Server error" toast even with deliberate API 404s (route gating works).
+- ✅ New session stored with native `expires_at` Date; TTL index `as_ttl` confirmed live.
+- ✅ admin_sessions: 439 → 27 (412 expired purged on startup).
+- ✅ Today's Pick: returns "Chicken Wings (6)".
+- ✅ AI Designer: 5 themes, 5 recent jobs.
+- ✅ HomeTab KPIs intact (`ads_generated: 42`, `most_used_goal: "Promote Menu Item"`).
+
+### Known follow-ups surfaced but NOT actioned
+- `HomeTab.jsx:91` calls `/api/catering-inquiries` but the actual route is `/api/catering/inquiries` — pre-existing 404 swallowed by `Promise.allSettled`. Out of Sprint 15B scope.
+- `server.py:66-67` still has dead `SCHEDULER_INTERVAL_SECONDS` + `_scheduler_task = None` globals from Sprint 12D (2 lines, harmless).
+- 9 of 10 audit's Top 20 bugs still open (admin_sessions TTL, route-aware toast, health pill fixed = 3 of 20).
+
+### Backlog (carry forward)
+- Sprint 14B.3: `mailto:` on inquiries, save copy with AI Designer jobs (Recent Designs reuse), consolidate Promote tabs.
+- Switch default LLM to Claude 4.6 Sonnet.
+- Address remaining 17 audit bugs (poll interval, public site analytics throttling, ai_designer.jsx 1,071 LOC monolith, etc.).
+
+### On hold (explicit user mandate)
+- Sprint 14B.2 (progress bars / ETA) — pending 14 days of Sprint 14B.1A abandonment data.
+- Sprint 12E (collection consolidation), Sprint 12F (stateless JWT migration), AiDesigner refactor.

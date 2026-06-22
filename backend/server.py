@@ -87,11 +87,7 @@ async def on_startup():
         await db.media_assets.create_index("id", name="media_id", unique=True, sparse=True)
         # Sprint 12C: route /api/ai-ads/assets to media_assets via source filter
         await db.media_assets.create_index([("source", 1), ("created_at", -1)], name="media_source_created")
-        await db.render_jobs.create_index([("status", 1), ("created_at", -1)], name="render_status_created")
-        await db.render_jobs.create_index("id", name="render_id", unique=True, sparse=True)
-        # ai_image_jobs: AI image generation polling (Cloudflare bypass)
-        await db.ai_image_jobs.create_index([("status", 1), ("created_at", -1)], name="aij_status_created")
-        await db.ai_image_jobs.create_index("id", name="aij_id", unique=True, sparse=True)
+        # Sprint 15B: render_jobs and ai_image_jobs indexes removed (collections dropped).
         # ai_design_jobs: AI Designer themed variations
         await db.ai_design_jobs.create_index([("status", 1), ("created_at", -1)], name="adj_status_created")
         await db.ai_design_jobs.create_index("id", name="adj_id", unique=True, sparse=True)
@@ -108,6 +104,9 @@ async def on_startup():
         await db.page_views.create_index("expires_at", name="pv_ttl", expireAfterSeconds=0)
         # Sprint 12C — Task 5: ai_generations retained 90 days for /api/ai-ads/stats analytics
         await db.ai_generations.create_index("expires_at", name="gens_ttl", expireAfterSeconds=0)
+        # Sprint 15B: admin_sessions TTL. New rows write native BSON `expires_at`;
+        # legacy ISO-string `expires` rows are bulk-cleaned below.
+        await db.admin_sessions.create_index("expires_at", name="as_ttl", expireAfterSeconds=0)
         logger.info("MongoDB indexes ensured on hot collections")
     except Exception as e:  # noqa: BLE001
         logger.warning("Index creation skipped: %s", e)
@@ -116,11 +115,10 @@ async def on_startup():
 
     # ---- 7. Clean up orphan media jobs left behind by a previous worker
     try:
-        from routers.media import cleanup_orphan_render_jobs, cleanup_orphan_ai_image_jobs
+        # Sprint 15B: cleanup_orphan_render_jobs + cleanup_orphan_ai_image_jobs deleted
+        # along with /media/video and /media/ai-image routes.
         from routers.marketing_pack import cleanup_orphan_marketing_packs
         from routers.ai_designer import cleanup_orphan_ai_design_jobs
-        await cleanup_orphan_render_jobs()
-        await cleanup_orphan_ai_image_jobs()
         await cleanup_orphan_marketing_packs()
         await cleanup_orphan_ai_design_jobs()
     except Exception as e:  # noqa: BLE001
@@ -133,7 +131,15 @@ async def on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("TTL backfill skipped: %s", e)
 
-    # ---- 7b. Initialize Emergent Object Storage (off the event loop)
+    # ---- 7b. Sprint 15B: bulk-delete expired admin_sessions (legacy ISO-string `expires`).
+    try:
+        deleted = await auth.cleanup_expired_sessions()
+        if deleted:
+            logger.info("Cleaned up %d expired admin_sessions", deleted)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Session cleanup skipped: %s", e)
+
+    # ---- 7c. Initialize Emergent Object Storage (off the event loop)
     try:
         import storage as objstore
         await asyncio.to_thread(objstore.init_storage)

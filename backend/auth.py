@@ -26,7 +26,8 @@ async def verify_session(authorization: str = None, session_token: str = Cookie(
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    expires_at = session.get("expires")
+    # Sprint 15B: prefer native BSON `expires_at`; fall back to legacy ISO-string `expires`.
+    expires_at = session.get("expires_at") or session.get("expires")
     if isinstance(expires_at, str):
         expires_at = datetime.fromisoformat(expires_at)
     if expires_at and expires_at.tzinfo is None:
@@ -39,6 +40,22 @@ async def verify_session(authorization: str = None, session_token: str = Cookie(
     return True
 
 
+async def cleanup_expired_sessions() -> int:
+    """Sprint 15B: Bulk-delete expired admin_sessions. Handles both native Date
+    `expires_at` and legacy ISO-string `expires`. Returns number deleted.
+    Called once on startup; the TTL index handles future expirations.
+    """
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    r = await db.admin_sessions.delete_many({
+        "$or": [
+            {"expires_at": {"$lt": now}},
+            {"expires": {"$lt": now_iso}},   # legacy string compare (ISO-8601 sorts lexically)
+        ]
+    })
+    return r.deleted_count
+
+
 @router.post("/login")
 @limiter.limit("10/minute")
 async def login(request: Request, data: LoginRequest, response: Response):
@@ -46,12 +63,14 @@ async def login(request: Request, data: LoginRequest, response: Response):
         raise HTTPException(status_code=401, detail="Invalid password")
 
     session_token = secrets.token_urlsafe(32)
-    expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(hours=24)
 
+    # Sprint 15B: Store expires_at as native BSON Date so the TTL index can reap it.
     await db.admin_sessions.insert_one({
         "token": session_token,
-        "created": datetime.now(timezone.utc).isoformat(),
-        "expires": expires.isoformat()
+        "created_at": now,
+        "expires_at": expires,
     })
 
     response.set_cookie(
