@@ -1014,3 +1014,37 @@ The fix is in preview only. User must redeploy. After deploy:
 ### Test IDs added
 `designer-variations-count`, `designer-full-preview-{variant}`, `designer-download-{variant}`, `designer-use-{variant}`, `designer-card-copy-{variant}`, `designer-thumb-{variant}`, `designer-full-preview-modal`, `designer-preview-title`, `designer-preview-zoom-in`, `designer-preview-zoom-out`, `designer-preview-zoom-level`, `designer-preview-close`, `designer-preview-download`, `designer-preview-use`, `designer-preview-copy`.
 
+
+
+## Sprint 14B.1A — AI Designer Abandonment Tracking (Feb 22, 2026)
+
+Goal: Instrument the AI Designer to measure abandonment **before** building progress-bar UI (per user mandate: collect 14 days of data first).
+
+### What was implemented
+- Wired `aiDesignerAnalytics.js` helpers into `AiDesigner.jsx`:
+  - `markGenerationStarted` fires on Generate click (with `item_name`, `theme`, `auto_copy`, `job_id`).
+  - `markGenerationCompleted` fires when the polling job reaches `completed` (with `duration_seconds`).
+  - `markGenerationAbandoned` fires on: component unmount with active job, `Start Over` mid-flight, user cancel, generation failure, `beforeunload`, and tab hidden >60s.
+  - `checkAndResumeGeneration` runs on mount — if `localStorage.ai_designer_active` shows a <10-min-old job, emits `ai_designer_generation_resumed`.
+
+### Backend
+- No backend changes. Events post to existing `POST /api/todays-pick/analytics`, stored in `usage_analytics`.
+
+### Files touched
+- `/app/frontend/src/pages/dashboard/aiads/AiDesigner.jsx` — imports + lifecycle effect + wrapped `onJobStarted` / `onCompleted` / `onFailed` / `onCancel` / `startOver`.
+- Designer `submit()` now passes `{item_name, theme, auto_copy}` as third arg to `onJobStarted`.
+
+### Verified
+- ✅ Lint clean on both files.
+- ✅ Curl test: all 4 events (`started`, `abandoned`, `completed`, `resumed`) post 200 and persist to `usage_analytics` with correct `event` + `metadata`.
+
+### Known limitation
+- `beforeunload` uses `navigator.sendBeacon` without auth headers (cookies-only). Will succeed when `session_token` cookie is present, may fail otherwise. In-app navigation/cancel/unmount paths use authenticated axios and are reliable.
+
+### Backlog (P1 — held until 14B.1A data is reviewed)
+- Sprint 14B.2: Real progress tracker, ETA, background generation — **DO NOT BUILD** without owner go-ahead post analytics review.
+- Sprint 14B.3: `mailto:` links on inquiries, save copy with AI Designer jobs (Recent Designs reuse), consolidate Promote tabs.
+- Switch default LLM to Claude 4.6 Sonnet (older deferred request).
+
+### Backlog (P2 — explicitly on hold)
+- Sprint 12E (collection consolidation), Sprint 12F (stateless JWT migration), `AiDesigner.jsx` refactor into subcomponents.

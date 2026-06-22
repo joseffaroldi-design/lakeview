@@ -20,6 +20,14 @@ import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { API, Section } from "./shared";
 import StructuredErrorCard, { parseAxiosError } from "./StructuredErrorCard";
+import {
+  markGenerationStarted,
+  markGenerationCompleted,
+  markGenerationAbandoned,
+  checkAndResumeGeneration,
+  setupAbandonmentDetection,
+  hasActiveGeneration,
+} from "./aiDesignerAnalytics";
 
 const POLL_MS = 4000;
 const POLL_TIMEOUT_MS = 6 * 60 * 1000;
@@ -234,7 +242,11 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
         theme: picked[0],
         auto_copy: autoCopy,
       }, { headers: getAuthHeader(), timeout: 30000 });
-      onJobStarted(r.data.job_id, [picked[0]]);
+      onJobStarted(r.data.job_id, [picked[0]], {
+        item_name: name.trim(),
+        theme: picked[0],
+        auto_copy: autoCopy,
+      });
     } catch (e) {
       setError(parseAxiosError(e));
       setShowConfirm(false);
@@ -1069,7 +1081,26 @@ const AiDesigner = ({ getAuthHeader }) => {
 
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
+  // Sprint 14B.1A: Abandonment analytics — measure before optimizing.
+  useEffect(() => {
+    // Detect any in-flight generation from a previous session and emit a resumed event.
+    checkAndResumeGeneration(getAuthHeader);
+    // Listen for page unload / tab switch.
+    const teardown = setupAbandonmentDetection(getAuthHeader);
+    return () => {
+      // If the user navigates away from the AI Designer mid-generation, log as abandoned.
+      if (hasActiveGeneration()) {
+        markGenerationAbandoned("component_unmount", getAuthHeader);
+      }
+      teardown();
+    };
+  }, [getAuthHeader]);
+
   const startOver = () => {
+    // If the owner restarts mid-generation, log it as abandonment too.
+    if (hasActiveGeneration() && step !== "review") {
+      markGenerationAbandoned("start_over", getAuthHeader);
+    }
     setStep("pick"); setAsset(null); setJobId(null); setCompletedJob(null); setError(null);
     setInitialValues(null);
     setReopenedFromRail(false);
@@ -1144,7 +1175,10 @@ const AiDesigner = ({ getAuthHeader }) => {
           templates={templates}
           initialValues={initialValues}
           onBack={() => setStep("pick")}
-          onJobStarted={(jid, themes) => { setJobId(jid); setExpectedCount(themes.length); setStep("progress"); }}
+          onJobStarted={(jid, themes, formContext) => {
+            setJobId(jid); setExpectedCount(themes.length); setStep("progress");
+            markGenerationStarted({ job_id: jid }, formContext || {}, getAuthHeader);
+          }}
         />
       )}
       {step === "progress" && jobId && (
@@ -1152,9 +1186,18 @@ const AiDesigner = ({ getAuthHeader }) => {
           getAuthHeader={getAuthHeader}
           jobId={jobId}
           expectedCount={expectedCount}
-          onCompleted={(j) => { setCompletedJob(j); setStep("review"); }}
-          onFailed={(err) => { setError(err); setStep("form"); }}
-          onCancel={() => setStep("form")}
+          onCompleted={(j) => {
+            markGenerationCompleted(j, getAuthHeader);
+            setCompletedJob(j); setStep("review");
+          }}
+          onFailed={(err) => {
+            markGenerationAbandoned("generation_failed", getAuthHeader);
+            setError(err); setStep("form");
+          }}
+          onCancel={() => {
+            markGenerationAbandoned("user_cancel", getAuthHeader);
+            setStep("form");
+          }}
         />
       )}
       {step === "review" && completedJob && (
