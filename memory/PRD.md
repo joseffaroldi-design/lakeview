@@ -970,3 +970,47 @@ The fix is in preview only. User must redeploy. After deploy:
 **LOC delta**: backend +~60, frontend +~150.
 
 **Components added**: `RecentDesignsRail`, `formatRelative` helper. `Designer` extended with optional `initialValues` prop. `Review` extended with optional `fromRecent` prop (defaults copy panel to hidden when reopened).
+
+---
+
+## Sprint 13D — Food-Preserving PIL Pipeline + Full Preview Modal (Feb 2026)
+
+**Three P0 goals — all met.**
+
+### 1. Full-screen Preview Modal
+- New `FullPreviewModal` component: lightbox overlay, scroll-to-zoom (50–400 %), drag-to-pan when zoomed, keyboard `+`/`-`/`0`/`Esc` shortcuts.
+- Per-card buttons added on every design: **Full Preview**, **Download**, **Use Design** (save as winner template), **Generate Copy** (jumps to the existing CopyPackPanel). Clicking the thumbnail also opens the modal.
+- Modal footer actions: Download · Select as Winner · Generate Copy · Close.
+
+### 2. Exactly 3 variations per run
+- Backend: `GenerateRequest.themes: List` retired in favor of `theme: str` (single). The job always produces 3 variations with layouts **centered**, **asym_left**, **stacked** — A/B/C labels.
+- Frontend: theme picker became a single-select radio. Variation count selector removed. Form copy: "pick one — you'll get 3 variations".
+
+### 3. Original food photo preserved pixel-perfect
+- **Major pivot**: Replaced gpt-image-1 image-edit with deterministic PIL composition. Reason: gpt-image-1 stubbornly hallucinates rogue "$9.99" price badges and other text into restaurant-themed backgrounds despite every guardrail we tried (no-text prompts, no-restaurant priming, halos, Gaussian blur).
+- New `_pil_background(theme_id, variant_idx)` renders deterministic decorative wallpapers per theme × variant (5 themes × 3 layout/pattern variants = 15 unique backgrounds, all pure PIL).
+- `_prepare_food_cutout()` now uses `rembg` then **crops to the food's actual bounding box** before scaling — so the food always occupies ~55 % of the canvas, regardless of how much empty space the source photo had.
+- `_compose_design()` does the layout: title (top), food (center, with drop-shadow), bullets (theme-styled markers), price badge (circle, theme colors), restaurant branding footer.
+
+### Cost impact
+- **Designs are FREE.** No LLM image calls. Each variation is 100 % PIL.
+- Only optional auto-copy still calls the LLM (~$0.001).
+- Estimate route now returns `total_cost_usd: 0.0` + `with_copy_cost_usd: 0.001`.
+
+### Bug fixed during sprint
+- `_olive_branch` PIL helper crashed on odd-indexed leaves because `leaf_dx`/`leaf_dy` flipped negative, producing `x1<x0` bounding boxes. Normalized bbox before calling `ellipse()`.
+
+### Verified PASS
+- All 5 themes × 3 variants = 15/15 successful runs on real and fake food photos.
+- Visual review: Smash Burger title (theme serif/sans), 5 bullet markers (•/*/—/>/+ — ASCII for cross-font safety), $20.95 gold/red/navy/yellow price badge, branding footer all rendering cleanly.
+- Food in final graphic is pixel-identical to upload (verified by inspecting a fake burger drawn by PIL and round-tripping through the pipeline).
+- ZERO rogue text / prices / labels appearing anywhere in any background.
+- Full preview modal: title rendered, zoom in/out works (100% → 150% → close).
+
+### Files touched
+- `/app/backend/routers/ai_designer.py` — full rewrite (~600 lines): new schemas, PIL bg primitives, composer, food-bbox crop.
+- `/app/frontend/src/pages/dashboard/aiads/AiDesigner.jsx` — added `FullPreviewModal`, single-select theme UI, "Generate 3 designs" CTA, free-cost estimate row, per-card 4-button grid, modal mount.
+
+### Test IDs added
+`designer-variations-count`, `designer-full-preview-{variant}`, `designer-download-{variant}`, `designer-use-{variant}`, `designer-card-copy-{variant}`, `designer-thumb-{variant}`, `designer-full-preview-modal`, `designer-preview-title`, `designer-preview-zoom-in`, `designer-preview-zoom-out`, `designer-preview-zoom-level`, `designer-preview-close`, `designer-preview-download`, `designer-preview-use`, `designer-preview-copy`.
+

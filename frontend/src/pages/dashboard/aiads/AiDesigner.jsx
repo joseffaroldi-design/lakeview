@@ -153,7 +153,7 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
   const [featuresText, setFeaturesText] = useState((init.features || []).join("\n"));
   const [price, setPrice] = useState(init.price || "");
   const [quality, setQuality] = useState(init.quality || "medium");
-  const [picked, setPicked] = useState(init.themes && init.themes.length ? init.themes : ["luxury", "modern"]);
+  const [picked, setPicked] = useState(init.themes && init.themes.length ? [init.themes[0]] : ["modern"]);
   const [autoCopy, setAutoCopy] = useState(true);
   const [estimate, setEstimate] = useState(null);
   const [estimating, setEstimating] = useState(false);
@@ -177,34 +177,33 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
   };
   const features = parseFeatures(featuresText);
 
-  // Load themes
+  // Load themes once on mount. `getAuthHeader` identity may change on each parent
+  // render, so we intentionally exclude it from deps to avoid an infinite fetch loop
+  // that would keep cancelling itself before the response lands.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let cancelled = false;
     axios.get(`${API}/ai-designer/themes`, { headers: getAuthHeader() })
       .then((r) => { if (!cancelled) { setThemes(r.data.themes || []); setThemesLoading(false); } })
       .catch((e) => { if (!cancelled) { setError(parseAxiosError(e)); setThemesLoading(false); } });
     return () => { cancelled = true; };
-  }, [getAuthHeader]);
+  }, []);
 
-  // Refresh estimate when themes or quality change
+  // Refresh estimate when theme or quality change (Sprint 13D: single theme, always 3 variations)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let cancelled = false;
     if (picked.length === 0) { setEstimate(null); return; }
     setEstimating(true);
-    axios.post(`${API}/ai-designer/estimate`, { themes: picked, quality }, { headers: getAuthHeader() })
+    axios.post(`${API}/ai-designer/estimate`, { theme: picked[0], quality }, { headers: getAuthHeader() })
       .then((r) => { if (!cancelled) setEstimate(r.data); })
       .catch(() => { /* non-fatal */ })
       .finally(() => { if (!cancelled) setEstimating(false); });
     return () => { cancelled = true; };
-  }, [picked, quality, getAuthHeader]);
+  }, [picked, quality]);
 
-  const togglePick = (themeId) => {
-    setPicked((prev) => {
-      if (prev.includes(themeId)) return prev.filter((t) => t !== themeId);
-      if (prev.length >= 5) return prev;
-      return [...prev, themeId];
-    });
-  };
+  // Sprint 13D: theme is now single-select (was multi-pick). Always exactly 3 variations.
+  const togglePick = (themeId) => setPicked([themeId]);
 
   // Auto-convert pasted text into bullets
   const handleFeaturesChange = (val) => {
@@ -234,11 +233,11 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
         item_name: name.trim(),
         features,
         price: price.trim() || null,
-        themes: picked,
+        theme: picked[0],
         quality,
         auto_copy: autoCopy,
       }, { headers: getAuthHeader(), timeout: 30000 });
-      onJobStarted(r.data.job_id, picked);
+      onJobStarted(r.data.job_id, [picked[0]]);
     } catch (e) {
       setError(parseAxiosError(e));
       setShowConfirm(false);
@@ -323,57 +322,37 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
+          <div>
               <label className="block text-xs font-semibold text-navy mb-1">Price</label>
               <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$20.95" className="border-navy/20" data-testid="designer-price" />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-1">Quality</label>
-              <select
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                className="w-full px-3 py-2 border border-navy/20 rounded-sm text-sm bg-card"
-                data-testid="designer-quality"
-              >
-                <option value="low">{QUALITY_LABEL.low}</option>
-                <option value="medium">{QUALITY_LABEL.medium}</option>
-                <option value="high">{QUALITY_LABEL.high}</option>
-              </select>
-            </div>
-          </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-navy">Themes <span className="text-muted-foreground font-normal">(pick 1–5)</span></label>
-              <span className="text-[11px] text-muted-foreground">{picked.length} of 5 selected</span>
+              <label className="text-xs font-semibold text-navy">
+                Theme <span className="text-muted-foreground font-normal">(pick one — you&apos;ll get 3 variations)</span>
+              </label>
+              <span className="text-[11px] text-muted-foreground" data-testid="designer-variations-count">
+                3 variations × free
+              </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="designer-themes">
               {themes.map((t) => (
-                <ThemeCard key={t.id} theme={t} selected={picked.includes(t.id)} onToggle={() => togglePick(t.id)} />
+                <ThemeCard key={t.id} theme={t} selected={picked[0] === t.id} onToggle={() => togglePick(t.id)} />
               ))}
             </div>
           </div>
 
           {estimate && (
             <div
-              className={`p-2.5 rounded-md text-xs flex items-center justify-between gap-2 ${
-                estimate.would_exceed_balance
-                  ? "bg-red-50 border border-red-200 text-red-800"
-                  : estimate.tier === "low" || estimate.tier === "critical"
-                  ? "bg-amber-50 border border-amber-200 text-amber-800"
-                  : "bg-cream border border-gold/30 text-navy"
-              }`}
+              className="p-2.5 rounded-md text-xs flex items-center justify-between gap-2 bg-cream border border-gold/30 text-navy"
               data-testid="designer-estimate"
             >
               <span>
-                <strong>Est. cost: ${estimate.total_cost_usd.toFixed(3)}</strong>
-                <span className="text-muted-foreground ml-1">
-                  ({picked.length} × ${estimate.per_image_cost_usd.toFixed(3)})
-                </span>
-                {estimating ? <Loader2 className="inline w-3 h-3 ml-1 animate-spin" /> : null}
+                <strong>3 designs · FREE</strong>
+                <span className="text-muted-foreground ml-1">(PIL composition — no LLM image cost)</span>
               </span>
-              <span className="text-[11px] font-medium">Balance: ${estimate.current_balance_usd.toFixed(2)}</span>
+              {autoCopy ? <span className="text-[11px] font-medium">+ copy ~${estimate.with_copy_cost_usd?.toFixed(3) ?? "0.001"}</span> : null}
             </div>
           )}
 
@@ -402,14 +381,12 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
             </Button>
             <Button
               onClick={() => setShowConfirm(true)}
-              disabled={submitting || picked.length === 0 || !name.trim() || (estimate && estimate.would_exceed_balance)}
+              disabled={submitting || picked.length === 0 || !name.trim()}
               className="bg-gold text-navy hover:bg-gold/90 flex-1"
               data-testid="designer-generate-btn"
             >
               {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              {estimate && estimate.would_exceed_balance
-                ? "Not enough balance — top up"
-                : `Generate ${picked.length} design${picked.length === 1 ? "" : "s"}`}
+              Generate 3 designs
             </Button>
           </div>
         </div>
@@ -427,17 +404,21 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
               <Sparkles className="w-5 h-5 text-gold" /> Confirm generation
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              You&apos;re about to generate <strong>{picked.length}</strong> design{picked.length === 1 ? "" : "s"} ({pickedLabels()})
-              at <strong>{quality}</strong> quality.
+              You&apos;re about to generate <strong>3 design variations</strong> using the <strong>{pickedLabels()}</strong> theme.
+              Layouts: <em>centered</em>, <em>side-by-side</em>, and <em>stacked</em>.
             </p>
             <div className="bg-card border-2 border-navy/10 rounded-md p-3 mb-4 text-sm">
-              <div className="flex justify-between"><span>Per image</span><span className="font-mono">${estimate.per_image_cost_usd.toFixed(3)}</span></div>
-              <div className="flex justify-between"><span>Variations</span><span className="font-mono">× {picked.length}</span></div>
-              <div className="flex justify-between border-t border-navy/10 pt-2 mt-2 font-semibold"><span>Total</span><span className="font-mono">${estimate.total_cost_usd.toFixed(3)}</span></div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1"><span>Balance after</span><span>${(estimate.current_balance_usd - estimate.total_cost_usd).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>3 designs (PIL composition)</span><span className="font-mono text-green-700">FREE</span></div>
+              {autoCopy ? (
+                <div className="flex justify-between text-xs text-muted-foreground"><span>+ marketing copy</span><span className="font-mono">~${estimate.with_copy_cost_usd?.toFixed(3) ?? "0.001"}</span></div>
+              ) : null}
+              <div className="flex justify-between border-t border-navy/10 pt-2 mt-2 font-semibold">
+                <span>Total</span>
+                <span className="font-mono">${autoCopy ? (estimate.with_copy_cost_usd?.toFixed(3) ?? "0.001") : "0.000"}</span>
+              </div>
             </div>
             <p className="text-[11px] text-muted-foreground mb-4 italic">
-              Each design takes ~30–90 seconds. You can leave this page; results land in your Library when done.
+              Your uploaded food photo will be preserved pixel-for-pixel. Each variation takes ~3 seconds.
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowConfirm(false)} className="flex-1" data-testid="designer-confirm-cancel">Cancel</Button>
@@ -531,6 +512,116 @@ const Progress = ({ getAuthHeader, jobId, onCompleted, onFailed, onCancel, expec
 
 
 // ---------- Step 4: Review ------------------------------------------------
+
+// Full-screen lightbox with zoom (wheel + buttons) + pan (drag) + actions.
+const FullPreviewModal = ({ open, assetUrl, theme, variant, onClose, onDownload, onUse, onCopy, useSaved, isSaving }) => {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [drag, setDrag] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setZoom(1); setPan({ x: 0, y: 0 });
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "+") setZoom((z) => Math.min(4, z + 0.25));
+      else if (e.key === "-") setZoom((z) => Math.max(0.5, z - 0.25));
+      else if (e.key === "0") { setZoom(1); setPan({ x: 0, y: 0 }); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const onWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.15 : 0.15;
+    setZoom((z) => Math.min(4, Math.max(0.5, z + delta)));
+  };
+  const onMouseDown = (e) => {
+    if (zoom <= 1) return;
+    setDrag({ sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y });
+  };
+  const onMouseMove = (e) => {
+    if (!drag) return;
+    setPan({ x: drag.ox + (e.clientX - drag.sx), y: drag.oy + (e.clientY - drag.sy) });
+  };
+  const stopDrag = () => setDrag(null);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/90 flex flex-col"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      data-testid="designer-full-preview-modal"
+    >
+      <div className="flex items-center justify-between p-3 text-white bg-black/40">
+        <div>
+          <p className="text-sm font-semibold" data-testid="designer-preview-title">{theme} · Variation {variant}</p>
+          <p className="text-[11px] text-white/60">Scroll to zoom · Drag to pan · Press 0 to reset</p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white" data-testid="designer-preview-zoom-out">−</button>
+          <span className="text-xs text-white/70 w-12 text-center" data-testid="designer-preview-zoom-level">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom((z) => Math.min(4, z + 0.25))} className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white" data-testid="designer-preview-zoom-in">+</button>
+          <button
+            onClick={onClose}
+            className="ml-3 inline-flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs text-white"
+            data-testid="designer-preview-close"
+          >
+            <X className="w-3 h-3" /> Close
+          </button>
+        </div>
+      </div>
+      <div
+        className="flex-1 overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+        onWheel={onWheel}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={stopDrag}
+        onMouseLeave={stopDrag}
+        data-testid="designer-preview-stage"
+      >
+        <img
+          src={assetUrl}
+          alt={`Variation ${variant}`}
+          draggable={false}
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transition: drag ? "none" : "transform 0.15s ease-out",
+            maxHeight: "100%", maxWidth: "100%",
+          }}
+        />
+      </div>
+      <div className="flex flex-wrap gap-2 p-3 bg-black/40 justify-center">
+        <a
+          href={assetUrl}
+          download
+          className="inline-flex items-center gap-1 bg-gold text-navy text-xs font-semibold py-2 px-3 rounded hover:bg-gold/90"
+          data-testid="designer-preview-download"
+        >
+          <Download className="w-3.5 h-3.5" /> Download
+        </a>
+        <button
+          onClick={onUse}
+          disabled={isSaving || useSaved}
+          className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white text-xs font-semibold py-2 px-3 rounded"
+          data-testid="designer-preview-use"
+        >
+          {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : useSaved ? <Check className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
+          {useSaved ? "Saved as winner" : isSaving ? "Saving…" : "Select as Winner"}
+        </button>
+        <button
+          onClick={onCopy}
+          className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 px-3 rounded"
+          data-testid="designer-preview-copy"
+        >
+          <Sparkles className="w-3.5 h-3.5" /> Generate Copy
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // Small helper: copy a string to clipboard and flash "Copied!" state.
 const useCopier = () => {
@@ -644,10 +735,8 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates, fromRecent
   const [savingIdx, setSavingIdx] = useState(null);
   const [savedIdxs, setSavedIdxs] = useState({});
   const [copyPack, setCopyPack] = useState(job.copy_pack || null);
-  // Default-show copy panel only on fresh jobs (auto-copy users expect to see results
-  // immediately). When reopened from the Recent rail, show the "View Existing Copy"
-  // button instead — matches the Sprint 13C spec.
   const [showCopy, setShowCopy] = useState(Boolean(job.copy_pack) && !fromRecent);
+  const [previewIdx, setPreviewIdx] = useState(null);
   const [generatingCopy, setGeneratingCopy] = useState(false);
   const [copyError, setCopyError] = useState(null);
 
@@ -699,22 +788,39 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates, fromRecent
 
   return (
     <div className="space-y-4" data-testid="designer-step-review">
-      <Section title="Your designs are ready" icon={Wand2} testId="designer-review">
+      <Section title="Your 3 designs are ready" icon={Wand2} testId="designer-review">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {successes.map((v) => {
             const actualIdx = (job.variations || []).indexOf(v);
+            const assetUrl = `${API}/media/file/${v.asset_id}`;
             return (
-              <div key={v.asset_id} className="rounded-md overflow-hidden border-2 border-navy/10 bg-card" data-testid={`designer-result-${v.theme}`}>
-                <img src={`${API}/media/file/${v.asset_id}`} alt={v.theme_label} className="w-full aspect-square object-cover" />
+              <div key={v.asset_id} className="rounded-md overflow-hidden border-2 border-navy/10 bg-card" data-testid={`designer-result-${v.variant || v.theme}`}>
+                <button
+                  type="button"
+                  onClick={() => setPreviewIdx(actualIdx)}
+                  className="block w-full focus:outline-none focus:ring-2 focus:ring-gold"
+                  data-testid={`designer-thumb-${v.variant || v.theme}`}
+                  title="Click for full-screen preview"
+                >
+                  <img src={assetUrl} alt={`${v.theme_label} variation ${v.variant || ""}`} className="w-full aspect-square object-cover" />
+                </button>
                 <div className="p-2.5">
-                  <p className="text-sm font-semibold text-navy">{v.theme_label}</p>
-                  <p className="text-[10px] text-muted-foreground mb-2">${(v.cost_usd || 0).toFixed(3)}</p>
-                  <div className="flex gap-1.5">
+                  <p className="text-sm font-semibold text-navy">{v.theme_label} {v.variant ? `· ${v.variant}` : ""}</p>
+                  <p className="text-[10px] text-muted-foreground mb-2">{v.layout || "design"} layout · free</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewIdx(actualIdx)}
+                      className="inline-flex items-center justify-center gap-1 border border-navy/20 text-navy text-xs font-semibold py-1.5 px-2 rounded hover:bg-navy/5"
+                      data-testid={`designer-full-preview-${v.variant || v.theme}`}
+                    >
+                      <ImageIcon className="w-3 h-3" /> Full Preview
+                    </button>
                     <a
-                      href={`${API}/media/file/${v.asset_id}`}
+                      href={assetUrl}
                       download
-                      className="flex-1 inline-flex items-center justify-center gap-1 bg-gold text-navy text-xs font-semibold py-1.5 px-2 rounded hover:bg-gold/90"
-                      data-testid={`designer-download-${v.theme}`}
+                      className="inline-flex items-center justify-center gap-1 bg-gold text-navy text-xs font-semibold py-1.5 px-2 rounded hover:bg-gold/90"
+                      data-testid={`designer-download-${v.variant || v.theme}`}
                     >
                       <Download className="w-3 h-3" /> Download
                     </a>
@@ -723,14 +829,23 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates, fromRecent
                       onClick={() => saveAsTemplate(actualIdx)}
                       disabled={savingIdx === actualIdx || savedIdxs[actualIdx]}
                       className="inline-flex items-center justify-center gap-1 border border-navy/20 text-navy text-xs font-semibold py-1.5 px-2 rounded hover:bg-navy/5 disabled:opacity-50"
-                      data-testid={`designer-save-template-${v.theme}`}
-                      title="Save as reusable template"
+                      data-testid={`designer-use-${v.variant || v.theme}`}
+                      title="Save as winner / reusable template"
                     >
                       {savedIdxs[actualIdx]
-                        ? <><Bookmark className="w-3 h-3" /> Saved</>
+                        ? <><Check className="w-3 h-3" /> Used</>
                         : savingIdx === actualIdx
                         ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <><BookmarkPlus className="w-3 h-3" /> Save</>}
+                        : <><BookmarkPlus className="w-3 h-3" /> Use Design</>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { if (!copyPack) generateCopy(); setShowCopy(true); setTimeout(() => { document.querySelector('[data-testid="designer-copy-section"]')?.scrollIntoView({ behavior: 'smooth' }); }, 100); }}
+                      disabled={generatingCopy}
+                      className="inline-flex items-center justify-center gap-1 border border-navy/20 text-navy text-xs font-semibold py-1.5 px-2 rounded hover:bg-navy/5 disabled:opacity-50"
+                      data-testid={`designer-card-copy-${v.variant || v.theme}`}
+                    >
+                      {generatingCopy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Copy
                     </button>
                   </div>
                 </div>
@@ -775,6 +890,21 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates, fromRecent
           <CopyPackPanel copyPack={copyPack} />
         </Section>
       ) : null}
+
+      {previewIdx !== null && (job.variations || [])[previewIdx] && (
+        <FullPreviewModal
+          open={previewIdx !== null}
+          assetUrl={`${API}/media/file/${(job.variations || [])[previewIdx].asset_id}`}
+          theme={(job.variations || [])[previewIdx].theme_label}
+          variant={(job.variations || [])[previewIdx].variant || ""}
+          onClose={() => setPreviewIdx(null)}
+          onDownload={() => {}}
+          onUse={() => saveAsTemplate(previewIdx)}
+          useSaved={Boolean(savedIdxs[previewIdx])}
+          isSaving={savingIdx === previewIdx}
+          onCopy={() => { if (!copyPack) generateCopy(); setShowCopy(true); setPreviewIdx(null); setTimeout(() => { document.querySelector('[data-testid="designer-copy-section"]')?.scrollIntoView({ behavior: 'smooth' }); }, 200); }}
+        />
+      )}
     </div>
   );
 };
