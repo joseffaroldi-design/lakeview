@@ -28,26 +28,50 @@ import {
   setupAbandonmentDetection,
   hasActiveGeneration,
 } from "./aiDesignerAnalytics";
+import { bootAiDesigner } from "./aiDesignerBoot";
 
 const POLL_MS = 4000;
 const POLL_TIMEOUT_MS = 6 * 60 * 1000;
 
 // ---------- Step 1: Pick photo --------------------------------------------
 
-const PickPhoto = ({ getAuthHeader, onSelected }) => {
+const PickPhoto = ({
+  getAuthHeader,
+  onSelected,
+  // Sprint 15B.2: parent may pre-fetch the library to de-burst boot calls.
+  prefetchedLibrary,
+  prefetchedLibraryLoading,
+  prefetchedLibraryError,
+  onRetryPrefetch,
+}) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [library, setLibrary] = useState([]);
+  const [libraryLoadingLocal, setLibraryLoadingLocal] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const fileRef = useRef(null);
 
+  // Pull from parent prefetch when available; lazy-load on click as fallback.
+  const usingPrefetch = prefetchedLibrary !== undefined;
+  const effectiveLibrary = usingPrefetch ? (prefetchedLibrary || []) : library;
+  const effectiveLoading = usingPrefetch ? !!prefetchedLibraryLoading : libraryLoadingLocal;
+  const effectiveError = usingPrefetch ? prefetchedLibraryError : null;
+
   const loadLibrary = async () => {
+    if (usingPrefetch) {
+      // Show the prefetched data; if it failed, surface inline retry.
+      setShowLibrary(true);
+      return;
+    }
     try {
+      setLibraryLoadingLocal(true);
       const r = await axios.get(`${API}/media/assets?kind=image&limit=24`, { headers: getAuthHeader() });
       setLibrary(r.data.assets || r.data || []);
       setShowLibrary(true);
     } catch (e) {
       setError(parseAxiosError(e));
+    } finally {
+      setLibraryLoadingLocal(false);
     }
   };
 
@@ -98,21 +122,35 @@ const PickPhoto = ({ getAuthHeader, onSelected }) => {
           <button
             type="button"
             onClick={loadLibrary}
-            className="border-2 border-navy/20 hover:border-gold/60 rounded-md p-6 text-center transition-colors"
+            disabled={effectiveLoading}
+            className="border-2 border-navy/20 hover:border-gold/60 rounded-md p-6 text-center transition-colors disabled:opacity-60"
             data-testid="designer-pick-from-library"
           >
-            <ImageIcon className="w-6 h-6 mx-auto text-navy" />
-            <p className="text-sm font-semibold text-navy mt-2">Pick from Library</p>
+            {effectiveLoading
+              ? <Loader2 className="w-6 h-6 mx-auto animate-spin text-navy" />
+              : <ImageIcon className="w-6 h-6 mx-auto text-navy" />}
+            <p className="text-sm font-semibold text-navy mt-2">{effectiveLoading ? "Loading library…" : "Pick from Library"}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Reuse any saved image</p>
           </button>
         </div>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} data-testid="designer-file-input" />
 
-        {showLibrary ? (
+        {showLibrary && effectiveError ? (
+          <div className="border-t border-navy/10 pt-3 text-xs text-muted-foreground flex items-center justify-between gap-2" data-testid="designer-library-error">
+            <span>Couldn&apos;t load your photo library. Production may be warming up.</span>
+            {onRetryPrefetch ? (
+              <button type="button" onClick={onRetryPrefetch} className="text-xs font-semibold text-gold hover:underline" data-testid="designer-library-retry">
+                Try again
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showLibrary && !effectiveError ? (
           <div className="border-t border-navy/10 pt-3" data-testid="designer-library-grid">
             <p className="text-xs font-semibold text-navy mb-2">Recent photos</p>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {library.map((a) => (
+              {effectiveLibrary.map((a) => (
                 <button
                   key={a.id}
                   type="button"
@@ -123,7 +161,7 @@ const PickPhoto = ({ getAuthHeader, onSelected }) => {
                   <img src={`${API}/media/thumb/${a.id}`} alt="" className="w-full h-20 object-cover" />
                 </button>
               ))}
-              {library.length === 0 ? <p className="col-span-full text-xs text-muted-foreground">No images saved yet.</p> : null}
+              {effectiveLibrary.length === 0 && !effectiveLoading ? <p className="col-span-full text-xs text-muted-foreground">No images saved yet.</p> : null}
             </div>
           </div>
         ) : null}
@@ -153,10 +191,18 @@ const ThemeCard = ({ theme, selected, onToggle }) => (
   </button>
 );
 
-const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initialValues }) => {
+const Designer = ({
+  getAuthHeader, asset, onBack, onJobStarted, templates, initialValues,
+  // Sprint 15B.2: parent may prefetch themes during boot
+  prefetchedThemes, prefetchedThemesLoading, prefetchedThemesError, onRetryThemes,
+}) => {
   const init = initialValues || {};
-  const [themes, setThemes] = useState([]);
-  const [themesLoading, setThemesLoading] = useState(true);
+  const usingPrefetchThemes = prefetchedThemes !== undefined;
+  const [themesLocal, setThemesLocal] = useState([]);
+  const [themesLoadingLocal, setThemesLoadingLocal] = useState(!usingPrefetchThemes);
+  const themes = usingPrefetchThemes ? (prefetchedThemes || []) : themesLocal;
+  const themesLoading = usingPrefetchThemes ? !!prefetchedThemesLoading : themesLoadingLocal;
+  const themesError = usingPrefetchThemes ? prefetchedThemesError : null;
   const [name, setName] = useState(init.item_name || "");
   const [featuresText, setFeaturesText] = useState((init.features || []).join("\n"));
   const [price, setPrice] = useState(init.price || "");
@@ -184,14 +230,16 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
   };
   const features = parseFeatures(featuresText);
 
-  // Load themes once on mount. `getAuthHeader` identity may change on each parent
-  // render, so we intentionally exclude it from deps to avoid an infinite fetch loop
-  // that would keep cancelling itself before the response lands.
+  // Load themes once on mount IF parent didn't prefetch them. `getAuthHeader`
+  // identity may change on each parent render, so we intentionally exclude it
+  // from deps to avoid an infinite fetch loop that would keep cancelling itself
+  // before the response lands.
   useEffect(() => {
+    if (usingPrefetchThemes) return undefined;
     let cancelled = false;
     axios.get(`${API}/ai-designer/themes`, { headers: getAuthHeader() })
-      .then((r) => { if (!cancelled) { setThemes(r.data.themes || []); setThemesLoading(false); } })
-      .catch((e) => { if (!cancelled) { setError(parseAxiosError(e)); setThemesLoading(false); } });
+      .then((r) => { if (!cancelled) { setThemesLocal(r.data.themes || []); setThemesLoadingLocal(false); } })
+      .catch((e) => { if (!cancelled) { setError(parseAxiosError(e)); setThemesLoadingLocal(false); } });
     return () => { cancelled = true; };
   }, []);
 
@@ -273,6 +321,20 @@ const Designer = ({ getAuthHeader, asset, onBack, onJobStarted, templates, initi
 
   if (themesLoading) {
     return <Section title="Loading…" icon={Loader2} testId="designer-loading"><Loader2 className="w-5 h-5 animate-spin text-gold" /></Section>;
+  }
+  if (themesError && (!themes || themes.length === 0)) {
+    return (
+      <Section title="2. Design your graphic" icon={Wand2} testId="designer-step-form">
+        <div className="text-sm text-muted-foreground" data-testid="designer-themes-error">
+          Couldn&apos;t load design themes. Production may be warming up.
+          {onRetryThemes ? (
+            <button type="button" onClick={onRetryThemes} className="ml-2 text-xs font-semibold text-gold hover:underline" data-testid="designer-themes-retry">
+              Try again
+            </button>
+          ) : null}
+        </div>
+      </Section>
+    );
   }
 
   return (
@@ -933,18 +995,31 @@ const formatRelative = (iso) => {
   } catch (e) { return ""; }
 };
 
-const RecentDesignsRail = ({ getAuthHeader, onOpen, onDuplicate, refreshKey }) => {
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
+const RecentDesignsRail = ({
+  getAuthHeader, onOpen, onDuplicate, refreshKey,
+  // Sprint 15B.2: parent may prefetch jobs during boot
+  prefetchedJobs, prefetchedJobsLoading, prefetchedJobsError, onRetryJobs,
+}) => {
+  const usingPrefetch = prefetchedJobs !== undefined;
+  const [jobsLocal, setJobsLocal] = useState([]);
+  const [loadingLocal, setLoadingLocal] = useState(!usingPrefetch);
+  const jobs = usingPrefetch ? (prefetchedJobs || []) : jobsLocal;
+  const loading = usingPrefetch ? !!prefetchedJobsLoading : loadingLocal;
+  const error = usingPrefetch ? prefetchedJobsError : null;
   const [pinningId, setPinningId] = useState(null);
 
   const reload = useCallback(() => {
-    setLoading(true);
+    if (usingPrefetch) {
+      // Parent owns the data; ask it to re-fetch.
+      if (onRetryJobs) onRetryJobs();
+      return;
+    }
+    setLoadingLocal(true);
     axios.get(`${API}/ai-designer/jobs/recent?limit=5`, { headers: getAuthHeader() })
-      .then((r) => setJobs(r.data.jobs || []))
-      .catch(() => setJobs([]))
-      .finally(() => setLoading(false));
-  }, [getAuthHeader]);
+      .then((r) => setJobsLocal(r.data.jobs || []))
+      .catch(() => setJobsLocal([]))
+      .finally(() => setLoadingLocal(false));
+  }, [getAuthHeader, usingPrefetch, onRetryJobs]);
 
   useEffect(() => { reload(); }, [reload, refreshKey]);
 
@@ -961,6 +1036,21 @@ const RecentDesignsRail = ({ getAuthHeader, onOpen, onDuplicate, refreshKey }) =
     return (
       <Section title="Recent AI Designs" icon={Folder} testId="designer-recent-rail">
         <Loader2 className="w-4 h-4 animate-spin text-gold" />
+      </Section>
+    );
+  }
+
+  if (error) {
+    return (
+      <Section title="Recent AI Designs" icon={Folder} testId="designer-recent-rail">
+        <div className="text-xs text-muted-foreground flex items-center justify-between gap-2" data-testid="designer-recent-error">
+          <span>Couldn&apos;t load recent designs. Production may be warming up.</span>
+          {onRetryJobs ? (
+            <button type="button" onClick={onRetryJobs} className="text-xs font-semibold text-gold hover:underline" data-testid="designer-recent-retry">
+              Try again
+            </button>
+          ) : null}
+        </div>
       </Section>
     );
   }
@@ -1068,18 +1158,51 @@ const AiDesigner = ({ getAuthHeader }) => {
   const [completedJob, setCompletedJob] = useState(null);
   const [reopenedFromRail, setReopenedFromRail] = useState(false);
   const [error, setError] = useState(null);
-  const [templates, setTemplates] = useState([]);
   const [initialValues, setInitialValues] = useState(null);
   const [recentRefreshKey, setRecentRefreshKey] = useState(0);
   const [openingId, setOpeningId] = useState(null);
 
-  const loadTemplates = useCallback(() => {
-    axios.get(`${API}/ai-designer/templates`, { headers: getAuthHeader() })
-      .then((r) => setTemplates(r.data.templates || []))
-      .catch(() => {});
-  }, [getAuthHeader]);
+  // Sprint 15B.2: de-burst boot. Parent owns all 4 datasets and streams them
+  // to children with a 200ms stagger to avoid Cloudflare 520s on cold starts.
+  const [boot, setBoot] = useState({
+    themes:       { data: null, loading: true, error: null, retry: null },
+    jobsRecent:   { data: null, loading: true, error: null, retry: null },
+    templates:    { data: null, loading: true, error: null, retry: null },
+    mediaAssets:  { data: null, loading: true, error: null, retry: null },
+  });
 
-  useEffect(() => { loadTemplates(); }, [loadTemplates]);
+  // Stable callbacks to ingest streamed boot results.
+  const ingestBoot = useCallback((key) => (result) => {
+    setBoot((prev) => ({
+      ...prev,
+      [key]: {
+        data: result.data,
+        loading: false,
+        error: result.error,
+        retry: result.retry,
+      },
+    }));
+  }, []);
+
+  useEffect(() => {
+    const handle = bootAiDesigner({
+      getAuthHeader,
+      onThemes:       ingestBoot("themes"),
+      onRecentJobs:   ingestBoot("jobsRecent"),
+      onTemplates:    ingestBoot("templates"),
+      onMediaAssets:  ingestBoot("mediaAssets"),
+    });
+    return () => handle.cancel();
+    // Boot once per mount. `getAuthHeader` identity may change but the token
+    // is read inside bootAiDesigner at call time, so re-running on identity
+    // change would double-fire the sequence.
+  }, []);
+
+  // Convenience: derive `templates` array from boot state (used by Designer).
+  const templates = (boot.templates.data && boot.templates.data.templates) || [];
+  const themes = (boot.themes.data && boot.themes.data.themes) || undefined;
+  const recentJobs = (boot.jobsRecent.data && boot.jobsRecent.data.jobs) || undefined;
+  const mediaAssets = (boot.mediaAssets.data && boot.mediaAssets.data.assets) || undefined;
 
   // Sprint 14B.1A: Abandonment analytics — measure before optimizing.
   useEffect(() => {
@@ -1159,13 +1282,24 @@ const AiDesigner = ({ getAuthHeader }) => {
             onOpen={openExisting}
             onDuplicate={duplicateJob}
             refreshKey={recentRefreshKey}
+            prefetchedJobs={recentJobs}
+            prefetchedJobsLoading={boot.jobsRecent.loading}
+            prefetchedJobsError={boot.jobsRecent.error}
+            onRetryJobs={boot.jobsRecent.retry || undefined}
           />
           {openingId ? (
             <div className="text-xs text-muted-foreground flex items-center gap-2" data-testid="designer-opening-spinner">
               <Loader2 className="w-3 h-3 animate-spin" /> Opening saved design…
             </div>
           ) : null}
-          <PickPhoto getAuthHeader={getAuthHeader} onSelected={(a) => { setAsset(a); setStep("form"); }} />
+          <PickPhoto
+            getAuthHeader={getAuthHeader}
+            onSelected={(a) => { setAsset(a); setStep("form"); }}
+            prefetchedLibrary={mediaAssets}
+            prefetchedLibraryLoading={boot.mediaAssets.loading}
+            prefetchedLibraryError={boot.mediaAssets.error}
+            onRetryPrefetch={boot.mediaAssets.retry || undefined}
+          />
         </>
       )}
       {step === "form" && asset && (
@@ -1175,8 +1309,12 @@ const AiDesigner = ({ getAuthHeader }) => {
           templates={templates}
           initialValues={initialValues}
           onBack={() => setStep("pick")}
-          onJobStarted={(jid, themes, formContext) => {
-            setJobId(jid); setExpectedCount(themes.length); setStep("progress");
+          prefetchedThemes={themes}
+          prefetchedThemesLoading={boot.themes.loading}
+          prefetchedThemesError={boot.themes.error}
+          onRetryThemes={boot.themes.retry || undefined}
+          onJobStarted={(jid, themesArg, formContext) => {
+            setJobId(jid); setExpectedCount(themesArg.length); setStep("progress");
             markGenerationStarted({ job_id: jid }, formContext || {}, getAuthHeader);
           }}
         />
@@ -1206,7 +1344,7 @@ const AiDesigner = ({ getAuthHeader }) => {
           job={completedJob}
           fromRecent={reopenedFromRail}
           onStartOver={startOver}
-          onReloadTemplates={loadTemplates}
+          onReloadTemplates={boot.templates.retry || (() => {})}
         />
       )}
     </div>
