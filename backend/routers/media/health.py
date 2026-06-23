@@ -35,6 +35,17 @@ async def media_health(authorization: str = Header(None), session_token: str = C
     # Object storage probe (PUT + GET roundtrip)
     storage_health = await asyncio.to_thread(objstore.health)
 
+    # Sprint 15B.8: image-provider diagnostics (Flux / OpenAI gpt-image-1).
+    try:
+        from services.image_generation import available_providers as _img_providers
+        image_provider_info = _img_providers()
+    except Exception as e:  # noqa: BLE001
+        image_provider_info = {
+            "active": None,
+            "providers": [],
+            "error": str(e)[:200],
+        }
+
     asset_count = await db.media_assets.count_documents({"status": "active"})
 
     # Sprint 15B: render_jobs / ai_image_jobs collections dropped; queues retained at 0 for back-compat.
@@ -57,6 +68,14 @@ async def media_health(authorization: str = Header(None), session_token: str = C
         "rembg_model_ready": rembg.get("model_ready", False),
         "rembg_error": rembg.get("error"),
         "storage": storage_health,
+        # Sprint 15B.8 — image-generation provider status (Flux / OpenAI).
+        "image_provider": image_provider_info.get("active"),
+        "provider_status": "healthy" if image_provider_info.get("active") else "unconfigured",
+        "api_key_loaded": bool(
+            image_provider_info.get("emergent_llm_key_loaded")
+            or image_provider_info.get("fal_key_loaded")
+        ),
+        "image_providers": image_provider_info,
         "asset_count": asset_count,
         "stale_ai_image_jobs": 0,
         "stale_render_jobs": 0,

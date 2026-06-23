@@ -1228,6 +1228,8 @@ const RecentDesignsRail = ({
 
 // ---------- Top-level -----------------------------------------------------
 
+const HANDOFF_KEY = "lakeview.ai_designer.preload_asset_id";
+
 const AiDesigner = ({ getAuthHeader }) => {
   const [step, setStep] = useState("pick"); // pick | form | progress | review
   const [asset, setAsset] = useState(null);
@@ -1239,6 +1241,33 @@ const AiDesigner = ({ getAuthHeader }) => {
   const [initialValues, setInitialValues] = useState(null);
   const [recentRefreshKey, setRecentRefreshKey] = useState(0);
   const [openingId, setOpeningId] = useState(null);
+
+  // Sprint 15B.8: when AiImageGenerator emits "Use In Ad", it drops the
+  // generated asset payload into sessionStorage and switches the parent tab
+  // to designer. Read it ONCE on mount, hydrate `asset`, and auto-advance
+  // to the form step. Skip silently if nothing is queued.
+  useEffect(() => {
+    let raw = null;
+    try {
+      raw = sessionStorage.getItem(HANDOFF_KEY);
+      if (raw) sessionStorage.removeItem(HANDOFF_KEY);
+    } catch {
+      return undefined;
+    }
+    if (!raw) return undefined;
+    try {
+      const payload = JSON.parse(raw);
+      if (payload?.id) {
+        setAsset(payload);
+        setStep("form");
+      }
+    } catch {
+      /* malformed handoff — ignore */
+    }
+    return undefined;
+    // Run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sprint 15B.2: de-burst boot. Parent owns all 4 datasets and streams them
   // to children with a 200ms stagger to avoid Cloudflare 520s on cold starts.

@@ -9,7 +9,8 @@ Single source of truth for env config. Verified against `backend/config.py` and 
 | `MONGO_URL` | `config.py:13` (`os.environ['MONGO_URL']`) | Every router | `KeyError` at import → backend cannot start |
 | `DB_NAME` | `config.py:14` | Every router | `KeyError` at import → backend cannot start |
 | `ADMIN_PASSWORD` | `config.py:18` | `auth.py` login | `KeyError` at import → backend cannot start |
-| `EMERGENT_LLM_KEY` | `storage.py:51` + `ai_engine/client.py:37` | Object storage, all LLM-generated copy paths | Backend STARTS but: remote media returns 500 (45% of library), AI Designer cannot persist outputs, Marketing Pack crashes, Today's Pick falls back to defaults |
+| `EMERGENT_LLM_KEY` | `storage.py:51` + `ai_engine/client.py:37` + `services/image_generation/openai_provider.py` | Object storage, all LLM-generated copy paths, OpenAI gpt-image-1 image generation | Backend STARTS but: remote media returns 500 (45% of library), AI Designer cannot persist outputs, Marketing Pack crashes, Today's Pick falls back to defaults, AI Image Generator falls back to no-provider 503 |
+| `FAL_KEY` | `services/image_generation/flux_provider.py:36` (Sprint 15B.8) | Fal AI Flux Pro image generation (preferred provider when set) | Backend stays healthy. AI Image Generator silently falls back to OpenAI gpt-image-1 (or returns 503 if neither key is present). Owner obtains at https://fal.ai/dashboard/keys |
 
 ## Optional
 

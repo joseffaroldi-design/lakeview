@@ -1216,3 +1216,65 @@ Collections dropped:
 
 **No backend API changes. No DB schema changes. No data migration needed.**
 
+
+### Sprint 15B.8 — Real AI Image Generation (Feb 22, 2026)
+**Goal**: Add true AI image generation alongside the existing PIL Template Designer, with Fal Flux Pro as preferred provider and OpenAI gpt-image-1 as default + automatic fallback.
+
+**Architecture**:
+- New backend service package `backend/services/image_generation/`:
+  - `base_provider.py` — abstract `BaseImageProvider` + `GeneratedImage` dataclass + `ImageGenerationError` with `code` + `user_message`.
+  - `flux_provider.py` — `fal-ai/flux-pro/v1.1` via `fal-client` (~$0.05/image, best for restaurant food photography). Lazy-imports `fal_client` to keep boot path light. Explicit aspect-ratio → size map. Translates 401/quota/timeout into user-friendly codes.
+  - `openai_provider.py` — gpt-image-1 via `emergentintegrations.llm.openai.image_generation.OpenAIImageGeneration`. Uses existing `EMERGENT_LLM_KEY`. Aspect ratios map to gpt-image-1's three native sizes (1024×1024, 1024×1536, 1536×1024).
+  - `image_provider_factory.py` — selects Flux if `FAL_KEY` set, OpenAI otherwise; raises `no_provider` only if BOTH unconfigured.
+  - `style_presets.py` — 10 named style packs per user spec (Restaurant Food Photography, Smash Burger Advertising, Seafood Marketing, Catering Promotion, New Orleans Local Business, Mardi Gras Advertising, Luxury Restaurant, Social Media Ad, Flyer Design, Poster Design).
+- New router `backend/routers/ai_image.py`:
+  - `POST /api/ai-image/generate` → 202 + job_id (background task pattern mirrors `ai_designer.py`)
+  - `GET /api/ai-image/job/{id}` → polling
+  - `GET /api/ai-image/style-presets` → 10-preset list for UI
+  - `GET /api/ai-image/providers` → diagnostic
+- Reuses **all** existing infrastructure: `storage.put_bytes()`, `media_assets` collection, `/api/media/thumb`, auth, polling pattern. New images flow into the library automatically.
+- New collection `ai_image_jobs` (separate from `ai_design_jobs` so AI Designer is untouched).
+- `/api/media/health` extended with `image_provider`, `provider_status`, `api_key_loaded`, `image_providers` (active + per-provider configured/model flags).
+
+**Frontend**:
+- New `aiads/AiImageGenerator.jsx` (~370 LOC) — prompt textarea, style-pack grid (10), aspect-ratio selector (1:1 / 4:5 / 9:16 / 16:9), Generate button, 4-variation grid with Save (auto), Use In Ad (cross-sprint handoff), Download, Regenerate.
+- `AiAdsTab.jsx` rewritten — adds engine switch [Template Designer | AI Image Generator]. Template Designer remains default and unchanged. Marketing Pack footer link preserved.
+- `AiDesigner.jsx` — added `useEffect` (~20 lines) that reads `sessionStorage["lakeview.ai_designer.preload_asset_id"]`, hydrates `asset` state, advances to form step. Used by "Use In Ad" handoff. Zero changes to PIL pipeline.
+- `fal-client==1.0.0` added to `requirements.txt`.
+
+**Cost per image (current pricing)**:
+- OpenAI gpt-image-1 (default): ~$0.04–0.17 depending on size (1024 squarest ≈ $0.04, 1536 portrait ≈ $0.06)
+- Fal Flux Pro v1.1 (when `FAL_KEY` provided): ~$0.05/image
+- 4 variations per request → owner spends ~$0.16–0.24 per generate call
+
+**Validation**:
+- 12/12 pytest passing (3 Flux-specific skipped pending FAL_KEY).
+- End-to-end live test: gpt-image-1 generated 4 real images in ~10s; persisted to object storage; all 4 thumbnails retrievable; tagged correctly (`ai-image`, `provider:openai`, `style:smash_burger_advertising`); visible in `/api/media/assets`.
+- `/api/media/health` returns `image_provider: "openai"`, `provider_status: "healthy"`, `api_key_loaded: true`.
+- ESLint clean. Webpack compiles cleanly (1 pre-existing warning, unrelated).
+
+**Files added**:
+- `backend/services/image_generation/__init__.py`
+- `backend/services/image_generation/base_provider.py`
+- `backend/services/image_generation/flux_provider.py`
+- `backend/services/image_generation/openai_provider.py`
+- `backend/services/image_generation/image_provider_factory.py`
+- `backend/services/image_generation/style_presets.py`
+- `backend/routers/ai_image.py`
+- `backend/tests/test_ai_image_generation.py`
+- `frontend/src/pages/dashboard/aiads/AiImageGenerator.jsx`
+
+**Files modified**:
+- `backend/server.py` — included `ai_image` router.
+- `backend/routers/media/health.py` — added image-provider diagnostics fields.
+- `backend/requirements.txt` — `fal-client==1.0.0`.
+- `frontend/src/pages/dashboard/AiAdsTab.jsx` — engine selector.
+- `frontend/src/pages/dashboard/aiads/AiDesigner.jsx` — `useEffect` reading session-storage handoff.
+- `memory/integrations.md` — added FAL_KEY row.
+
+**Production risks**:
+- gpt-image-1 calls can take 30–60s under load; with `--workers 1` in production this WILL block other requests. Mitigation: existing infra escalation for `--workers 4` becomes more urgent now.
+- 4-variation request = 4 × image-gen cost. The estimate UI (future task) should show this before commit.
+
+**Launch recommendation**: ship to preview now. Production go-live should wait for the `--workers 4` infra escalation OR be gated to single-image generation initially (2-line frontend change).
+
