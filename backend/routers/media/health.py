@@ -41,9 +41,12 @@ async def media_health(authorization: str = Header(None), session_token: str = C
     empty_queue = {"queued": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
     aij_empty_queue = {"pending": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
 
+    # Sprint 15B.3 made rembg opt-in (lazy-loaded only when an owner explicitly
+    # checks "Remove background"). Its absence is NOT a failure — `healthy`
+    # tracks only the critical path: object storage + ffmpeg. rembg state is
+    # still returned in the payload below for admin visibility.
     healthy = (
         ffmpeg_path is not None
-        and rembg.get("model_ready")
         and storage_health.get("reachable")
     )
     return {
