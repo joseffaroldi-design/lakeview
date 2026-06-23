@@ -11,6 +11,8 @@ Single source of truth for env config. Verified against `backend/config.py` and 
 | `ADMIN_PASSWORD` | `config.py:18` | `auth.py` login | `KeyError` at import → backend cannot start |
 | `EMERGENT_LLM_KEY` | `storage.py:51` + `ai_engine/client.py:37` + `services/image_generation/openai_provider.py` | Object storage, all LLM-generated copy paths, OpenAI gpt-image-1 image generation | Backend STARTS but: remote media returns 500 (45% of library), AI Designer cannot persist outputs, Marketing Pack crashes, Today's Pick falls back to defaults, AI Image Generator falls back to no-provider 503 |
 | `FAL_KEY` | `services/image_generation/flux_provider.py:36` (Sprint 15B.8) | Fal AI Flux Pro image generation (preferred provider when set) | Backend stays healthy. AI Image Generator silently falls back to OpenAI gpt-image-1 (or returns 503 if neither key is present). Owner obtains at https://fal.ai/dashboard/keys |
+| `ENVIRONMENT` | `routers/ai_image.py:_variation_cap()` (Sprint 15B.8) | Production-safety variation cap for AI Image Generator. Default `preview` (or any non-`production` value) → 4 variations. Set to `production` → 1 variation (one image initially; bump to 4 after one week of stable operation by setting `AI_IMAGE_MAX_VARIATIONS=4`). | Cap silently activates — no error, just fewer images per Generate click. |
+| `AI_IMAGE_MAX_VARIATIONS` | `routers/ai_image.py:_variation_cap()` (Sprint 15B.8) | Manual override of the variation cap. Clamped to `[1, 4]`. Takes precedence over `ENVIRONMENT`. | Cap honored as set. |
 
 ## Optional
 

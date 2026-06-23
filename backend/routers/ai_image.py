@@ -47,7 +47,21 @@ _ALLOWED_RATIOS = {"1:1", "4:5", "9:16", "16:9"}
 _PRESET_KEYS = set(preset_keys())
 _MAX_PROMPT_LEN = 500
 _MIN_PROMPT_LEN = 4
-_VARIATIONS = 4
+
+# Sprint 15B.8 production-safety cap.
+# Preview environment: 4 variations per Generate (full UX).
+# Production environment: 1 variation initially — caps API cost, latency
+# spikes, worker blocking, and accidental credit burn while the infra
+# upgrade (workers=4, REMBG_PREWARM=1) is being honored by Emergent Support.
+# Switch to 4 in production after one week of stable operation by setting
+# AI_IMAGE_MAX_VARIATIONS=4 OR ENVIRONMENT=preview in the prod env config.
+def _variation_cap() -> int:
+    import os  # noqa: PLC0415
+    override = os.environ.get("AI_IMAGE_MAX_VARIATIONS")
+    if override and override.isdigit():
+        return max(1, min(4, int(override)))
+    env = (os.environ.get("ENVIRONMENT") or "preview").lower()
+    return 1 if env == "production" else 4
 
 
 class GenerateImageRequest(BaseModel):
@@ -123,6 +137,7 @@ async def _run_image_job(
     aspect_ratio: str,
     preferred_provider: Optional[str],
     item_name: str,
+    n_variations: int,
 ) -> None:
     async def update(**fields: Any) -> None:
         fields["updated_at"] = _now()
@@ -153,7 +168,7 @@ async def _run_image_job(
         results = await provider.generate(
             prompt=scaffolded,
             aspect_ratio=aspect_ratio,
-            n=_VARIATIONS,
+            n=n_variations,
         )
     except ImageGenerationError as e:
         # Provider-specific fallback: if Flux fails and OpenAI is configured,
@@ -174,7 +189,7 @@ async def _run_image_job(
                          fallback_from="flux", fallback_reason=e.code)
             try:
                 results = await fallback.generate(
-                    prompt=scaffolded, aspect_ratio=aspect_ratio, n=_VARIATIONS,
+                    prompt=scaffolded, aspect_ratio=aspect_ratio, n=n_variations,
                 )
             except ImageGenerationError as e2:
                 await fail(e2.code, e2.user_message, e2.detail or "")
@@ -232,7 +247,7 @@ async def _run_image_job(
         finished_at=_now(),
     )
     logger.info("[ai-image] job=%s completed %d/%d variations via %s",
-                job_id, len(successes), _VARIATIONS, provider.name)
+                job_id, len(successes), n_variations, provider.name)
 
 
 # ---------------------------------------------------------------- Routes
@@ -252,7 +267,9 @@ async def list_providers(
     session_token: str = Cookie(None),
 ):
     await verify_session(authorization, session_token)
-    return available_providers()
+    info = available_providers()
+    info["variations_per_request"] = _variation_cap()
+    return info
 
 
 @router.post("/generate", status_code=202)
@@ -282,6 +299,7 @@ async def enqueue_generate(
     import uuid
     job_id = str(uuid.uuid4())
     item_name = body.prompt.split(".")[0][:60].strip() or "AI image"
+    n_variations = _variation_cap()
     job_doc = {
         "id": job_id,
         "status": "pending",
@@ -292,6 +310,7 @@ async def enqueue_generate(
         "provider": provider.name,
         "model": provider.model,
         "variations": [],
+        "n_variations": n_variations,
         "created_at": _now(),
         "updated_at": _now(),
     }
@@ -304,6 +323,7 @@ async def enqueue_generate(
         aspect_ratio=body.aspect_ratio,
         preferred_provider=body.provider,
         item_name=item_name,
+        n_variations=n_variations,
     ))
 
     return {
@@ -311,7 +331,7 @@ async def enqueue_generate(
         "status": "pending",
         "provider": provider.name,
         "model": provider.model,
-        "variations": _VARIATIONS,
+        "variations": n_variations,
     }
 
 

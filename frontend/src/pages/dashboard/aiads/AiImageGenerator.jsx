@@ -274,7 +274,10 @@ const AiImageGenerator = ({ getAuthHeader, onUseInAd }) => {
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" /> Generate 4 variations
+              <Sparkles className="w-4 h-4" />
+              {providerInfo?.variations_per_request === 1
+                ? "Generate 1 image"
+                : `Generate ${providerInfo?.variations_per_request || 4} variations`}
             </>
           )}
         </button>
@@ -307,7 +310,10 @@ const AiImageGenerator = ({ getAuthHeader, onUseInAd }) => {
         return (
         <div data-testid="ai-image-variations">
           <h3 className="text-sm font-semibold text-navy mb-3 flex items-center gap-2">
-            <ImageIcon className="w-4 h-4" /> 4 variations · saved to library
+            <ImageIcon className="w-4 h-4" />
+            {variations.length === 1
+              ? "1 image · saved to library"
+              : `${variations.length} variations · saved to library`}
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {variations.map((v) => {

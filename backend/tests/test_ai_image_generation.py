@@ -275,6 +275,54 @@ class TestProviderAbstraction:
         assert "anything" in scaffolded2
 
 
+class TestProductionVariationCap:
+    """Sprint 15B.8 production-safety cap (`AI_IMAGE_MAX_VARIATIONS` /
+    `ENVIRONMENT`). Locks in the preview-default-4, prod-default-1
+    behavior so a future env change can't silently re-enable 4-image
+    production generation."""
+
+    def test_cap_function(self):
+        import sys, os
+        sys.path.insert(0, "/app/backend")
+        from routers.ai_image import _variation_cap
+
+        cases = [
+            ({},                                                          4),
+            ({"ENVIRONMENT": "preview"},                                  4),
+            ({"ENVIRONMENT": "production"},                               1),
+            ({"ENVIRONMENT": "production", "AI_IMAGE_MAX_VARIATIONS": "4"}, 4),
+            ({"ENVIRONMENT": "production", "AI_IMAGE_MAX_VARIATIONS": "2"}, 2),
+            ({"AI_IMAGE_MAX_VARIATIONS": "99"},                           4),  # clamped
+            ({"AI_IMAGE_MAX_VARIATIONS": "0"},                            1),  # clamped
+            ({"AI_IMAGE_MAX_VARIATIONS": "abc"},                          4),  # falls back
+            ({"ENVIRONMENT": "staging"},                                  4),  # non-prod = preview
+        ]
+        for overrides, expected in cases:
+            saved = {}
+            for k in ("ENVIRONMENT", "AI_IMAGE_MAX_VARIATIONS"):
+                saved[k] = os.environ.pop(k, None)
+            for k, v in overrides.items():
+                os.environ[k] = v
+            try:
+                actual = _variation_cap()
+                assert actual == expected, (
+                    f"overrides={overrides} → got {actual}, expected {expected}"
+                )
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+
+    def test_providers_endpoint_reports_cap(self, token):
+        r = requests.get(f"{BASE_URL}/api/ai-image/providers", headers=_h(token), timeout=30)
+        d = r.json()
+        assert "variations_per_request" in d
+        # In preview env, the cap is 4.
+        assert d["variations_per_request"] == 4
+
+
 # ------------------------------------------------------------- Flux-specific (skipped if no key)
 
 

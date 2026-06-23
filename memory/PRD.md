@@ -1278,3 +1278,23 @@ Collections dropped:
 
 **Launch recommendation**: ship to preview now. Production go-live should wait for the `--workers 4` infra escalation OR be gated to single-image generation initially (2-line frontend change).
 
+
+### Sprint 15B.8.1 — Production Safety Cap (Feb 22, 2026)
+**Per release decision review**: AI Image Generation cleared for preview only. Production go-live deferred until `--workers 4` infra escalation lands.
+
+**Change**: env-gated variation cap on `/api/ai-image/generate`:
+- Preview (`ENVIRONMENT` unset or anything other than `production`): **4 variations** per Generate click (full UX).
+- Production (`ENVIRONMENT=production`): **1 variation** initially — caps API cost, latency spikes, worker blocking, and accidental credit burn while the worker/memory upgrade is being honored.
+- Manual override: `AI_IMAGE_MAX_VARIATIONS=N` (clamped to `[1, 4]`) takes precedence. After one week of stable production operation, set `AI_IMAGE_MAX_VARIATIONS=4` to lift the cap with zero code change.
+- Surfaced in `GET /api/ai-image/providers` as `variations_per_request` so the frontend Generate button reads "Generate 1 image" vs "Generate 4 variations" automatically.
+
+**Files modified**: `backend/routers/ai_image.py` (new `_variation_cap()` helper, threaded into worker + response payload), `frontend/src/pages/dashboard/aiads/AiImageGenerator.jsx` (dynamic button label + section header), `memory/integrations.md` (env-var inventory updated).
+
+**Tests added**: `TestProductionVariationCap::test_cap_function` (9 env scenarios) + `test_providers_endpoint_reports_cap`. Both passing.
+
+**Production promotion path**:
+1. Owner sends Emergent Support escalation (`--workers 4`, drop `--reload`, 1–2 Gi RAM, `REMBG_PREWARM=1`).
+2. Owner sets `EMERGENT_LLM_KEY` + `ENVIRONMENT=production` in production env config.
+3. Owner runs production load test (4 image gens + dashboard + menu + analytics + media upload) — verify no 502/520, no starvation, no hangs.
+4. After 7 consecutive stable days, set `AI_IMAGE_MAX_VARIATIONS=4` → preview-equivalent UX, zero deploy.
+
