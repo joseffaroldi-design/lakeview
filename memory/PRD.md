@@ -1153,3 +1153,29 @@ Collections dropped:
 - `tests/test_cleanup_p0_p1::TestProtectedEndpointsRequireAuth` — 3 `/api/specials` failures. Pre-existing route gating gap; out of scope.
 
 **Files modified**: `backend/auth.py`, `backend/.env`, `backend/tests/test_auth_rate_limit.py` (new), `backend/tests/test_cleanup_p0_p1.py`, `backend/tests/test_phase8_media_studio.py`, `backend/tests/test_phase10_persistence.py`, `backend/tests/test_phase11_marketing_pack.py`, `backend/tests/test_sprint_12c.py`, `backend/tests/test_iter15_maintenance.py`, `backend/tests/test_ai_image_async.py`, `backend/tests/test_ai_ads.py`, `memory/test_credentials.md`.
+
+
+### Sprint 15B.6 — EMERGENT_LLM_KEY Remediation (Feb 22, 2026)
+**Problem**: Sprint 15B.6 audit confirmed `EMERGENT_LLM_KEY` was missing from preview `/app/backend/.env` and from the live process environment. 104 logged RuntimeErrors over 33 affected backend restart cycles. 279 of 625 media assets (45%) returned HTTP 500 because their `storage_path` is remote (`lakeview/...`) and requires the key to initialize object storage.
+
+**Fix**: Single env-var add. No code changes.
+- Retrieved key via `emergent_integrations_manager` (universal LLM + object-storage key)
+- Appended `EMERGENT_LLM_KEY=…` to `/app/backend/.env`
+- Restarted backend via supervisor
+- Created `/app/memory/integrations.md` as the canonical env-var inventory
+
+**Validation (preview)**:
+- Startup log: `[storage] Emergent Object Storage initialized (app=lakeview)` ✅
+- `GET /api/media/health` → `storage.initialized: true, reachable: true, error: null` ✅
+- `GET /api/media/thumb/b8dc249e-…` (a previously-500 remote AI design) → HTTP 200, 21305 bytes ✅
+- In-process `_build_chat()` LLM client construction → no `RuntimeError` ✅
+- RuntimeErrors since restart: **0**
+- Total asset count served by health endpoint: 605
+
+**Production action required by owner**:
+- Set `EMERGENT_LLM_KEY` in production env config (value documented in `/app/memory/integrations.md`)
+- Trigger backend redeploy
+- Run the same two curl probes to confirm
+- Estimated downtime: zero (env-var update + rolling restart)
+
+**Files modified**: `backend/.env`, `memory/integrations.md` (new), `memory/PRD.md`.
