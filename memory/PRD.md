@@ -1131,3 +1131,25 @@ Collections dropped:
 
 **Impact**: Restores Sprint 15B.2 boot orchestrator contract — exactly 4 staggered `/jobs/recent`-class calls during boot, not 8–10. Production single-worker pod no longer hammered by RecentDesignsRail identity-change cascade.
 
+
+
+### Sprint 15B.5 — Auth Hardening (Feb 22, 2026)
+**Problem**: Independent CTO/investor review flagged auth as the highest non-infra business risk. Login was rate-limited at `10/minute` (effectively 14,400 brute-force attempts/day per IP). Password `Lakeview872` was low-entropy and committed to `test_credentials.md`. Blast radius if compromised: full dashboard access including customer messaging blast, loyalty member list, and inquiries.
+
+**Changes**:
+1. **Rate limit tightened** (`backend/auth.py:60`): `@limiter.limit("10/minute")` → `@limiter.limit("5/15 minutes")`. After 5 attempts in 15 min from one IP, returns 429 regardless of correctness. Per-IP scoping intact via `X-Forwarded-For`.
+2. **Password rotated** (`backend/.env`): from `Lakeview872` to a fresh 32-char `secrets.token_urlsafe(24)` value. Documented in `/app/memory/test_credentials.md`.
+3. **Test files de-hardcoded**: 8 test files in `backend/tests/` had `ADMIN_PASSWORD = "Lakeview872"` literals; all changed to `os.environ["ADMIN_PASSWORD"]` so password rotation no longer breaks tests.
+4. **Regression test added**: `backend/tests/test_auth_rate_limit.py` — 9 tests covering old password rejection, new password acceptance, password-strength floor (24+ chars), 5/15-min lockout, per-IP scoping, and protected-endpoint round-trip.
+
+**Validation**:
+- 13/13 in-scope tests pass (9 new + 4 pre-existing in `test_cleanup_p0_p1.py`).
+- 6 representative admin endpoints (`/ai-designer/themes`, `/jobs/recent`, `/media/assets`, `/loyalty/members`, `/messages/history`, `/newsletter/subscribers`) all return 200 with new token.
+- Per-IP scoping verified: locked-out IP doesn't affect fresh IP.
+- Backend restarted to pick up new env var.
+
+**Pre-existing test failures (NOT regressed by this sprint)**:
+- `tests/test_ai_ads.py` — 17 failures, all 404. Tests endpoints deleted in Sprint 15B (`ai_ads.py` 471→67 LOC). Stale tests; out of scope.
+- `tests/test_cleanup_p0_p1::TestProtectedEndpointsRequireAuth` — 3 `/api/specials` failures. Pre-existing route gating gap; out of scope.
+
+**Files modified**: `backend/auth.py`, `backend/.env`, `backend/tests/test_auth_rate_limit.py` (new), `backend/tests/test_cleanup_p0_p1.py`, `backend/tests/test_phase8_media_studio.py`, `backend/tests/test_phase10_persistence.py`, `backend/tests/test_phase11_marketing_pack.py`, `backend/tests/test_sprint_12c.py`, `backend/tests/test_iter15_maintenance.py`, `backend/tests/test_ai_image_async.py`, `backend/tests/test_ai_ads.py`, `memory/test_credentials.md`.

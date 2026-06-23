@@ -15,7 +15,7 @@ import requests
 from pymongo import MongoClient
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
-ADMIN_PASSWORD = "Lakeview872"
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
 

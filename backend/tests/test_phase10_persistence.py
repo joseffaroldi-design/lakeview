@@ -40,7 +40,7 @@ def _read_base_url():
 
 
 BASE_URL = _read_base_url()
-ADMIN_PASSWORD = "Lakeview872"
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 TIMEOUT = 30
 
 

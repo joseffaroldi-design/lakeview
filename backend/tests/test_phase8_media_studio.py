@@ -20,7 +20,7 @@ import requests
 from PIL import Image
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://food-graphics-lab.preview.emergentagent.com").rstrip("/")
-ADMIN_PASSWORD = "Lakeview872"
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 EXPECTED_FORMAT_DIMS = {
     "ig_post_1_1": (1080, 1080),

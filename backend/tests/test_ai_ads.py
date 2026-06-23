@@ -1,7 +1,7 @@
 """Tests for AI Marketing Studio (Phase 1 + Phase 2) endpoints.
 
 Covers:
-- Auth login (Lakeview872)
+- Auth login (env-driven ADMIN_PASSWORD)
 - /api/ai-ads/templates, /config, /stats, /providers, /settings
 - /api/ai-ads/campaigns CRUD
 - /api/ai-ads/assets CRUD + filters + NEW /duplicate endpoint
@@ -14,7 +14,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://food-graphics-lab.preview.emergentagent.com").rstrip("/")
-ADMIN_PASSWORD = "Lakeview872"
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 
 # ---------- Fixtures ----------

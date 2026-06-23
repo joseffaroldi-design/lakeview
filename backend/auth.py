@@ -57,7 +57,7 @@ async def cleanup_expired_sessions() -> int:
 
 
 @router.post("/login")
-@limiter.limit("10/minute")
+@limiter.limit("5/15 minutes")
 async def login(request: Request, data: LoginRequest, response: Response):
     if not verify_admin_password(data.password):
         raise HTTPException(status_code=401, detail="Invalid password")

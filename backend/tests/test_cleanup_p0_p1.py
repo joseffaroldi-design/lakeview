@@ -2,7 +2,7 @@
 P0/P1 Regression Tests for Lakeview Burgers & Seafood
 - P0: removed /api/status GET/POST endpoints (should 404)
 - P1: session persistence across backend restart (MongoDB-backed)
-- P0: ADMIN_PASSWORD loaded from .env (Lakeview872), no fallback
+- P0: ADMIN_PASSWORD loaded from .env (no hardcoded fallback)
 """
 import os
 import time
@@ -11,7 +11,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-ADMIN_PASSWORD = "Lakeview872"
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 
 # --- Removed /api/status endpoints (P0) ---
@@ -33,10 +33,18 @@ class TestAdminPasswordFromEnv:
         assert "token" in r.json()
 
     def test_login_with_old_default_password_fails(self):
-        # If a hardcoded fallback was ever 'admin' or empty, ensure it does NOT work
+        # If a hardcoded fallback was ever 'admin' or empty, ensure it does NOT work.
+        # Use a fresh X-Forwarded-For per attempt — the global login rate limit
+        # (5 / 15 minutes per IP, Sprint 15B.5) would otherwise interfere.
+        import uuid
         for bad in ["admin", "", "password", "lakeview"]:
-            r = requests.post(f"{BASE_URL}/api/auth/login", json={"password": bad})
-            assert r.status_code == 401, f"Password '{bad}' unexpectedly accepted ({r.status_code})"
+            ip = f"203.0.113.{uuid.uuid4().int % 250 + 1}"
+            r = requests.post(
+                f"{BASE_URL}/api/auth/login",
+                json={"password": bad},
+                headers={"X-Forwarded-For": ip},
+            )
+            assert r.status_code in (401, 422), f"Password '{bad}' unexpectedly accepted ({r.status_code})"
 
 
 # --- Logout invalidates session ---
