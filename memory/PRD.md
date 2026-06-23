@@ -1179,3 +1179,40 @@ Collections dropped:
 - Estimated downtime: zero (env-var update + rolling restart)
 
 **Files modified**: `backend/.env`, `memory/integrations.md` (new), `memory/PRD.md`.
+
+### Sprint 14B.3 — Top Friction Fixes (Feb 22, 2026)
+
+**Feature 1 — `mailto:` links on catering inquiries** (`CateringTab.jsx`)
+- Email/phone now render as `<a href="mailto:…">` and `<a href="tel:…">` clickable links with icons.
+- New prominent "Reply via email" button per inquiry — pre-fills:
+  - Subject: `Re: Catering inquiry — <event_date>` (or restaurant name fallback)
+  - Body: friendly greeting using the inquirer's first name, references their event date and guest count, asks 3 quote-qualifying questions, signed off.
+- Phone numbers stripped of non-digit characters for `tel:` URLs to satisfy iOS/Android dialer parsing.
+- `buildMailto()` is a pure function — covered by 8 assertions in `test_sprint_14b3.js` (greeting/subject/body fallbacks, URL encoding of `+` in emails).
+
+**Feature 2 — Auto-show saved copy when reopening a job** (`AiDesigner.jsx`)
+- Backend persistence was already in place: `ai_design_jobs.copy_pack` is saved at generation time, and `GET /api/ai-designer/jobs/{id}/copy` is read-only (returns cached copy without regeneration; verified end-to-end against a real job — zero credits consumed).
+- UX gap: when a job was reopened from `RecentDesignsRail`, the Review surface used `useState(Boolean(job.copy_pack) && !fromRecent)` which hid the saved copy behind a "View Existing Copy" button.
+- Fix: dropped the `&& !fromRecent` clause — saved copy now displays immediately on reopen. One-line change. `fromRecent` prop preserved for future use.
+- Validated against a live job (`c462fc10-…`): `has_copy=True`, all 5 required fields present (fb_post, ig_post, sms, email, 11 hashtags). No new credit-spend pathway.
+
+**Feature 3 — Consolidated Promote surface** (`AiAdsTab.jsx`)
+- Removed the prominent two-button mode toggle ("Marketing Pack" vs "AI Designer") that forced owners to choose a workflow before knowing what they wanted.
+- Default surface is now **AI Designer** — the visual flagship that produces designs + optional auto-copy (strictly larger artifact set).
+- Marketing Pack remains reachable via a single subtle footer link: "Need a quick text-only pack (captions, SMS, email, 15-sec video)? **Use Marketing Pack →**". From Marketing Pack a small "Back to AI Designer" link returns.
+- No capability removed. No backend changes. `data-testid="aiads-tab"` preserved for existing tests.
+
+**Files modified**:
+- `frontend/src/pages/dashboard/CateringTab.jsx` (mailto + tel links + Reply button + helper)
+- `frontend/src/pages/dashboard/aiads/AiDesigner.jsx` (showCopy default)
+- `frontend/src/pages/dashboard/AiAdsTab.jsx` (full rewrite — 54 → 67 LOC)
+- `frontend/test_sprint_14b3.js` (new regression — 16 assertions across all 3 features)
+
+**Validation**:
+- 16/16 Node assertions pass.
+- ESLint: 0 new warnings.
+- Webpack compiles cleanly.
+- End-to-end backend round-trip: GET `/jobs/{id}/copy` returns saved `copy_pack` without regenerating.
+
+**No backend API changes. No DB schema changes. No data migration needed.**
+

@@ -858,7 +858,10 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates, fromRecent
   const [savingIdx, setSavingIdx] = useState(null);
   const [savedIdxs, setSavedIdxs] = useState({});
   const [copyPack, setCopyPack] = useState(job.copy_pack || null);
-  const [showCopy, setShowCopy] = useState(Boolean(job.copy_pack) && !fromRecent);
+  // Sprint 14B.3: when reopening a saved job, show existing copy by default
+  // — it was already saved with the job, costs zero credits, and is the
+  // primary reason the owner is reopening.
+  const [showCopy, setShowCopy] = useState(Boolean(job.copy_pack));
   const [previewIdx, setPreviewIdx] = useState(null);
   const [generatingCopy, setGeneratingCopy] = useState(false);
   const [copyError, setCopyError] = useState(null);

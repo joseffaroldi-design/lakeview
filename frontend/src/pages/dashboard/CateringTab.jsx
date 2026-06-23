@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Card, CardContent } from "@/components/ui/card";
-import { UtensilsCrossed } from "lucide-react";
+import { UtensilsCrossed, Mail, Phone } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -11,6 +11,37 @@ const STATUS_CLASS = {
   confirmed: "bg-green-100 text-green-700",
   completed: "bg-gray-100 text-gray-600",
   cancelled: "bg-red-100 text-red-600",
+};
+
+// Sprint 14B.3 — pre-fill a friendly reply so the owner clicks once and
+// lands in their email client with the right subject + greeting + signature.
+const buildMailto = (inq) => {
+  const eventLine = inq.event_date
+    ? `your event on ${inq.event_date}`
+    : "your catering inquiry";
+  const subject = `Re: Catering inquiry — ${
+    inq.event_date ? inq.event_date : "Lakeview Burgers & Seafood"
+  }`;
+  const greeting = inq.name ? `Hi ${inq.name.split(/\s+/)[0]},` : "Hi,";
+  const lines = [
+    greeting,
+    "",
+    `Thanks for reaching out to Lakeview Burgers & Seafood about ${eventLine}.`,
+    "",
+    "We'd love to help — here are a few quick questions so we can put a quote together:",
+    "  •  Final headcount (you mentioned " +
+      (inq.guest_count ? `${inq.guest_count}` : "approx. guests") +
+      ")",
+    "  •  Preferred menu style (burgers + sides, seafood spread, mixed)",
+    "  •  Delivery vs on-site service",
+    "",
+    "Reply whenever works for you and we'll get a quote back the same day.",
+    "",
+    "— Lakeview Burgers & Seafood",
+  ];
+  return `mailto:${encodeURIComponent(inq.email)}?subject=${encodeURIComponent(
+    subject,
+  )}&body=${encodeURIComponent(lines.join("\n"))}`;
 };
 
 export const CateringTab = ({ getAuthHeader }) => {
@@ -69,7 +100,24 @@ export const CateringTab = ({ getAuthHeader }) => {
                         {inquiry.status}
                       </span>
                     </div>
-                    <p className="font-sans text-sm text-muted-foreground">{inquiry.email}{inquiry.phone ? ` | ${inquiry.phone}` : ""}</p>
+                    <p className="font-sans text-sm text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <a
+                        href={`mailto:${inquiry.email}`}
+                        className="inline-flex items-center gap-1 text-navy hover:text-gold hover:underline"
+                        data-testid={`catering-email-link-${inquiry.id}`}
+                      >
+                        <Mail className="w-3 h-3" /> {inquiry.email}
+                      </a>
+                      {inquiry.phone ? (
+                        <a
+                          href={`tel:${inquiry.phone.replace(/[^+\d]/g, "")}`}
+                          className="inline-flex items-center gap-1 text-navy hover:text-gold hover:underline"
+                          data-testid={`catering-phone-link-${inquiry.id}`}
+                        >
+                          <Phone className="w-3 h-3" /> {inquiry.phone}
+                        </a>
+                      ) : null}
+                    </p>
                     {inquiry.event_date && (
                       <p className="font-sans text-sm text-muted-foreground">
                         Date: {inquiry.event_date}{inquiry.guest_count ? ` | ${inquiry.guest_count} guests` : ""}
@@ -80,7 +128,14 @@ export const CateringTab = ({ getAuthHeader }) => {
                       {new Date(inquiry.submitted_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    <a
+                      href={buildMailto(inquiry)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gold text-navy hover:bg-gold/90 px-3 py-1.5 rounded-sm transition-colors"
+                      data-testid={`catering-reply-btn-${inquiry.id}`}
+                    >
+                      <Mail className="w-3.5 h-3.5" /> Reply via email
+                    </a>
                     <select
                       data-testid={`catering-status-${inquiry.id}`}
                       value={inquiry.status}
