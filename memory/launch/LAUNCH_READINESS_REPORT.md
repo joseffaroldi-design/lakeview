@@ -16,7 +16,8 @@
 | Capability | Status | Evidence |
 |---|---|---|
 | AI Designer (flyers + ingredient icons + typography) | ✅ **Ready** | 5/5 jobs completed; 15 flyer variations rendered (3 per dish); all icons + Bebas Neue / Bungee fonts visible |
-| Marketing Pack (15-second promo video) | ✅ **Ready** | 5/5 videos rendered; spec-exact 720×1280 @ 15.07s MP4; all downloadable |
+| **Photo → Flyer fusion** (Sprint 16D) | ✅ **Ready** | Live E2E 66.2s; Gemini vision @ 95% confidence; auto-fill + enhanced photo + flyer + captions all wired through `/api/photo-flyer/analyze` with graceful budget degradation |
+| Marketing Pack (15-second promo video) | ✅ **Ready** | 5/5 videos rendered; spec-exact 720×1280 @ 15.07s MP4; all downloadable. Now opt-in from Photo→Flyer review screen. |
 | Media storage + thumbnails | ✅ **Ready** | All 25 assets stored + thumbnails generated; orphan scan clean |
 | Authentication (preview) | ✅ **Ready** | Deterministic bcrypt verify; rate-limiter live; sessions Mongo-backed |
 | Authentication (production) | 🔴 **Blocked** | Platform env-var propagation bug — escalated to Emergent Support |

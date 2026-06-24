@@ -113,9 +113,233 @@ curl -s -X POST "$PROD/api/ai-designer/estimate" \
 - Price tag is visible in the corner
 - Image is downloadable from the review screen
 
+## Gate 2.5 — Photo → Flyer Fusion (Sprint 16D)
+
+This gate group exercises the new entry point: a single photo upload that
+produces an enhanced asset, an AI vision analysis, a fuzzy menu match,
+and (via the existing AI Designer + Marketing Pack reuse) a finished
+flyer + captions + opt-in video.
+
+Save a real food photo locally (any JPG/PNG of a dish — e.g. one taken
+in-house at Lakeview). Set:
+```bash
+PHOTO=/path/to/lakeview-burger.jpg
+```
+
+### G2.5.1 — Analyze endpoint reachable + multipart upload accepted
+```bash
+ANALYZE=$(curl -s -X POST "$PROD/api/photo-flyer/analyze" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@$PHOTO" \
+  -F "folder=Custom")
+echo "$ANALYZE" | python -m json.tool | head -30
+```
+**Pass**:
+- HTTP 200
+- Response contains `original_asset_id`, `enhanced_asset_id`, `vision_ok`,
+  `food_type`, `features`, `suggested_theme`, `menu_match`
+
+### G2.5.2 — Both source and enhanced assets are downloadable
+```bash
+ORIG=$(echo "$ANALYZE" | python -c "import sys,json;print(json.load(sys.stdin)['original_asset_id'])")
+ENHANCED=$(echo "$ANALYZE" | python -c "import sys,json;print(json.load(sys.stdin)['enhanced_asset_id'])")
+echo "orig=$ORIG"
+echo "enhanced=$ENHANCED"
+
+curl -s -o /tmp/prod_orig.jpg -w "orig_http=%{http_code} size=%{size_download}\n" \
+  "$PROD/api/media/file/$ORIG" -H "Authorization: Bearer $TOKEN"
+
+curl -s -o /tmp/prod_enhanced.jpg -w "enhanced_http=%{http_code} size=%{size_download}\n" \
+  "$PROD/api/media/file/$ENHANCED" -H "Authorization: Bearer $TOKEN"
+```
+**Pass**:
+- Both `*_http=200`
+- Both `size > 10000` bytes
+- Enhanced bytes ≠ original bytes (PIL pipeline actually applied)
+- Thumbnails also retrievable:
+  ```bash
+  curl -s -o /dev/null -w "thumb=%{http_code}\n" \
+    "$PROD/api/media/thumb/$ENHANCED" -H "Authorization: Bearer $TOKEN"   # → 200
+  ```
+
+### G2.5.3 — Vision analysis returns useful data OR gracefully degrades
+```bash
+echo "$ANALYZE" | python -c "
+import sys, json
+d = json.load(sys.stdin)
+print('vision_ok    =', d['vision_ok'])
+print('food_type    =', d.get('food_type'))
+print('confidence   =', d.get('confidence'))
+print('features     =', d.get('features'))
+print('theme        =', d.get('suggested_theme'))
+print('menu_matched =', (d.get('menu_match') or {}).get('matched'))
+print('vision_error =', d.get('vision_error'))
+"
+```
+**Pass — happy path** (LLM budget healthy):
+- `vision_ok = True`
+- `food_type` is non-empty and contextually correct
+- `confidence ≥ 0.5`
+- `features` has 1+ entries
+- `suggested_theme ∈ {comic_pop, vintage_diner, bold_purple_pop, casual_teal, distressed_orange}`
+
+**Pass — degraded path** (LLM budget capped):
+- `vision_ok = False`
+- `vision_error` contains "budget" (or "timeout"/"json")
+- `suggested_theme = 'comic_pop'` (safe default)
+- `features = []`
+- **Critical**: response is still 200, not 500 — the UI must be able to render
+
+### G2.5.4 — Menu match returns editable shape
+```bash
+echo "$ANALYZE" | python -c "
+import sys, json
+mm = json.load(sys.stdin).get('menu_match') or {}
+print('matched =', mm.get('matched'))
+print('name    =', mm.get('name'))
+print('price   =', mm.get('price'))
+print('confidence =', mm.get('confidence'))
+print('tried   =', mm.get('tried'))
+"
+```
+**Pass**:
+- `tried > 0` (menu collection was queryable in prod)
+- If matched: `name`, `price`, `confidence ≥ 0.55` all present
+- If not matched: `matched=False`, `price=None` — the UI shows a manual
+  price field (this is the documented conservative behaviour, not a bug)
+
+### G2.5.5 — Flyer + caption generation completes under 90 seconds
+This step exercises the **existing** AI Designer route reused by the new
+flow — proves the fusion does not slow down the underlying pipeline.
+
+```bash
+DESIGNER_JOB=$(curl -s -X POST "$PROD/api/ai-designer/generate" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "$(echo "$ANALYZE" | python -c "
+import sys, json
+d = json.load(sys.stdin)
+mm = d.get('menu_match') or {}
+print(json.dumps({
+  'source_asset_id': d['enhanced_asset_id'],
+  'item_name': d.get('food_type') or 'Featured Dish',
+  'features': d.get('features') or [],
+  'price': mm.get('price') or '\$13.95',
+  'theme': d.get('suggested_theme') or 'comic_pop',
+  'variations': 1,
+  'auto_copy': True,
+}))")" | python -c "import sys,json;print(json.load(sys.stdin)['job_id'])")
+echo "DESIGNER_JOB=$DESIGNER_JOB"
+
+START=$(date +%s)
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do
+  STATE=$(curl -s "$PROD/api/ai-designer/job/$DESIGNER_JOB" \
+    -H "Authorization: Bearer $TOKEN" | \
+    python -c "import sys,json;d=json.load(sys.stdin);print(d.get('status'),d.get('progress'))")
+  ELAPSED=$(($(date +%s) - START))
+  echo "t=${ELAPSED}s  $STATE"
+  if echo "$STATE" | grep -q completed; then break; fi
+  sleep 5
+done
+ELAPSED=$(($(date +%s) - START))
+echo "Designer wall time: ${ELAPSED}s"
+
+# Pull the result and confirm copy_pack
+curl -s "$PROD/api/ai-designer/job/$DESIGNER_JOB" \
+  -H "Authorization: Bearer $TOKEN" | python -c "
+import sys, json
+j = json.load(sys.stdin)
+vs = j.get('variations') or []
+cp = j.get('copy_pack') or {}
+print('variations =', len(vs))
+print('flyer_asset_id =', vs[0].get('asset_id') if vs else None)
+print('fb_post_len =', len(cp.get('fb_post', '')))
+print('ig_post_len =', len(cp.get('ig_post', '')))
+print('copy_error =', j.get('copy_error'))
+"
+```
+**Pass**:
+- Reaches `completed 100` in **≤ 90 s**
+- `variations ≥ 1` and `flyer_asset_id` is non-empty
+- If LLM budget healthy: `fb_post_len ≥ 60` and `ig_post_len ≥ 60`
+- If LLM budget capped: `fb_post_len = 0` AND `copy_error` is set; this
+  is acceptable — owner can paste their own caption (graceful degradation)
+
+### G2.5.6 — Flyer + thumbnail downloadable
+```bash
+FLYER=$(curl -s "$PROD/api/ai-designer/job/$DESIGNER_JOB" \
+  -H "Authorization: Bearer $TOKEN" | \
+  python -c "import sys,json;print(json.load(sys.stdin)['variations'][0]['asset_id'])")
+
+curl -s -o /tmp/prod_flyer.png -w "flyer_http=%{http_code} size=%{size_download}\n" \
+  "$PROD/api/media/file/$FLYER" -H "Authorization: Bearer $TOKEN"
+curl -s -o /dev/null -w "flyer_thumb=%{http_code}\n" \
+  "$PROD/api/media/thumb/$FLYER" -H "Authorization: Bearer $TOKEN"
+```
+**Pass**:
+- `flyer_http = 200`, `size > 50000`
+- `flyer_thumb = 200`
+- Open `/tmp/prod_flyer.png` and visually confirm:
+  - Title typography rendered (Bebas Neue / Bungee / Permanent Marker)
+  - Price badge visible
+  - Ingredient icons rendered next to feature lines (Sprint 16A.2)
+  - Lakeview branding present
+
+### G2.5.7 — "Turn this into a 15s video" — opt-in trigger works
+```bash
+PACK=$(curl -s -X POST "$PROD/api/marketing-pack/generate" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "$(echo "$ANALYZE" | python -c "
+import sys, json
+d = json.load(sys.stdin)
+mm = d.get('menu_match') or {}
+print(json.dumps({
+  'source_asset_id': d['enhanced_asset_id'],
+  'name': d.get('food_type') or 'Featured Dish',
+  'price': mm.get('price') or '',
+  'cta': 'Order Now',
+}))")")
+PACK_ID=$(echo "$PACK" | python -c "import sys,json;print(json.load(sys.stdin)['job_id'])")
+echo "PACK_ID=$PACK_ID"
+
+START=$(date +%s)
+for i in $(seq 1 24); do
+  STATE=$(curl -s "$PROD/api/marketing-pack/job/$PACK_ID" \
+    -H "Authorization: Bearer $TOKEN" | \
+    python -c "import sys,json;d=json.load(sys.stdin);print(d.get('status'),d.get('progress'))")
+  ELAPSED=$(($(date +%s) - START))
+  echo "t=${ELAPSED}s  $STATE"
+  if echo "$STATE" | grep -q completed; then break; fi
+  sleep 5
+done
+ELAPSED=$(($(date +%s) - START))
+echo "Pack wall time: ${ELAPSED}s"
+
+VID=$(curl -s "$PROD/api/marketing-pack/$PACK_ID" \
+  -H "Authorization: Bearer $TOKEN" | \
+  python -c "import sys,json;print(json.load(sys.stdin)['result']['video_asset_id'])")
+echo "VIDEO_ASSET_ID=$VID"
+```
+**Pass**:
+- Pack reaches `completed` in ≤ 120 s
+- `VIDEO_ASSET_ID` is non-empty
+
+### G2.5.8 — Video playable MP4
+```bash
+curl -s -o /tmp/prod_fusion_video.mp4 -w "vid_http=%{http_code} size=%{size_download}\n" \
+  "$PROD/api/media/file/$VID" -H "Authorization: Bearer $TOKEN"
+ffprobe -v error -show_entries stream=codec_type,width,height,duration \
+  /tmp/prod_fusion_video.mp4 2>&1 | head -10
+```
+**Pass**:
+- `vid_http = 200`, `size > 50000`
+- `codec_type = video`
+- `width=720 height=1280`
+- `duration ≈ 15 ± 1` seconds
+- Optional: `xdg-open /tmp/prod_fusion_video.mp4` plays the slideshow
+
 ---
 
-## Gate 3 — Marketing Pack (Video Generation)
+## Gate 3 — Marketing Pack (Video Generation, standalone path)
 
 ### G3.1 — Upload a source image
 ```bash
@@ -227,6 +451,14 @@ and refresh a few times. Then check Emergent platform logs for the prod pod:
 | G1.4 | Home health 200 | ☐ | |
 | G2.1 | AI Designer estimate 200 | ☐ | |
 | G2.2 | Flyer generates + icons + fonts visible | ☐ | screenshot attached |
+| G2.5.1 | Photo→Flyer analyze endpoint reachable | ☐ | |
+| G2.5.2 | Original + enhanced assets downloadable, thumbs OK | ☐ | |
+| G2.5.3 | Vision returns useful data OR gracefully degrades | ☐ | budget state: ___ |
+| G2.5.4 | Menu match returns editable shape | ☐ | tried=___ matched=___ |
+| G2.5.5 | Flyer + caption generation ≤ 90 s | ☐ | wall time: ___s |
+| G2.5.6 | Flyer + thumbnail downloadable, visual review passes | ☐ | |
+| G2.5.7 | Opt-in video kick succeeds, pack completes | ☐ | wall time: ___s |
+| G2.5.8 | Video playable MP4 (720×1280, ~15s) | ☐ | |
 | G3.1 | Upload 200 | ☐ | |
 | G3.2 | Pack generate 202 | ☐ | |
 | G3.3 | Pack completes in 90s | ☐ | |
