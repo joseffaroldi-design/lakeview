@@ -26,8 +26,10 @@ import PhotoToFlyer from "./aiads/PhotoToFlyer";
 const HANDOFF_KEY = "lakeview.ai_designer.preload_asset_id";
 
 const AiAdsTab = ({ getAuthHeader }) => {
-  // "designer" is the default. "pack" is reachable only via the in-designer footer link.
-  const [mode, setMode] = useState("designer");
+  // Sprint 16D-fix: Photo→Flyer is the primary owner workflow. Template
+  // Designer is kept as an "advanced" mode for users who want to start
+  // from scratch without uploading a photo.
+  const [mode, setMode] = useState("image");
 
   const handleUseInAd = (asset) => {
     if (asset?.id) {
@@ -61,23 +63,12 @@ const AiAdsTab = ({ getAuthHeader }) => {
 
   return (
     <div className="space-y-4" data-testid="aiads-tab">
-      {/* Sprint 15B.8 — engine selector. Two equal, mutually-exclusive modes. */}
+      {/* Sprint 16D-fix: Photo → Flyer is the primary owner workflow.
+          Template Designer is the secondary "advanced" mode. */}
       <div
         className="inline-flex p-0.5 bg-navy/5 rounded-sm"
         data-testid="aiads-engine-switch"
       >
-        <button
-          type="button"
-          onClick={() => setMode("designer")}
-          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-sm transition-colors ${
-            mode === "designer"
-              ? "bg-white text-navy shadow-sm"
-              : "text-navy/60 hover:text-navy"
-          }`}
-          data-testid="aiads-mode-designer"
-        >
-          <LayoutGrid className="w-3.5 h-3.5" /> Template Designer
-        </button>
         <button
           type="button"
           onClick={() => setMode("image")}
@@ -89,6 +80,19 @@ const AiAdsTab = ({ getAuthHeader }) => {
           data-testid="aiads-mode-image"
         >
           <Sparkles className="w-3.5 h-3.5" /> Photo → Flyer
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("designer")}
+          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-sm transition-colors ${
+            mode === "designer"
+              ? "bg-white text-navy shadow-sm"
+              : "text-navy/60 hover:text-navy"
+          }`}
+          data-testid="aiads-mode-designer"
+        >
+          <LayoutGrid className="w-3.5 h-3.5" /> Template Designer
+          <span className="ml-1 text-[9px] uppercase tracking-wider text-navy/40">Advanced</span>
         </button>
       </div>
 

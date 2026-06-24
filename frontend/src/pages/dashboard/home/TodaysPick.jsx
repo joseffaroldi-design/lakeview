@@ -83,7 +83,9 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
     }
 
     const graphic = pick.graphics[selectedGraphic];
-    const imageUrl = `${API}${graphic.url}`;
+    // backend `url` / `thumb_url` already include `/api/`, so concatenate
+    // against raw REACT_APP_BACKEND_URL to avoid the `/api/api/...` bug.
+    const imageUrl = `${process.env.REACT_APP_BACKEND_URL}${graphic.url}`;
 
     try {
       // Try Clipboard API first (modern browsers)
@@ -130,7 +132,9 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
     if (!pick?.graphics || pick.graphics.length === 0) return;
 
     const graphic = pick.graphics[selectedGraphic];
-    const imageUrl = `${API}${graphic.url}`;
+    // backend `url` / `thumb_url` already include `/api/`, so concatenate
+    // against raw REACT_APP_BACKEND_URL to avoid the `/api/api/...` bug.
+    const imageUrl = `${process.env.REACT_APP_BACKEND_URL}${graphic.url}`;
     
     // Create smart filename: Lakeview-ChickenWings-2026-06-22-A.jpg
     const itemName = pick.item.name.replace(/[^a-z0-9]/gi, '');
@@ -271,7 +275,7 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
                 {/* Main Graphic */}
                 <div className="aspect-square bg-navy/5 rounded-lg overflow-hidden border-2 border-navy/10 mb-3">
                   <img
-                    src={`${API}${graphics[selectedGraphic].url}`}
+                    src={`${process.env.REACT_APP_BACKEND_URL}${graphics[selectedGraphic].url}`}
                     alt={`${item.name} - Variation ${graphics[selectedGraphic].variation}`}
                     className="w-full h-full object-cover"
                     loading="lazy"
@@ -292,7 +296,7 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
                         }`}
                       >
                         <img
-                          src={`${API}${g.thumb_url}`}
+                          src={`${process.env.REACT_APP_BACKEND_URL}${g.thumb_url}`}
                           alt={`Variation ${g.variation}`}
                           className="w-full h-full object-cover"
                         />
@@ -303,7 +307,7 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
                 
                 {/* Download Link */}
                 <a
-                  href={`${API}${graphics[selectedGraphic].url}`}
+                  href={`${process.env.REACT_APP_BACKEND_URL}${graphics[selectedGraphic].url}`}
                   download
                   className="text-xs text-navy/60 hover:text-gold mt-2 inline-flex items-center gap-1"
                 >
