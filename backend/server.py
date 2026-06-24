@@ -19,6 +19,7 @@ from routers import (
     cms, specials, analytics, loyalty, messaging,
     catering, newsletter, misc, ai_ads, media, home,
     marketing_pack, billing, ai_designer, todays_pick, ai_image,
+    photo_flyer,
 )
 
 logging.basicConfig(
@@ -51,6 +52,7 @@ api_router.include_router(marketing_pack.router)
 api_router.include_router(billing.router)
 api_router.include_router(ai_designer.router)
 api_router.include_router(ai_image.router)
+api_router.include_router(photo_flyer.router)
 api_router.include_router(todays_pick.router)
 app.include_router(api_router)
 

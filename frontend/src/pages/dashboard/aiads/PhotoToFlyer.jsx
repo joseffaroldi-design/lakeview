@@ -1,0 +1,608 @@
+/**
+ * Photo → Flyer (Sprint 16D)
+ *
+ * Replaces AiImageGenerator.jsx as the front-end entry point for the
+ * marketing workflow. Upload a food photo → AI vision analysis →
+ * auto-filled flyer + caption in one click. Video is opt-in from the
+ * review screen ("Turn this into a 15s video").
+ *
+ * Pipelines reused (NOT duplicated):
+ *   POST /api/photo-flyer/analyze    (new orchestrator: upload+enhance+vision+menu)
+ *   POST /api/ai-designer/generate   (flyer + auto_copy) — existing
+ *   POST /api/marketing-pack/generate (15-s video, opt-in) — existing
+ */
+import React, { useEffect, useRef, useState } from "react";
+import axios from "axios";
+import {
+  Sparkles, Upload, Loader2, Download, RefreshCw, CheckCircle,
+  ArrowLeft, Wand2, Image as ImageIcon, Video, ChevronRight, Copy,
+  AlertTriangle,
+} from "lucide-react";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { API, Section } from "./shared";
+import StructuredErrorCard, { parseAxiosError } from "./StructuredErrorCard";
+
+const POLL_MS = 3000;
+const POLL_TIMEOUT_MS = 4 * 60 * 1000;
+
+const THEMES = [
+  { value: "comic_pop",         label: "Comic Pop" },
+  { value: "vintage_diner",     label: "Vintage Diner" },
+  { value: "bold_purple_pop",   label: "Bold Purple Pop" },
+  { value: "casual_teal",       label: "Casual Teal" },
+  { value: "distressed_orange", label: "Distressed Orange" },
+];
+
+
+// ============================== Step 1 — Upload ==========================
+
+const UploadStep = ({ onAnalyzed, getAuthHeader }) => {
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
+  const [error, setError] = useState(null);
+  const fileRef = useRef(null);
+
+  const handlePick = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    setBusy(true); setError(null); setProgress("Uploading photo…");
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      fd.append("folder", "Custom");
+      setProgress("Enhancing and analyzing your photo (≈8s)…");
+      const r = await axios.post(`${API}/photo-flyer/analyze`, fd, {
+        headers: { ...getAuthHeader() },
+        timeout: 90000,
+      });
+      onAnalyzed(r.data);
+    } catch (e2) {
+      setError(parseAxiosError(e2));
+    } finally {
+      setBusy(false); setProgress("");
+    }
+  };
+
+  return (
+    <div className="space-y-4" data-testid="photo-flyer-step-upload">
+      <Section title="Start with a food photo" icon={Wand2} testId="photo-upload">
+        <p className="text-sm text-navy/70 mb-3">
+          Upload a photo of any dish. We&apos;ll detect the food, enhance the
+          lighting, auto-fill the design fields, and you&apos;ll have a
+          shareable flyer + captions in under 60 seconds. No manual entry
+          needed.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => fileRef.current && fileRef.current.click()}
+            disabled={busy}
+            className="bg-gold text-navy hover:bg-gold/90"
+            data-testid="photo-flyer-upload-btn"
+          >
+            {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  : <Upload className="w-4 h-4 mr-1.5" />}
+            {busy ? "Working…" : "Upload food photo"}
+          </Button>
+          <input
+            ref={fileRef} type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handlePick}
+            className="hidden"
+            data-testid="photo-flyer-upload-input"
+          />
+        </div>
+        {busy && progress ? (
+          <p className="text-xs text-muted-foreground mt-2"
+             data-testid="photo-flyer-progress-text">{progress}</p>
+        ) : null}
+        {error ? (
+          <div className="mt-3">
+            <StructuredErrorCard error={error}
+              testId="photo-flyer-upload-error"
+              onRetry={() => setError(null)} />
+          </div>
+        ) : null}
+      </Section>
+    </div>
+  );
+};
+
+
+// ============================== Step 2 — Review & Edit ==================
+
+const AnalysisReviewStep = ({ analysis, onBack, onGenerate, busy }) => {
+  const [name, setName] = useState(analysis.food_type || "");
+  const [features, setFeatures] = useState((analysis.features || []).join(", "));
+  const [price, setPrice] = useState(analysis.menu_match?.price
+    ? (analysis.menu_match.price.startsWith("$") ? analysis.menu_match.price
+       : `$${analysis.menu_match.price}`)
+    : "");
+  const [headline, setHeadline] = useState("");
+  const [theme, setTheme] = useState(analysis.suggested_theme || "comic_pop");
+
+  const submit = () => {
+    const feats = features.split(",").map(s => s.trim()).filter(Boolean);
+    onGenerate({
+      enhanced_asset_id: analysis.enhanced_asset_id,
+      item_name: name.trim() || "Featured Dish",
+      features: feats,
+      price: price.trim(),
+      headline: headline.trim() || null,
+      theme,
+    });
+  };
+
+  return (
+    <div className="space-y-4" data-testid="photo-flyer-step-review">
+      {!analysis.vision_ok ? (
+        <div className="flex gap-2 items-start p-3 rounded-md bg-amber-50 border border-amber-300 text-xs"
+             data-testid="photo-flyer-vision-warning">
+          <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-800">
+              AI vision unavailable — fill the fields manually and continue.
+            </p>
+            <p className="text-amber-700/80">
+              ({analysis.vision_error || "no detail"}) — your photo was still
+              enhanced and you can still generate the flyer below.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <Section title="We analyzed your photo" icon={Sparkles} testId="photo-flyer-analysis">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Before / after */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-navy/60 mb-1">Original</p>
+                <img src={`${API}/media/thumb/${analysis.original_asset_id}`}
+                  alt="original" className="w-full aspect-square object-cover rounded border-2 border-navy/10"
+                  data-testid="photo-flyer-original-img" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-gold mb-1">Enhanced</p>
+                <img src={`${API}/media/thumb/${analysis.enhanced_asset_id}`}
+                  alt="enhanced" className="w-full aspect-square object-cover rounded border-2 border-gold"
+                  data-testid="photo-flyer-enhanced-img" />
+              </div>
+            </div>
+            {analysis.vision_ok ? (
+              <div className="text-[11px] text-muted-foreground space-y-0.5 mt-1">
+                <p>Detected: <span className="font-semibold text-navy">{analysis.food_type}</span>
+                  {" "}({Math.round((analysis.confidence || 0) * 100)}% confidence)</p>
+                {analysis.menu_match?.matched ? (
+                  <p data-testid="photo-flyer-menu-match">
+                    Menu match: <span className="text-gold font-semibold">{analysis.menu_match.name}</span>
+                    {" "}— price autofilled.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Editable fields */}
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs font-semibold text-navy">Item name</label>
+              <Input value={name} onChange={e => setName(e.target.value)}
+                className="border-navy/20" data-testid="photo-flyer-name" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-navy">Features (comma-separated)</label>
+              <Input value={features} onChange={e => setFeatures(e.target.value)}
+                placeholder="Cheese, Bacon, Pickled Onions"
+                className="border-navy/20" data-testid="photo-flyer-features" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-navy">Price</label>
+                <Input value={price} onChange={e => setPrice(e.target.value)}
+                  placeholder="$12.95"
+                  className="border-navy/20" data-testid="photo-flyer-price" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-navy">Headline (opt.)</label>
+                <Input value={headline} onChange={e => setHeadline(e.target.value)}
+                  placeholder="Weekend Special"
+                  className="border-navy/20" data-testid="photo-flyer-headline" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-navy">Theme</label>
+              <select value={theme} onChange={e => setTheme(e.target.value)}
+                className="w-full border border-navy/20 rounded-md px-2 py-1.5 text-sm bg-white"
+                data-testid="photo-flyer-theme">
+                {THEMES.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onBack} className="border-navy/20"
+          data-testid="photo-flyer-back">
+          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
+        </Button>
+        <div className="flex-1" />
+        <Button onClick={submit} disabled={busy}
+          className="bg-gold text-navy hover:bg-gold/90"
+          data-testid="photo-flyer-generate">
+          {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                : <Sparkles className="w-4 h-4 mr-1.5" />}
+          Generate flyer + caption
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+
+// ============================== Step 3 — Generating =====================
+
+const GeneratingStep = ({ getAuthHeader, designerJobId, onCompleted, onFailed }) => {
+  const [step, setStep] = useState("queued");
+  const [pct, setPct] = useState(5);
+  const started = useRef(Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      if (Date.now() - started.current > POLL_TIMEOUT_MS) {
+        onFailed({ user_message: "Took too long — try again.", code: "timeout" });
+        return;
+      }
+      try {
+        const r = await axios.get(`${API}/ai-designer/job/${designerJobId}`,
+          { headers: getAuthHeader(), timeout: 15000 });
+        const job = r.data;
+        setPct(job.progress || 0);
+        setStep(job.current_step || job.status);
+        if (job.status === "completed") { onCompleted(job); return; }
+        if (job.status === "failed") {
+          onFailed(job.error || { user_message: "Generation failed." });
+          return;
+        }
+        setTimeout(tick, POLL_MS);
+      } catch {
+        setTimeout(tick, POLL_MS * 2);
+      }
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [designerJobId, getAuthHeader, onCompleted, onFailed]);
+
+  return (
+    <div className="space-y-4" data-testid="photo-flyer-step-generating">
+      <Section title="Generating your flyer" icon={Loader2} testId="photo-flyer-progress">
+        <div className="space-y-3">
+          <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gold transition-all duration-500"
+              style={{ width: `${pct}%` }}
+              data-testid="photo-flyer-progress-bar" />
+          </div>
+          <p className="text-sm text-navy" data-testid="photo-flyer-progress-step">
+            {{
+              queued: "Queued…",
+              pending: "Queued…",
+              composing: "Composing the flyer…",
+              writing_copy: "Writing captions…",
+              saving: "Finishing up…",
+              done: "Done!",
+              processing: "Working…",
+            }[step] || step}
+          </p>
+          <p className="text-[10px] text-muted-foreground">≈ 30–60 seconds.</p>
+        </div>
+      </Section>
+    </div>
+  );
+};
+
+
+// ============================== Step 4 — Review (flyer + copy + opt-in video)
+
+const ReviewStep = ({ job, analysis, getAuthHeader, onRegenerate, onStartOver }) => {
+  const vars = job.variations || [];
+  const flyer = vars[0] || {};
+  const flyerUrl = flyer.asset_id ? `${API}/media/file/${flyer.asset_id}` : null;
+  const copy = job.copy_pack || {};
+  const fb = copy.fb_post || "";
+  const ig = copy.ig_post || "";
+
+  // Opt-in video state
+  const [videoState, setVideoState] = useState("idle"); // idle|running|done|failed
+  const [videoJobId, setVideoJobId] = useState(null);
+  const [videoAssetId, setVideoAssetId] = useState(null);
+  const [videoErr, setVideoErr] = useState(null);
+  const [videoPct, setVideoPct] = useState(0);
+
+  const kickVideo = async () => {
+    setVideoState("running"); setVideoErr(null); setVideoPct(5);
+    try {
+      const r = await axios.post(`${API}/marketing-pack/generate`, {
+        source_asset_id: analysis.enhanced_asset_id,
+        name: analysis.food_type || flyer.headline || "Featured Dish",
+        price: job.price || "",
+        headline: flyer.headline || null,
+        cta: "Order Now",
+      }, { headers: getAuthHeader(), timeout: 30000 });
+      setVideoJobId(r.data.job_id);
+    } catch (e) {
+      setVideoState("failed"); setVideoErr(parseAxiosError(e));
+    }
+  };
+
+  useEffect(() => {
+    if (videoState !== "running" || !videoJobId) return;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      try {
+        const r = await axios.get(`${API}/marketing-pack/job/${videoJobId}`,
+          { headers: getAuthHeader(), timeout: 15000 });
+        const j = r.data;
+        setVideoPct(j.progress || 0);
+        if (j.status === "completed") {
+          setVideoAssetId((j.result || {}).video_asset_id);
+          setVideoState("done");
+          return;
+        }
+        if (j.status === "failed") {
+          setVideoState("failed");
+          setVideoErr(j.error || { user_message: "Video render failed." });
+          return;
+        }
+        setTimeout(tick, POLL_MS);
+      } catch { setTimeout(tick, POLL_MS * 2); }
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [videoState, videoJobId, getAuthHeader]);
+
+  const copyToClip = (text, label) => {
+    navigator.clipboard?.writeText(text || "").then(() => {
+      // Toast handled at the parent level; keep minimal here
+      const el = document.createElement("div");
+      el.textContent = `${label} copied`;
+      el.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0a2540;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;z-index:9999";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1400);
+    });
+  };
+
+  return (
+    <div className="space-y-6" data-testid="photo-flyer-step-review-done">
+      {/* Flyer */}
+      <Section title="Your flyer is ready" icon={CheckCircle} testId="photo-flyer-review-flyer">
+        {flyerUrl ? (
+          <div className="space-y-3">
+            <img src={flyerUrl} alt="generated flyer"
+              className="w-full max-w-md mx-auto rounded-md border-2 border-navy/10"
+              data-testid="photo-flyer-flyer-img" />
+            <div className="flex flex-wrap gap-2">
+              <a href={flyerUrl} download
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:underline"
+                data-testid="photo-flyer-download-flyer">
+                <Download className="w-4 h-4" /> Download flyer
+              </a>
+              <button onClick={onRegenerate}
+                className="inline-flex items-center gap-1.5 text-sm text-navy hover:underline"
+                data-testid="photo-flyer-regenerate">
+                <RefreshCw className="w-4 h-4" /> Regenerate / different theme
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Section>
+
+      {/* Copy */}
+      {(fb || ig) ? (
+        <Section title="Social captions" icon={Sparkles} testId="photo-flyer-review-copy">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {fb ? (
+              <div className="border border-navy/15 rounded-md p-3 space-y-2"
+                   data-testid="photo-flyer-fb-copy">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-wider font-semibold text-navy">Facebook</p>
+                  <button onClick={() => copyToClip(fb, "Facebook caption")}
+                    className="text-[11px] text-gold hover:underline flex items-center gap-1"
+                    data-testid="photo-flyer-copy-fb">
+                    <Copy className="w-3 h-3" /> Copy
+                  </button>
+                </div>
+                <p className="text-sm text-navy whitespace-pre-wrap">{fb}</p>
+              </div>
+            ) : null}
+            {ig ? (
+              <div className="border border-navy/15 rounded-md p-3 space-y-2"
+                   data-testid="photo-flyer-ig-copy">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-wider font-semibold text-navy">Instagram</p>
+                  <button onClick={() => copyToClip(ig, "Instagram caption")}
+                    className="text-[11px] text-gold hover:underline flex items-center gap-1"
+                    data-testid="photo-flyer-copy-ig">
+                    <Copy className="w-3 h-3" /> Copy
+                  </button>
+                </div>
+                <p className="text-sm text-navy whitespace-pre-wrap">{ig}</p>
+              </div>
+            ) : null}
+          </div>
+        </Section>
+      ) : job.copy_error ? (
+        <div className="text-xs text-amber-700 p-3 rounded-md bg-amber-50 border border-amber-300"
+             data-testid="photo-flyer-copy-error">
+          Captions unavailable: {job.copy_error.slice(0, 200)}.
+          You can paste your own and still share the flyer.
+        </div>
+      ) : null}
+
+      {/* Opt-in video */}
+      <Section title="Optional — 15-second promo video" icon={Video} testId="photo-flyer-video-section">
+        {videoState === "idle" ? (
+          <div className="space-y-2">
+            <p className="text-sm text-navy/70">
+              Want a vertical 15-second video built from this photo for
+              Reels / TikTok / Stories? Costs about a minute.
+            </p>
+            <Button onClick={kickVideo}
+              className="bg-navy text-cream hover:bg-navy/90"
+              data-testid="photo-flyer-video-kick">
+              <Video className="w-4 h-4 mr-1.5" /> Turn this into a 15s video
+            </Button>
+          </div>
+        ) : null}
+        {videoState === "running" ? (
+          <div className="space-y-2">
+            <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
+              <div className="h-full bg-navy transition-all duration-500"
+                style={{ width: `${videoPct}%` }}
+                data-testid="photo-flyer-video-progress" />
+            </div>
+            <p className="text-xs text-muted-foreground">Rendering video… ≈ 60s</p>
+          </div>
+        ) : null}
+        {videoState === "done" && videoAssetId ? (
+          <div className="space-y-2" data-testid="photo-flyer-video-done">
+            <video src={`${API}/media/file/${videoAssetId}`} controls
+              className="w-full max-w-sm rounded-md border-2 border-navy/10"
+              data-testid="photo-flyer-video-player" />
+            <a href={`${API}/media/file/${videoAssetId}`} download
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:underline"
+              data-testid="photo-flyer-download-video">
+              <Download className="w-4 h-4" /> Download video
+            </a>
+          </div>
+        ) : null}
+        {videoState === "failed" ? (
+          <StructuredErrorCard error={videoErr}
+            testId="photo-flyer-video-error"
+            onRetry={() => setVideoState("idle")} />
+        ) : null}
+      </Section>
+
+      {/* Bottom actions */}
+      <div className="flex gap-2 sticky bottom-0 bg-cream/95 backdrop-blur-sm border-t border-navy/10 p-3 -mx-6 -mb-6 px-6">
+        <Button variant="outline" onClick={onStartOver}
+          className="border-navy/20" data-testid="photo-flyer-start-over">
+          New photo
+        </Button>
+        <div className="flex-1" />
+        <Button className="bg-gold text-navy hover:bg-gold/90"
+          onClick={onStartOver} data-testid="photo-flyer-done">
+          <CheckCircle className="w-4 h-4 mr-1.5" /> Done
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+
+// ============================== Top-level ==============================
+
+const PhotoToFlyer = ({ getAuthHeader }) => {
+  const [step, setStep] = useState("upload"); // upload | review | generating | done
+  const [analysis, setAnalysis] = useState(null);
+  const [genBusy, setGenBusy] = useState(false);
+  const [designerJobId, setDesignerJobId] = useState(null);
+  const [designerJob, setDesignerJob] = useState(null);
+  const [topError, setTopError] = useState(null);
+
+  const onAnalyzed = (data) => {
+    setAnalysis(data); setStep("review"); setTopError(null);
+  };
+
+  const onGenerate = async (params) => {
+    setGenBusy(true); setTopError(null);
+    try {
+      const r = await axios.post(`${API}/ai-designer/generate`, {
+        source_asset_id: params.enhanced_asset_id,
+        item_name: params.item_name,
+        features: params.features,
+        price: params.price,
+        theme: params.theme,
+        headline: params.headline,
+        variations: 1,
+        auto_copy: true,
+        remove_background: false,
+      }, { headers: getAuthHeader(), timeout: 30000 });
+      setDesignerJobId(r.data.job_id);
+      // Keep the chosen price on the job for the video step downstream
+      setDesignerJob({ price: params.price });
+      setStep("generating");
+    } catch (e) {
+      setTopError(parseAxiosError(e));
+    } finally {
+      setGenBusy(false);
+    }
+  };
+
+  const onCompleted = (job) => {
+    setDesignerJob(prev => ({ ...(prev || {}), ...job }));
+    setStep("done");
+  };
+  const onFailed = (err) => { setTopError(err); setStep("review"); };
+
+  const startOver = () => {
+    setStep("upload"); setAnalysis(null);
+    setDesignerJobId(null); setDesignerJob(null);
+    setTopError(null);
+  };
+  const regenerate = () => { setStep("review"); };
+
+  return (
+    <div className="space-y-6" data-testid="photo-flyer">
+      <div className="flex items-center gap-1 text-xs text-muted-foreground"
+           data-testid="photo-flyer-stepper">
+        <span className={step === "upload" ? "text-gold font-semibold" : ""}>
+          1. Upload
+        </span>
+        <ChevronRight className="w-3 h-3 opacity-50" />
+        <span className={step === "review" ? "text-gold font-semibold" : ""}>
+          2. Review &amp; Edit
+        </span>
+        <ChevronRight className="w-3 h-3 opacity-50" />
+        <span className={step === "generating" ? "text-gold font-semibold" : ""}>
+          3. Generate
+        </span>
+        <ChevronRight className="w-3 h-3 opacity-50" />
+        <span className={step === "done" ? "text-gold font-semibold" : ""}>
+          4. Done
+        </span>
+      </div>
+
+      {topError && step !== "generating" ? (
+        <StructuredErrorCard error={topError}
+          testId="photo-flyer-top-error"
+          onRetry={() => setTopError(null)} />
+      ) : null}
+
+      {step === "upload" && (
+        <UploadStep onAnalyzed={onAnalyzed} getAuthHeader={getAuthHeader} />
+      )}
+      {step === "review" && analysis && (
+        <AnalysisReviewStep analysis={analysis}
+          onBack={startOver} onGenerate={onGenerate} busy={genBusy} />
+      )}
+      {step === "generating" && designerJobId && (
+        <GeneratingStep getAuthHeader={getAuthHeader}
+          designerJobId={designerJobId}
+          onCompleted={onCompleted} onFailed={onFailed} />
+      )}
+      {step === "done" && designerJob && (
+        <ReviewStep job={designerJob} analysis={analysis}
+          getAuthHeader={getAuthHeader}
+          onRegenerate={regenerate} onStartOver={startOver} />
+      )}
+    </div>
+  );
+};
+
+export default PhotoToFlyer;

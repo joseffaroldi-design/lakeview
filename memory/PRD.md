@@ -1795,3 +1795,79 @@ runbook execution, LLM key budget top-up. None are code work.
 
 **No new feature work started** (per user directive).
 
+
+### Sprint 16D — Photo→Flyer Fusion Workflow (Feb 24, 2026)
+**Goal**: Replace AI Image Generator with a single Photo→Flyer entry that
+auto-fills the designer from a real food photo. Owner uploads → vision
+detects → fields auto-fill → flyer + caption ready. Video opt-in on the
+review screen.
+
+**Plan**: `/app/memory/SPRINT_16D_PLAN.md` (data-flow diagram + reuse map)
+
+**New primitives** (`backend/services/`):
+- `photo_enhance.py` (70 LOC) — PIL deterministic enhancement: auto-contrast,
+  saturation 1.15, contrast 1.10, brightness 1.05, unsharp mask, median
+  denoise, sharpness recovery. Caps oversize images at 2400px. No LLM.
+- `vision_client.py` (166 LOC) — Gemini 3 Flash multimodal via
+  `emergentintegrations`. Returns `{food_type, confidence, features,
+  suggested_theme, dominant_colors}` validated to safe defaults. Graceful
+  degradation: budget-exceeded / timeout / bad-JSON → `vision_ok=False`
+  with same shape so UI can still render.
+- `menu_matcher.py` (130 LOC) — difflib + token-overlap fuzzy match
+  against the live `menu_categories` collection (with embedded items).
+  Refuses to commit on ambiguous match (two candidates within 0.08).
+
+**New orchestrator** (`backend/routers/photo_flyer.py`, 186 LOC):
+- `POST /api/photo-flyer/analyze` — accepts multipart upload, persists
+  original asset, PIL-enhances, persists enhanced asset, runs vision on
+  enhanced bytes, fuzzy-matches against the live menu, returns aggregate
+  JSON in ~5s on real photos.
+
+**Frontend** (`frontend/src/pages/dashboard/aiads/PhotoToFlyer.jsx`, 608 LOC):
+- Replaces `AiImageGenerator.jsx` as the AI Image Generator tab content.
+- 4-step UX: Upload → Review & Edit (with detected fields editable +
+  before/after preview) → Generate (polls `/api/ai-designer/generate`) →
+  Done (flyer + captions side-by-side + "Turn this into a 15s video"
+  opt-in button that calls existing `/api/marketing-pack/generate`).
+- `AiAdsTab.jsx`: import swapped from `AiImageGenerator` → `PhotoToFlyer`;
+  tab label updated to "Photo → Flyer".
+
+**Reuse — ZERO duplication**:
+- `/api/ai-designer/generate` (with `auto_copy=True`) — flyer + copy_pack
+- `/api/marketing-pack/generate` — 15-s video (opt-in only)
+- `/api/media/upload`, `/file/{id}`, `/thumb/{id}`
+- 5 flyer themes, ingredient icons, typography (Sprint 16A.1/16A.2)
+- Object storage, auth, rate limit, etc.
+
+**Tests** (`backend/tests/test_photo_flyer_primitives.py`, 25 tests, all
+offline, mocked LLM):
+- 5 `enhance_photo` (returns JPEG, preserves orientation, caps size,
+  changes pixels, handles RGBA→RGB)
+- 7 `vision_client._validate` (happy path, confidence clamp + NaN,
+  feature cap + generic-word strip, theme normalisation, dominant-color
+  hex validation)
+- 4 `analyze_food_photo` mocked (happy, budget exceeded, bad JSON,
+  missing key, markdown-wrapped JSON)
+- 7 `match_food_to_menu` (exact, close, loose tokens, no match, empty
+  food, empty DB, collection fallback, ambiguous tie refusal)
+- 1 markdown extraction
+- 1 conf-clamp NaN handling
+
+**Live E2E** (`scripts/sprint16d_e2e.py`): photo → analyze → designer →
+flyer + copy_pack in **66.2 s** (target < 90s). Gemini correctly identified
+the burger as "Graphic Cheeseburger" at 95% confidence, picked
+`distressed_orange` theme, extracted 5 features (Sesame Bun, Lettuce,
+Cheese Slice, Beef Patty, Mustard). Designer produced flyer + FB caption
+(472 chars) + IG caption (222 chars).
+
+**Regression**: 50/50 in-scope tests pass (primitives + ai-ads + phase11
+auth/regression/patch-removed).
+
+**Net LOC added**: +366 backend, +608 frontend, +25 unit tests. NO
+existing flyer / copy / video logic touched.
+
+**Costs**: ~$0.005 vision per call, ~$0.05 copy pack per generate.
+Total per end-to-end: ~$0.055.
+
+**No production deploy** (per scope).
+

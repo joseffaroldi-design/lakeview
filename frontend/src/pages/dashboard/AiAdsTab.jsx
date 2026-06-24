@@ -21,7 +21,7 @@ import React, { useState } from "react";
 import { Megaphone, ArrowLeft, Sparkles, LayoutGrid } from "lucide-react";
 import PromoteThisItem from "./aiads/PromoteThisItem";
 import AiDesigner from "./aiads/AiDesigner";
-import AiImageGenerator from "./aiads/AiImageGenerator";
+import PhotoToFlyer from "./aiads/PhotoToFlyer";
 
 const HANDOFF_KEY = "lakeview.ai_designer.preload_asset_id";
 
@@ -88,14 +88,13 @@ const AiAdsTab = ({ getAuthHeader }) => {
           }`}
           data-testid="aiads-mode-image"
         >
-          <Sparkles className="w-3.5 h-3.5" /> AI Image Generator
+          <Sparkles className="w-3.5 h-3.5" /> Photo → Flyer
         </button>
       </div>
 
       {mode === "image" ? (
-        <AiImageGenerator
+        <PhotoToFlyer
           getAuthHeader={getAuthHeader}
-          onUseInAd={handleUseInAd}
         />
       ) : (
         <>
