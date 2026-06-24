@@ -1,33 +1,26 @@
 /**
- * Promote This Item 2.0 — owner-facing one-click marketing pack generator.
+ * Promote This Item — Marketing Pack 3.0 (video-only, Sprint 16B.4).
  *
  * Flow: pick photo → tweak item → generate (background job + 3-sec polling) →
- * review + edit text inline → download.  See backend `routers/marketing_pack.py`.
+ * download the 15-second promo video.
+ *
+ * Caption / SMS / email / GBP / hashtag copy moved to AI Designer's
+ * copy_pack — open any AI Designer job and use the "Copy" panel. This
+ * surface now exists ONLY to produce the unique 15-second video.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import {
-  Sparkles, Upload, Image as ImageIcon, Loader2, Download, Copy as CopyIcon,
-  RefreshCw, CheckCircle, ChevronRight, ArrowLeft,
+  Sparkles, Upload, Image as ImageIcon, Loader2, Download,
+  RefreshCw, CheckCircle, ChevronRight, ArrowLeft, Video,
 } from "lucide-react";
 import { API, Section } from "./shared";
 import StructuredErrorCard, { parseAxiosError } from "./StructuredErrorCard";
 
 const POLL_MS = 3000;
 const POLL_TIMEOUT_MS = 4 * 60 * 1000;
-
-const fmtLabel = {
-  ig_post: "Instagram Post (1:1)",
-  ig_story: "Instagram Story / TikTok / Reel (9:16)",
-  fb_post: "Facebook Post (1.91:1)",
-  hero: "Website Hero (16:9)",
-};
-
-const copyToClipboard = (text) => {
-  try { navigator.clipboard.writeText(text || ""); } catch (e) { /* noop */ }
-};
 
 
 // ---------- Step 1: Pick photo + suggestion strip ---------------------------
@@ -68,10 +61,6 @@ const PickPhotoStep = ({ getAuthHeader, onSelected }) => {
       fd.append("folder", "Marketing Packs");
       fd.append("tags", "promote-this-item");
       const r = await axios.post(`${API}/media/upload`, fd, {
-        // NOTE: do NOT set Content-Type here — axios + the browser MUST
-        // auto-generate `multipart/form-data; boundary=…` with the correct
-        // boundary string. Setting it manually drops the boundary and the
-        // backend rejects with 400 (which Cloudflare surfaces as 520).
         headers: { ...getAuthHeader() },
         timeout: 60000,
       });
@@ -83,93 +72,57 @@ const PickPhotoStep = ({ getAuthHeader, onSelected }) => {
     }
   };
 
-  return (
-    <div className="space-y-6" data-testid="promote-step-pick">
-      <Section title="Promote This Item" icon={Sparkles} testId="promote-section-pick">
-        <p className="text-sm text-muted-foreground mb-4">
-          Pick a photo and we&apos;ll create everything you need to promote it —
-          Instagram, Facebook, website hero, captions, hashtags, SMS, email,
-          Google Business Profile, and a 15-second vertical video.
-        </p>
+  const pickLibrary = (a) => onSelected({ asset: a, menuItem: null });
+  const pickSuggestion = (s) => onSelected({ asset: s.last_used_asset || null, menuItem: s });
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-          <Button
-            onClick={() => fileRef.current && fileRef.current.click()}
-            disabled={uploading}
-            className="bg-gold text-navy hover:bg-gold/90 h-auto py-4 flex-col gap-1"
-            data-testid="promote-upload-btn"
-          >
-            {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-            <span className="font-semibold">{uploading ? "Uploading…" : "Upload Photo"}</span>
-            <span className="text-xs opacity-80">jpg, png — max 15 MB</span>
+  return (
+    <div className="space-y-4" data-testid="promote-step-pick">
+      <Section title="Pick a photo" icon={ImageIcon} testId="promote-pick-photo">
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={() => fileRef.current && fileRef.current.click()} disabled={uploading}
+            className="bg-gold text-navy hover:bg-gold/90" data-testid="promote-upload-btn">
+            {uploading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+            {uploading ? "Uploading…" : "Upload photo"}
           </Button>
-          <Button
-            onClick={loadLibrary}
-            variant="outline"
-            className="border-navy/20 text-navy hover:bg-navy/5 h-auto py-4 flex-col gap-1"
-            data-testid="promote-library-btn"
-          >
-            <ImageIcon className="w-5 h-5 text-gold" />
-            <span className="font-semibold">Choose from Library</span>
-            <span className="text-xs opacity-70">Pick an existing image</span>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload}
+            className="hidden" data-testid="promote-upload-input" />
+          <Button variant="outline" onClick={loadLibrary} className="border-navy/20" data-testid="promote-pick-library">
+            <ImageIcon className="w-4 h-4 mr-1.5" /> Pick from library
           </Button>
         </div>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} data-testid="promote-file-input" />
-
         {error ? <StructuredErrorCard error={error} testId="promote-pick-error" onRetry={() => setError(null)} /> : null}
       </Section>
 
-      {showLibrary ? (
-        <Section title="Choose from Library" icon={ImageIcon} testId="promote-library-grid">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {libraryAssets.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => onSelected({ asset: a, menuItem: null })}
-                className="block group relative overflow-hidden rounded-md border border-navy/10 hover:border-gold transition-all"
-                data-testid={`promote-library-asset-${a.id}`}
-              >
-                <img
-                  src={`${API}/media/thumb/${a.id}`}
-                  alt={a.filename}
-                  className="w-full h-32 object-cover group-hover:scale-105 transition-transform"
-                  loading="lazy"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy/80 to-transparent p-2 text-cream text-[10px] truncate">
-                  {a.filename}
-                </div>
+      {suggestions.length > 0 ? (
+        <Section title="Suggestions — items you haven't promoted lately" icon={Sparkles} testId="promote-suggestions">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {suggestions.map((s) => (
+              <button key={s.item_key} type="button" onClick={() => pickSuggestion(s)}
+                className="text-left p-3 border border-navy/15 rounded-md hover:border-gold transition-colors"
+                data-testid={`promote-suggestion-${s.item_key}`}>
+                <p className="text-sm font-semibold text-navy">{s.name}</p>
+                <p className="text-[10px] text-muted-foreground capitalize">{s.category}</p>
+                {s.last_promoted_at ? (
+                  <p className="text-[10px] text-muted-foreground">
+                    last promoted: {new Date(s.last_promoted_at).toLocaleDateString()}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-gold font-semibold">never promoted</p>
+                )}
               </button>
             ))}
-            {libraryAssets.length === 0 ? (
-              <p className="col-span-full text-xs text-muted-foreground text-center py-6">
-                No images in library yet — upload one above.
-              </p>
-            ) : null}
           </div>
         </Section>
       ) : null}
 
-      {suggestions.length > 0 ? (
-        <Section title="Items not promoted recently" icon={Sparkles} testId="promote-suggestions">
-          <p className="text-xs text-muted-foreground mb-3">
-            Tap one to pre-fill the item details — you&apos;ll still pick a photo.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {suggestions.map((it) => (
-              <button
-                key={it.item_key}
-                onClick={() => onSelected({ asset: null, menuItem: it })}
-                className="text-left rounded-md border border-navy/10 p-3 hover:border-gold hover:bg-cream transition-colors"
-                data-testid={`promote-suggestion-${it.item_key}`}
-              >
-                <p className="font-semibold text-navy text-sm">{it.name}</p>
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{it.description || it.category_display_name}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-gold font-medium">${it.price}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {it.last_promoted_at ? "Promoted" : "Never promoted"}
-                  </span>
-                </div>
+      {showLibrary && libraryAssets.length > 0 ? (
+        <Section title="Pick from library" testId="promote-library">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 max-h-96 overflow-y-auto">
+            {libraryAssets.map((a) => (
+              <button key={a.id} type="button" onClick={() => pickLibrary(a)}
+                className="aspect-square overflow-hidden border-2 border-transparent hover:border-gold rounded-sm"
+                data-testid={`promote-library-${a.id}`}>
+                <img src={`${API}/media/thumb/${a.id}`} alt={a.filename} className="w-full h-full object-cover" />
               </button>
             ))}
           </div>
@@ -180,359 +133,190 @@ const PickPhotoStep = ({ getAuthHeader, onSelected }) => {
 };
 
 
-// ---------- Step 2: Item details + Generate --------------------------------
+// ---------- Step 2: Item details -------------------------------------------
 
 const ItemDetailsStep = ({ getAuthHeader, asset, menuItem, onBack, onGenerated }) => {
-  const [name, setName] = useState((menuItem && menuItem.name) || "");
-  const [description, setDescription] = useState((menuItem && menuItem.description) || "");
-  const [price, setPrice] = useState((menuItem && menuItem.price) ? `$${menuItem.price}` : "");
+  const [name, setName] = useState(menuItem?.name || "");
+  const [description, setDescription] = useState(menuItem?.description || "");
+  const [price, setPrice] = useState(menuItem?.price || "");
   const [headline, setHeadline] = useState("");
   const [cta, setCta] = useState("Order Now");
-  const [needAsset, setNeedAsset] = useState(!asset);
-  const [pickedAsset, setPickedAsset] = useState(asset);
-  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [billing, setBilling] = useState(null);
 
-  // Load billing status for the cost-estimate label + block-on-zero
-  useEffect(() => {
-    axios.get(`${API}/billing/status`, { headers: getAuthHeader() })
-      .then((r) => setBilling(r.data))
-      .catch(() => {});
-  }, []);
-
-  const generate = async () => {
-    if (!pickedAsset) { setNeedAsset(true); return; }
-    setBusy(true); setError(null);
+  const submit = async () => {
+    setSubmitting(true); setError(null);
     try {
       const r = await axios.post(`${API}/marketing-pack/generate`, {
-        source_asset_id: pickedAsset.id,
-        menu_item_key: (menuItem && menuItem.item_key) || null,
+        source_asset_id: asset.id,
+        menu_item_key: menuItem?.item_key || null,
         name: name || null, description: description || null,
         price: price || null, headline: headline || null, cta: cta || null,
-      }, { headers: getAuthHeader(), timeout: 15000 });
+      }, { headers: getAuthHeader(), timeout: 30000 });
       onGenerated(r.data.job_id);
     } catch (e) {
       setError(parseAxiosError(e));
-      setBusy(false);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <Section title="Item details" icon={Sparkles} testId="promote-step-details">
-      <div className="grid grid-cols-1 md:grid-cols-[280px,1fr] gap-4">
-        <div>
-          {pickedAsset ? (
-            <div className="rounded-md overflow-hidden border-2 border-gold">
-              <img src={`${API}/media/thumb/${pickedAsset.id}`} alt="" className="w-full h-44 object-cover" data-testid="promote-preview" />
-              <button onClick={() => setPickedAsset(null)} className="w-full text-xs py-1.5 bg-navy/5 hover:bg-navy/10 text-navy" data-testid="promote-change-photo">
-                Change photo
-              </button>
-            </div>
+    <div className="space-y-4" data-testid="promote-step-details">
+      <Section title="Make a 15-second promo video" icon={Video} testId="promote-details">
+        <div className="grid grid-cols-1 sm:grid-cols-[180px,1fr] gap-4">
+          {asset ? (
+            <img src={`${API}/media/thumb/${asset.id}`} alt={asset.filename}
+              className="w-full h-44 object-cover rounded-md border-2 border-navy/10" />
           ) : (
-            <div className="border-2 border-dashed border-navy/20 rounded-md p-4 text-center text-xs text-muted-foreground">
-              {needAsset ? "Pick a photo first — go back and upload or choose from library." : "No photo selected"}
-              <Button variant="outline" size="sm" onClick={onBack} className="mt-2 w-full" data-testid="promote-back-to-pick">
-                <ArrowLeft className="w-3 h-3 mr-1" /> Pick photo
-              </Button>
+            <div className="w-full h-44 bg-navy/5 rounded-md flex items-center justify-center text-xs text-muted-foreground">
+              No photo selected
             </div>
           )}
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Item name <span className="text-muted-foreground">(optional — AI will infer)</span></label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Smash Burger Special" className="border-navy/20" data-testid="promote-name" />
-          </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Description <span className="text-muted-foreground">(optional)</span></label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
-              className="w-full px-3 py-2 border border-navy/20 rounded-sm text-sm"
-              placeholder="e.g. Two beef patties, melted cheddar, house sauce, brioche bun"
-              data-testid="promote-description" />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-2">
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">Price</label>
-              <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$14" className="border-navy/20" data-testid="promote-price" />
+              <label className="text-xs font-semibold text-navy">Item name</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="(we'll infer one if blank)"
+                className="border-navy/20" data-testid="promote-name" />
             </div>
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">Headline overlay</label>
-              <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="FRIDAY SPECIAL" className="border-navy/20" data-testid="promote-headline" />
+              <label className="text-xs font-semibold text-navy">Description</label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="(we'll infer one if blank)"
+                className="border-navy/20" data-testid="promote-description" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-navy">Price</label>
+                <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$14"
+                  className="border-navy/20" data-testid="promote-price" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-navy">CTA</label>
+                <Input value={cta} onChange={(e) => setCta(e.target.value)} placeholder="Order Now"
+                  className="border-navy/20" data-testid="promote-cta" />
+              </div>
             </div>
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">CTA</label>
-              <Input value={cta} onChange={(e) => setCta(e.target.value)} placeholder="Order Now" className="border-navy/20" data-testid="promote-cta" />
+              <label className="text-xs font-semibold text-navy">Headline (optional)</label>
+              <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Weekend Special"
+                className="border-navy/20" data-testid="promote-headline" />
             </div>
-          </div>
-
-          <div className="mt-2 p-3 rounded-md bg-cream border border-gold/30">
-            <p className="text-xs font-semibold text-navy mb-1.5">Sample pack you&apos;ll get:</p>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              ✓ Instagram Post (1:1) &nbsp;·&nbsp; ✓ IG Story / TikTok / Reel (9:16) &nbsp;·&nbsp; ✓ Facebook Post &nbsp;·&nbsp; ✓ Website Hero<br />
-              ✓ Caption + hashtags &nbsp;·&nbsp; ✓ SMS &nbsp;·&nbsp; ✓ Email subject + body &nbsp;·&nbsp; ✓ Google Business Profile post &nbsp;·&nbsp; ✓ 15-sec promo video
-            </p>
-          </div>
-
-          {error ? <StructuredErrorCard error={error} testId="promote-details-error" onRetry={generate} /> : null}
-
-          {/* Estimated cost + budget block (Billing Resilience) */}
-          {billing && (
-            <div
-              className={`mt-2 p-2.5 rounded-md text-xs flex items-center justify-between gap-2 ${
-                billing.is_blocked
-                  ? "bg-red-50 border border-red-200 text-red-800"
-                  : billing.is_critical
-                  ? "bg-red-50 border border-red-200 text-red-700"
-                  : billing.is_low
-                  ? "bg-amber-50 border border-amber-200 text-amber-800"
-                  : "bg-cream border border-gold/30 text-navy"
-              }`}
-              data-testid="promote-cost-estimate"
-            >
-              <span>
-                <strong>Est. cost: ${billing.estimated_pack_cost_usd.toFixed(3)}</strong>
-                <span className="text-muted-foreground ml-1">
-                  (text only — image resize &amp; video render are free)
-                </span>
-              </span>
-              <span className="text-[11px] font-medium">
-                Balance: ${billing.current_balance_usd.toFixed(2)}
-              </span>
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" onClick={onBack} className="border-navy/20" data-testid="promote-back">
-              <ArrowLeft className="w-4 h-4 mr-1" /> Back
-            </Button>
-            <Button
-              onClick={generate}
-              disabled={busy || !pickedAsset || (billing && billing.is_blocked)}
-              className="bg-gold text-navy hover:bg-gold/90 flex-1"
-              data-testid="promote-generate-btn"
-            >
-              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              {busy
-                ? "Starting…"
-                : billing && billing.is_blocked
-                ? "Out of credits — Add Balance"
-                : "Generate Marketing Pack →"}
-            </Button>
           </div>
         </div>
+        {error ? <StructuredErrorCard error={error} testId="promote-details-error" onRetry={() => setError(null)} /> : null}
+      </Section>
+
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onBack} className="border-navy/20" data-testid="promote-details-back">
+          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
+        </Button>
+        <div className="flex-1" />
+        <Button onClick={submit} disabled={submitting || !asset}
+          className="bg-gold text-navy hover:bg-gold/90" data-testid="promote-generate">
+          {submitting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
+          Make the video
+        </Button>
       </div>
-    </Section>
+    </div>
   );
 };
 
 
-// ---------- Step 3: Progress ---------------------------------------------
-
-const stepLabels = {
-  queued: "Queued…",
-  inferring: "Reading your photo and writing item details…",
-  writing_copy: "Writing captions, SMS, email, and Google copy…",
-  rendering_images: "Rendering your 4 social formats…",
-  rendering_video: "Building your 15-second promo video…",
-  saving: "Saving everything to your library…",
-};
+// ---------- Step 3: Progress ----------------------------------------------
 
 const ProgressStep = ({ getAuthHeader, jobId, onCompleted, onFailed, onCancel }) => {
-  const [job, setJob] = useState({ status: "pending", progress: 0, current_step: "queued" });
-  const [elapsed, setElapsed] = useState(0);
-  const startedRef = useRef(null);
-  const pollRef = useRef(null);
+  const [progress, setProgress] = useState(5);
+  const [currentStep, setCurrentStep] = useState("queued");
+  const startedAt = useRef(Date.now());
 
   useEffect(() => {
-    startedRef.current = Date.now();
+    let cancelled = false;
     const tick = async () => {
+      if (cancelled) return;
+      if (Date.now() - startedAt.current > POLL_TIMEOUT_MS) {
+        onFailed({ user_message: "Took too long — try again with a smaller photo.", code: "timeout" });
+        return;
+      }
       try {
         const r = await axios.get(`${API}/marketing-pack/job/${jobId}`, { headers: getAuthHeader(), timeout: 15000 });
-        setJob(r.data);
-        setElapsed(Math.floor((Date.now() - startedRef.current) / 1000));
-        if (r.data.status === "completed") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          onCompleted(r.data);
-        } else if (r.data.status === "failed") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          onFailed(r.data.error || { code: "unknown", retryable: true, retry_action: "retry", user_message: "Pack generation failed.", technical: "" });
-        } else if (Date.now() - startedRef.current > POLL_TIMEOUT_MS) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          onFailed({ code: "timeout", retryable: true, retry_action: "retry",
-                     user_message: "Generation took longer than 4 minutes. Try again or pick a different photo.",
-                     technical: "frontend poll timeout after 4 min" });
+        const job = r.data;
+        setProgress(job.progress || 0);
+        setCurrentStep(job.current_step || job.status);
+        if (job.status === "completed") {
+          onCompleted(job);
+          return;
         }
-      } catch (e) { /* keep polling */ }
+        if (job.status === "failed") {
+          onFailed(job.error || { user_message: "Something went wrong." });
+          return;
+        }
+        setTimeout(tick, POLL_MS);
+      } catch (e) {
+        setTimeout(tick, POLL_MS * 2);
+      }
     };
     tick();
-    pollRef.current = setInterval(tick, POLL_MS);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => { cancelled = true; };
   }, [jobId, getAuthHeader, onCompleted, onFailed]);
 
-  const etaText = job.progress >= 70 ? "About 30 more seconds" : job.progress >= 45 ? "About a minute left" : "Roughly a minute and a half left";
+  const STEP_LABEL = {
+    queued: "Queued…",
+    pending: "Queued…",
+    inferring: "Reading the menu item…",
+    rendering_images: "Cropping the photo for the video…",
+    rendering_video: "Rendering the 15-second video…",
+    saving: "Finishing up…",
+    done: "Done!",
+    processing: "Working…",
+  };
 
   return (
-    <Section title="Creating your marketing pack" icon={Sparkles} testId="promote-step-progress">
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin text-gold" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-navy" data-testid="promote-progress-step">
-              {stepLabels[job.current_step] || stepLabels.queued}
-            </p>
-            <p className="text-xs text-muted-foreground" data-testid="promote-progress-eta">
-              {etaText} · elapsed {elapsed}s
-            </p>
+    <div className="space-y-4" data-testid="promote-step-progress">
+      <Section title="Making your video" icon={Loader2} testId="promote-progress">
+        <div className="space-y-3">
+          <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gold transition-all duration-500" style={{ width: `${progress}%` }} data-testid="promote-progress-bar" />
           </div>
+          <p className="text-sm text-navy" data-testid="promote-progress-step">{STEP_LABEL[currentStep] || currentStep}</p>
+          <p className="text-[10px] text-muted-foreground">This takes about 30–60 seconds.</p>
+          <Button variant="outline" onClick={onCancel} className="border-navy/20 text-xs" data-testid="promote-cancel">
+            Cancel
+          </Button>
         </div>
-        <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
-          <div className="h-full bg-gold transition-all duration-500" style={{ width: `${Math.max(5, job.progress || 0)}%` }} data-testid="promote-progress-bar" />
-        </div>
-        <p className="text-[11px] text-muted-foreground italic">
-          You can leave this page — your pack will keep building in the background and you&apos;ll find it in the Library when it&apos;s done.
-        </p>
-        <div>
-          <Button variant="outline" onClick={onCancel} size="sm" data-testid="promote-progress-cancel">Cancel</Button>
-        </div>
-      </div>
-    </Section>
+      </Section>
+    </div>
   );
 };
 
 
-// ---------- Step 4: Review ----------------------------------------------
+// ---------- Step 4: Review (video only) -----------------------------------
 
-const EditableField = ({ label, value, onChange, testId, rows = 1, hint }) => (
-  <div>
-    <div className="flex items-center justify-between mb-1">
-      <label className="text-xs font-semibold text-navy">{label}</label>
-      <button
-        onClick={() => copyToClipboard(value)}
-        className="text-[10px] text-muted-foreground hover:text-gold flex items-center gap-1"
-        data-testid={`${testId}-copy`}
-      >
-        <CopyIcon className="w-3 h-3" /> Copy
-      </button>
-    </div>
-    {rows > 1 ? (
-      <textarea value={value || ""} onChange={(e) => onChange(e.target.value)} rows={rows}
-        className="w-full px-3 py-2 border border-navy/20 rounded-sm text-sm" data-testid={testId} />
-    ) : (
-      <Input value={value || ""} onChange={(e) => onChange(e.target.value)} className="border-navy/20 text-sm" data-testid={testId} />
-    )}
-    {hint ? <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p> : null}
-  </div>
-);
-
-const ReviewStep = ({ getAuthHeader, pack, onRegenerate, onStartOver }) => {
-  const [r, setR] = useState(pack.result || {});
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState(null);
-
-  const patch = async (partial) => {
-    setSaving(true);
-    try {
-      const body = {};
-      if (partial.caption !== undefined) body.caption = partial.caption;
-      if (partial.sms !== undefined) body.sms = partial.sms;
-      if (partial.gbp !== undefined) body.gbp = partial.gbp;
-      if (partial.hashtags !== undefined) body.hashtags = partial.hashtags;
-      if (partial.email_subject !== undefined) body.email_subject = partial.email_subject;
-      if (partial.email_body !== undefined) body.email_body = partial.email_body;
-      const resp = await axios.patch(`${API}/marketing-pack/${pack.id}`, body, { headers: getAuthHeader() });
-      setR(resp.data.result);
-      setSavedAt(new Date());
-    } catch (e) { /* swallow — keep UI editable */ }
-    finally { setSaving(false); }
-  };
-
-  // Debounced save on text changes
-  const debounceRef = useRef(null);
-  const scheduleSave = useCallback((partial) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => patch(partial), 800);
-  }, [pack.id]);
-
-  const setField = (key, value) => {
-    setR((prev) => {
-      const next = { ...prev };
-      if (key === "email_subject" || key === "email_body") {
-        const k = key === "email_subject" ? "subject" : "body";
-        next.email = { ...(prev.email || {}), [k]: value };
-      } else if (key === "hashtags_string") {
-        next.hashtags = value.split(/[\s,]+/).map((s) => s.replace(/^#/, "").trim()).filter(Boolean);
-      } else {
-        next[key] = value;
-      }
-      return next;
-    });
-    if (key === "hashtags_string") {
-      scheduleSave({ hashtags: value.split(/[\s,]+/).map((s) => s.replace(/^#/, "").trim()).filter(Boolean) });
-    } else {
-      scheduleSave({ [key]: value });
-    }
-  };
-
-  const imgCards = [
-    { key: "ig_post_asset_id", label: fmtLabel.ig_post },
-    { key: "ig_story_asset_id", label: fmtLabel.ig_story },
-    { key: "fb_post_asset_id", label: fmtLabel.fb_post },
-    { key: "hero_asset_id", label: fmtLabel.hero },
-  ];
+const ReviewStep = ({ pack, onRegenerate, onStartOver }) => {
+  const r = pack.result || {};
+  const videoUrl = r.video_asset_id ? `${API}/media/file/${r.video_asset_id}` : null;
 
   return (
     <div className="space-y-6" data-testid="promote-step-review">
-      <Section title="Your marketing pack is ready" icon={CheckCircle} testId="promote-review-images">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {imgCards.map((c) => r[c.key] ? (
-            <div key={c.key} className="rounded-md overflow-hidden border-2 border-navy/10" data-testid={`promote-asset-${c.key}`}>
-              <img src={`${API}/media/thumb/${r[c.key]}`} alt={c.label} className="w-full h-36 object-cover" />
-              <div className="p-2 bg-cream">
-                <p className="text-[10px] font-semibold text-navy">{c.label}</p>
-                <a
-                  href={`${API}/media/file/${r[c.key]}`}
-                  download
-                  className="text-[10px] text-gold hover:underline flex items-center gap-1 mt-0.5"
-                  data-testid={`promote-download-${c.key}`}
-                >
-                  <Download className="w-3 h-3" /> Download
-                </a>
-              </div>
-            </div>
-          ) : null)}
-        </div>
-
-        {r.video_asset_id ? (
-          <div className="mt-4">
-            <p className="text-xs font-semibold text-navy mb-1.5">15-second promo video</p>
-            <video src={`${API}/media/file/${r.video_asset_id}`} controls className="w-full max-w-md rounded-md border-2 border-navy/10" data-testid="promote-video" />
-            <a href={`${API}/media/file/${r.video_asset_id}`} download className="text-xs text-gold hover:underline flex items-center gap-1 mt-1" data-testid="promote-download-video">
-              <Download className="w-3 h-3" /> Download video
+      <Section title="Your 15-second promo video is ready" icon={CheckCircle} testId="promote-review-video">
+        {videoUrl ? (
+          <div className="space-y-3">
+            <video
+              src={videoUrl}
+              controls
+              className="w-full max-w-md rounded-md border-2 border-navy/10"
+              data-testid="promote-video"
+            />
+            <a href={videoUrl} download
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:underline"
+              data-testid="promote-download-video">
+              <Download className="w-4 h-4" /> Download video
             </a>
           </div>
-        ) : null}
-      </Section>
-
-      <Section title="Copy — edit anything, we save as you type" icon={Sparkles} testId="promote-review-copy" action={
-        <span className="text-[10px] text-muted-foreground" data-testid="promote-save-indicator">
-          {saving ? "Saving…" : savedAt ? "Saved ✓" : ""}
-        </span>
-      }>
-        <div className="grid grid-cols-1 gap-3">
-          <EditableField label="Caption (Instagram + Facebook)" value={r.caption} onChange={(v) => setField("caption", v)} rows={4} testId="promote-caption" />
-          <EditableField label="Hashtags" value={(r.hashtags || []).map((h) => `#${h}`).join(" ")} onChange={(v) => setField("hashtags_string", v)} rows={2} hint="Space- or comma-separated." testId="promote-hashtags" />
-          <EditableField label="SMS (under 160 chars)" value={r.sms} onChange={(v) => setField("sms", v)} rows={2} testId="promote-sms" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="md:col-span-1">
-              <EditableField label="Email subject" value={(r.email || {}).subject} onChange={(v) => setField("email_subject", v)} testId="promote-email-subject" />
-            </div>
-            <div className="md:col-span-2">
-              <EditableField label="Email body" value={(r.email || {}).body} onChange={(v) => setField("email_body", v)} rows={5} testId="promote-email-body" />
-            </div>
-          </div>
-          <EditableField label="Google Business Profile post" value={r.gbp} onChange={(v) => setField("gbp", v)} rows={4} testId="promote-gbp" />
-        </div>
+        ) : (
+          <p className="text-sm text-muted-foreground" data-testid="promote-no-video">
+            Video rendering was skipped or failed. Try regenerating, or open AI Designer for static graphics + copy.
+          </p>
+        )}
       </Section>
 
       <div className="flex gap-2 sticky bottom-0 bg-cream/95 backdrop-blur-sm border-t border-navy/10 p-3 -mx-6 -mb-6 px-6">
@@ -590,7 +374,7 @@ const PromoteThisItem = ({ getAuthHeader, mode = "page", initialMenuItem = null,
         <ChevronRight className="w-3 h-3 opacity-50" />
         <span className={step === "progress" ? "text-gold font-semibold" : ""}>3. Generate</span>
         <ChevronRight className="w-3 h-3 opacity-50" />
-        <span className={step === "review" ? "text-gold font-semibold" : ""}>4. Review</span>
+        <span className={step === "review" ? "text-gold font-semibold" : ""}>4. Download</span>
       </div>
 
       {topError && step !== "progress" ? (
@@ -607,7 +391,7 @@ const PromoteThisItem = ({ getAuthHeader, mode = "page", initialMenuItem = null,
           onCompleted={onCompleted} onFailed={onFailed} onCancel={() => setStep("details")} />
       )}
       {step === "review" && completedPack && (
-        <ReviewStep getAuthHeader={getAuthHeader} pack={completedPack}
+        <ReviewStep pack={completedPack}
           onRegenerate={regenerate} onStartOver={startOver} />
       )}
     </div>

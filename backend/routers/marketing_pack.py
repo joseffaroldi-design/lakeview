@@ -1,22 +1,29 @@
-"""Promote This Item 2.0 — owner-facing one-click marketing pack generator.
+"""Promote This Item — Marketing Pack 3.0 (video-only).
 
-Flow:
-  POST /api/marketing-pack/generate          → 202 + job_id (enqueue background task)
+Sprint 16B.4 trimmed this surface to its unique capability: a 15-second
+vertical promo video built from a source photo + headline. All caption /
+SMS / email / GBP / hashtag generation moved to AI Designer's copy_pack
+(see `routers/ai_designer.py::_write_designer_copy`) which owns the copy
+surface across the entire app.
+
+Surviving flow:
+  POST /api/marketing-pack/generate          → 202 + job_id (background task)
   GET  /api/marketing-pack/job/{id}          → poll: pending|processing|completed|failed
-  GET  /api/marketing-pack/{id}              → fetch a completed pack (re-open)
-  PATCH /api/marketing-pack/{id}             → save inline copy edits
+  GET  /api/marketing-pack/{id}              → fetch a completed pack
   POST /api/marketing-pack/{id}/regenerate   → re-run pipeline with same inputs
   GET  /api/marketing-pack/items-not-promoted-recently?limit=3
-                                              → top N menu items by oldest promotion
 
-Pipeline (background, 45–75 s):
+Pipeline (background, 30–60 s):
   1. infer        — fill missing name/description via one text LLM call
-  2. writing_copy — single structured LLM call returns caption, hashtags, sms,
-                    email{subject, body}, gbp (consistent tone, one round-trip)
-  3. rendering_images — PIL crops source to 4 ratios (1:1, 9:16, 1.91:1, 16:9);
-                    the 9:16 is reused for both IG Story AND TikTok/Reel
-  4. rendering_video  — _render_sync builds a 15-s slideshow with title + CTA
-  5. saving       — persist marketing_packs row + tag assets + stamp menu item
+  2. rendering_images — PIL crops source to 4 ratios (1:1, 9:16, 1.91:1, 16:9)
+                    as the source frames for the video pipeline
+  3. rendering_video  — _render_sync builds a 15-s slideshow with title + CTA
+  4. saving       — persist marketing_packs row + stamp menu item
+
+Removed in Sprint 16B.4:
+  • _write_copy()                — moved to AI Designer copy_pack
+  • PATCH /api/marketing-pack/{id} — only edited the removed copy fields
+  • Result fields: caption, hashtags, sms, email, gbp
 
 This module imports private helpers from routers.media on purpose — we reuse
 the same PIL + ffmpeg + object-storage pipeline rather than duplicate it.
@@ -30,13 +37,12 @@ import logging
 import os
 import re
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Header, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from PIL import Image, ImageDraw, ImageFont
-from pydantic import BaseModel, ConfigDict, Field, constr
+from pydantic import BaseModel, ConfigDict, constr
 
 from auth import verify_session
 import storage as objstore
@@ -54,6 +60,8 @@ log = logging.getLogger("uvicorn.error")
 
 # ---------------------------------------------------------------- formats
 # (width, height) — the 9:16 output is referenced as BOTH ig_story AND tiktok_reel.
+# These are the SOURCE FRAMES for the video; they are saved as media_assets
+# so the video pipeline can read them back by id.
 FORMATS: Dict[str, tuple] = {
     "ig_post":  (1080, 1080),   # Instagram feed 1:1
     "ig_story": (1080, 1920),   # IG Story / TikTok / Reel 9:16
@@ -73,16 +81,6 @@ class GenerateRequest(BaseModel):
     price: Optional[constr(max_length=40)] = None
     headline: Optional[constr(max_length=80)] = None
     cta: Optional[constr(max_length=40)] = None
-
-
-class PatchPackRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    caption: Optional[str] = None
-    hashtags: Optional[List[constr(max_length=80)]] = None
-    sms: Optional[constr(max_length=320)] = None
-    email_subject: Optional[constr(max_length=120)] = None
-    email_body: Optional[str] = None
-    gbp: Optional[constr(max_length=1500)] = None
 
 
 # ---------------------------------------------------------------- helpers
@@ -180,54 +178,14 @@ async def _infer_missing_fields(name: Optional[str], description: Optional[str],
         }
 
 
-async def _write_copy(item: Dict[str, str]) -> Dict[str, Any]:
-    """ONE structured LLM call → caption, hashtags, sms, email{subject, body}, gbp.
-    Keeping it to one call makes the tone consistent across channels."""
-    from ai_engine.client import generate_structured
-
-    headline = item.get("headline") or ""
-    cta = item.get("cta") or "Order Now"
-    price = item.get("price") or ""
-
-    sys = ("You are a New Orleans restaurant marketing copywriter for Lakeview "
-           "Burgers & Seafood. Write warm, mouth-watering, locally flavored copy. "
-           "Output ONLY a valid JSON object.")
-    usr = (
-        f"Item: {item['name']}\n"
-        f"Description: {item['description']}\n"
-        f"Price: {price or '(omit if blank)'}\n"
-        f"Headline (use verbatim where it fits): {headline or '(none)'}\n"
-        f"CTA: {cta}\n\n"
-        "Generate the marketing pack:\n"
-        " - caption: 30-60 words for Instagram/Facebook, conversational, 1-2 emojis max.\n"
-        " - hashtags: 8-12 relevant hashtags as strings (no '#' prefix).\n"
-        " - sms: under 140 chars, includes the CTA naturally.\n"
-        " - email_subject: 4-7 words, attention-grabbing, no clickbait punctuation.\n"
-        " - email_body: 60-120 words, friendly, includes price and CTA, plain text (no HTML).\n"
-        " - gbp: 80-180 words for Google Business Profile post, includes a clear offer line.\n"
-    )
-    schema = ('{"caption":"string","hashtags":["string"],"sms":"string",'
-              '"email_subject":"string","email_body":"string","gbp":"string"}')
-    wrapped = await generate_structured(db, system_prompt=sys, user_prompt=usr, schema_hint=schema)
-    out = wrapped.get("data") or {}
-    # Defensive shape — ensure every key is present
-    return {
-        "caption": (out.get("caption") or "").strip()[:1500],
-        "hashtags": [h.lstrip("#").strip() for h in (out.get("hashtags") or [])][:15],
-        "sms": (out.get("sms") or "").strip()[:160],
-        "email": {
-            "subject": (out.get("email_subject") or "").strip()[:120],
-            "body": (out.get("email_body") or "").strip()[:2000],
-        },
-        "gbp": (out.get("gbp") or "").strip()[:1500],
-    }
-
-
 # ---------------------------------------------------------------- pipeline
 
 async def _save_format_asset(src_bytes: bytes, fmt_key: str, item: Dict[str, str],
                              menu_item_key: Optional[str], pack_id: str) -> Dict[str, Any]:
-    """Crop + overlay + upload one social format. Returns the inserted media_asset row."""
+    """Crop + overlay + upload one source frame for the video pipeline.
+    Returns the inserted media_asset row. The 4 frames are kept as
+    media_assets so `_render_pack_video` can read them back by id; they
+    are NOT surfaced in the /generate API response (Sprint 16B.4)."""
     w, h = FORMATS[fmt_key]
     with Image.open(io.BytesIO(src_bytes)) as base:
         base = base.convert("RGB")
@@ -368,17 +326,10 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
         await update(item=item)
         log.info("MARKETING_PACK_STEP_OK pack_id=%s step=inferring dur_ms=%d", pack_id, int((_t.time()-ts)*1000))
 
-        # --- Step 2: copy
-        ts = _t.time()
-        log.info("MARKETING_PACK_STEP pack_id=%s step=writing_copy", pack_id)
-        await update(current_step="writing_copy", progress=25)
-        copy = await _write_copy(item)
-        log.info("MARKETING_PACK_STEP_OK pack_id=%s step=writing_copy dur_ms=%d", pack_id, int((_t.time()-ts)*1000))
-
-        # --- Step 3: render 4 images from the source
+        # --- Step 2: render 4 source frames (1:1, 9:16, 1.91:1, 16:9) for the video
         ts = _t.time()
         log.info("MARKETING_PACK_STEP pack_id=%s step=rendering_images", pack_id)
-        await update(current_step="rendering_images", progress=45)
+        await update(current_step="rendering_images", progress=35)
         try:
             src_bytes, _ = objstore.get_bytes(src["storage_path"])
         except FileNotFoundError:
@@ -395,10 +346,10 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
         log.info("MARKETING_PACK_STEP_OK pack_id=%s step=rendering_images dur_ms=%d image_count=%d",
                  pack_id, int((_t.time()-ts)*1000), len(FORMATS))
 
-        # --- Step 4: render 15s video
+        # --- Step 3: render 15s video (the unique surface this router owns)
         ts = _t.time()
         log.info("MARKETING_PACK_STEP pack_id=%s step=rendering_video", pack_id)
-        await update(current_step="rendering_video", progress=70)
+        await update(current_step="rendering_video", progress=65)
         image_ids = [result_assets[f"{f}_asset_id"] for f in FORMATS]
         video_id = await _render_pack_video(pack_id, image_ids, item)
         if video_id:
@@ -406,16 +357,9 @@ async def _run_pack_job(pack_id: str, body: GenerateRequest) -> None:
         log.info("MARKETING_PACK_STEP_OK pack_id=%s step=rendering_video dur_ms=%d video_ok=%s",
                  pack_id, int((_t.time()-ts)*1000), bool(video_id))
 
-        # --- Step 5: save
+        # --- Step 4: save (no copy fields — AI Designer copy_pack owns that)
         await update(current_step="saving", progress=95)
-        result = {
-            **result_assets,
-            "caption": copy["caption"],
-            "hashtags": copy["hashtags"],
-            "sms": copy["sms"],
-            "email": copy["email"],
-            "gbp": copy["gbp"],
-        }
+        result = dict(result_assets)
         await update(status="completed", current_step="done", progress=100, result=result)
 
         # Billing Resilience: record actual estimated cost against the virtual balance
@@ -584,41 +528,6 @@ async def get_pack(pack_id: str, authorization: str = Header(None), session_toke
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
     return pack
-
-
-@router.patch("/{pack_id}")
-async def patch_pack(
-    pack_id: str, body: PatchPackRequest,
-    authorization: str = Header(None), session_token: str = Cookie(None),
-):
-    """Save inline copy edits from the review screen. Does NOT re-run the pipeline."""
-    await verify_session(authorization, session_token)
-    pack = await db.marketing_packs.find_one({"id": pack_id}, {"_id": 0})
-    if not pack:
-        raise HTTPException(status_code=404, detail="Pack not found")
-    if pack.get("status") != "completed":
-        raise HTTPException(status_code=409, detail="Pack not yet ready to edit")
-    result = pack.get("result") or {}
-    if body.caption is not None:
-        result["caption"] = body.caption[:1500]
-    if body.hashtags is not None:
-        result["hashtags"] = [h.lstrip("#").strip() for h in body.hashtags][:20]
-    if body.sms is not None:
-        result["sms"] = body.sms[:160]
-    if body.gbp is not None:
-        result["gbp"] = body.gbp[:1500]
-    if body.email_subject is not None or body.email_body is not None:
-        email = result.get("email") or {}
-        if body.email_subject is not None:
-            email["subject"] = body.email_subject[:120]
-        if body.email_body is not None:
-            email["body"] = body.email_body[:2000]
-        result["email"] = email
-    await db.marketing_packs.update_one(
-        {"id": pack_id},
-        {"$set": {"result": result, "updated_at": _now()}},
-    )
-    return {"id": pack_id, "result": result}
 
 
 @router.post("/{pack_id}/regenerate", status_code=202)

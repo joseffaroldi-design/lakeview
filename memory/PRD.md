@@ -1676,3 +1676,91 @@ on the shared preview, not a regression).
 **Backend boot**: clean. `/api/menu` → 200, `/api/auth/verify` → 401 on
 bogus token.
 
+
+### Sprint 16B.4 — Marketing Pack Trim to Video-Only (Feb 24, 2026)
+**Goal**: Remove duplicate caption/SMS/email/GBP/hashtag generation from
+`marketing_pack.py`. AI Designer's `_write_designer_copy` (copy_pack)
+already owns that surface across the app — keeping a second
+implementation in `marketing_pack.py::_write_copy` was a maintenance
+liability with two divergent prompts. Preserve only the unique 15-second
+video-render capability.
+
+**Audit findings**:
+- `_write_copy()` in `marketing_pack.py` produced: `caption`, `hashtags`,
+  `sms`, `email{subject,body}`, `gbp` — full overlap with AI Designer's
+  `_write_designer_copy` which produces `fb_post`, `ig_post`, `gbp`,
+  `sms`, `email_subject`, `email_body`, `hashtags`.
+- `PATCH /api/marketing-pack/{id}` existed solely to edit those copy
+  fields after the fact — no other purpose.
+- The 4 social-format image renders (1:1, 9:16, 1.91:1, 16:9) are the
+  source frames for the 15-s video — kept as-is.
+- Frontend ReviewStep showed both image cards + a copy editor; the copy
+  editor duplicated AI Designer's review surface.
+
+**Backend `routers/marketing_pack.py`** (657 → 565 LOC, -92 LOC):
+- DELETED `_write_copy()` (~40 LOC).
+- DELETED `PatchPackRequest` schema + `PATCH /{pack_id}` endpoint
+  (~33 LOC).
+- DELETED "writing_copy" step from the pipeline; result dict no longer
+  carries `caption`, `hashtags`, `sms`, `email`, `gbp`.
+- Renumbered pipeline steps (now 4 instead of 5) with adjusted progress
+  milestones (35 → 65 → 95 → 100).
+- Updated docstring to clearly demarcate what was removed and where the
+  copy surface lives now (AI Designer copy_pack).
+- KEPT: `_save_format_asset` (video pipeline source frames),
+  `_render_pack_video` (the unique surface this router owns),
+  `/generate`, `/job/{id}`, `/{id}`, `/{id}/regenerate`,
+  `/items-not-promoted-recently`.
+
+**Frontend `aiads/PromoteThisItem.jsx`** (641 → 424 LOC, -217 LOC):
+- Full rewrite of `ReviewStep` — now shows ONLY the 15-s video preview +
+  download button. Image cards (4 social-format previews), copy editor
+  (`EditableField`), debounced PATCH-save, hashtag splitter, all gone.
+- `ItemDetailsStep` retitled "Make a 15-second promo video" with a clearer
+  Video icon affordance.
+- `ProgressStep` step labels updated — no more "writing_copy" label.
+- Stepper label changed: "4. Review" → "4. Download".
+
+**Frontend `dashboard/AiAdsTab.jsx`**:
+- Secondary CTA retitled from "Need a quick text-only pack (captions,
+  SMS, email, 15-sec video)?" → "Need a 15-second promo video for this
+  item?"; button label "Use Marketing Pack →" → "Make a video →".
+
+**Tests `tests/test_phase11_marketing_pack.py`**:
+- `test_result_keys_present` — now asserts that the 5 copy fields
+  (`caption`, `hashtags`, `sms`, `email`, `gbp`) are NOT in the result
+  dict (regression lock).
+- Updated `expected_any` step set to drop `writing_copy`.
+- Replaced `TestPatch` (3 tests against PATCH endpoint) with
+  `TestPatchRemoved` (2 tests verifying PATCH returns 404/405).
+
+**Production code**: only `routers/marketing_pack.py`,
+`PromoteThisItem.jsx`, `AiAdsTab.jsx` touched. AI Designer composer
+logic NOT touched (per scope item #8).
+
+**Routes preserved** (5):
+- `POST /api/marketing-pack/generate`
+- `GET  /api/marketing-pack/items-not-promoted-recently`
+- `GET  /api/marketing-pack/job/{pack_id}`
+- `GET  /api/marketing-pack/{pack_id}`
+- `POST /api/marketing-pack/{pack_id}/regenerate`
+
+**Routes removed** (1):
+- `PATCH /api/marketing-pack/{pack_id}` (copy editor — gone with the copy
+  fields)
+
+**Test results**:
+- ✅ `test_phase11_marketing_pack.py` Auth+Suggestions+Regression+PatchRemoved: 13/13
+- ✅ Broader cross-suite run (all 16B-touched files): **169/169 pass**
+  (1 deselected = TestSessionPersistence backend-restart test only)
+
+**Backend boot**: clean. Live `app.routes` confirmed: `[POST] /generate`,
+`[GET] /items-not-promoted-recently`, `[GET] /job/{pack_id}`, `[GET]
+/{pack_id}`, `[POST] /{pack_id}/regenerate`. No PATCH. `/api/menu` →
+200, `/api/home/health` → 200.
+
+**Production deploy**: NOT performed (per scope item #10).
+
+**Net code reduction this sprint**: -309 LOC across 4 files (backend -92,
+frontend -217, plus test rewrite).
+

@@ -17,6 +17,7 @@ import io
 import os
 import time
 import subprocess
+import uuid
 import pytest
 import requests
 from PIL import Image
@@ -199,26 +200,30 @@ class TestPipeline:
             time.sleep(3)
         assert last and last.get("status") == "completed", f"did not complete in 120s: {last}"
         assert last.get("progress") == 100
-        # Step transitions visible (at least a couple of the named ones)
-        expected_any = {"inferring", "writing_copy", "rendering_images",
+        # Step transitions visible (Sprint 16B.4: no more writing_copy step)
+        expected_any = {"inferring", "rendering_images",
                         "rendering_video", "saving", "done"}
         assert seen_steps & expected_any, f"no expected steps seen, got {seen_steps}"
         return last
 
     def test_result_keys_present(self, completed_pack):
+        """Sprint 16B.4: result is video-only. Copy fields (caption, hashtags,
+        sms, email, gbp) moved to AI Designer copy_pack and must NOT be in
+        the marketing-pack result."""
         r = completed_pack["result"]
+        # Asset ids — the 4 social-format frames are still produced (they're
+        # the video pipeline's source frames) and surfaced for backwards
+        # compatibility with any consumer that still references them.
         for k in ("ig_post_asset_id", "ig_story_asset_id", "tiktok_reel_asset_id",
-                  "fb_post_asset_id", "hero_asset_id", "video_asset_id",
-                  "caption", "hashtags", "sms", "email", "gbp"):
+                  "fb_post_asset_id", "hero_asset_id", "video_asset_id"):
             assert k in r, f"missing key {k}"
         # tiktok_reel == ig_story (same file, dual label)
         assert r["tiktok_reel_asset_id"] == r["ig_story_asset_id"]
-        assert r["caption"] and isinstance(r["caption"], str)
-        assert isinstance(r["hashtags"], list) and r["hashtags"]
-        assert all(isinstance(h, str) and not h.startswith("#") for h in r["hashtags"])
-        assert r["sms"] and len(r["sms"]) <= 160
-        assert r["email"].get("subject") and r["email"].get("body")
-        assert r["gbp"]
+        # Copy fields MUST be gone — AI Designer copy_pack owns them now.
+        for removed in ("caption", "hashtags", "sms", "email", "gbp"):
+            assert removed not in r, (
+                f"copy field {removed!r} should have been removed in Sprint 16B.4"
+            )
 
     def test_image_assets_resolve(self, H, completed_pack):
         r = completed_pack["result"]
@@ -256,68 +261,21 @@ class TestPipeline:
         assert m["last_pack_id"] == completed_pack["id"]
 
 
-# ---------------- PATCH ----------------
+# ---------------- PATCH endpoint removed in Sprint 16B.4 ----------------
 
-class TestPatch:
-    def test_patch_unknown_404(self, H):
+class TestPatchRemoved:
+    """The PATCH /api/marketing-pack/{id} endpoint was removed in Sprint 16B.4.
+    Copy edits moved to AI Designer copy_pack. The endpoint must stay gone."""
+
+    def test_patch_unknown_id_404(self, H):
         r = requests.patch(f"{API}/marketing-pack/unknown-id",
                            json={"caption": "x"}, headers=H, timeout=15)
-        assert r.status_code == 404
+        assert r.status_code in (404, 405), f"PATCH should be gone, got {r.status_code}"
 
-    def test_patch_pending_409(self, H, source_asset):
-        body = {
-            "source_asset_id": source_asset["id"],
-            "name": "TEST_PendingPatch", "description": "p",
-        }
-        r = requests.post(f"{API}/marketing-pack/generate", json=body,
-                          headers=H, timeout=10)
-        assert r.status_code == 202
-        job_id = r.json()["job_id"]
-        # Immediately try to patch — should be pending/processing
-        pr = requests.patch(f"{API}/marketing-pack/{job_id}",
-                            json={"caption": "early"}, headers=H, timeout=10)
-        # Could be 409 (pending) — if it just completed, allow 200 as flaky tolerance
-        assert pr.status_code in (409, 200), f"expected 409, got {pr.status_code}"
-        if pr.status_code == 409:
-            assert "not yet ready" in pr.json().get("detail", "").lower()
-
-    def test_patch_caption_and_hashtags(self, H, source_asset):
-        # Use a pack from the pipeline class — but to keep tests independent run mini-pipeline
-        # Reuse the suggestions/test setup: launch a small pack and wait
-        body = {
-            "source_asset_id": source_asset["id"],
-            "name": "TEST_PatchTarget",
-            "description": "patch target",
-        }
-        r = requests.post(f"{API}/marketing-pack/generate", json=body, headers=H, timeout=10)
-        assert r.status_code == 202
-        pack_id = r.json()["job_id"]
-        deadline = time.time() + 130
-        while time.time() < deadline:
-            jr = requests.get(f"{API}/marketing-pack/job/{pack_id}",
-                              headers=H, timeout=15)
-            if jr.json().get("status") == "completed":
-                break
-            if jr.json().get("status") == "failed":
-                pytest.fail(f"pack failed: {jr.json().get('error')}")
-            time.sleep(3)
-        else:
-            pytest.fail("pack did not complete in 130s for patch test")
-
-        # PATCH caption
-        pr = requests.patch(f"{API}/marketing-pack/{pack_id}",
-                            json={"caption": "edited caption text"},
-                            headers=H, timeout=15)
-        assert pr.status_code == 200
-        assert pr.json()["result"]["caption"] == "edited caption text"
-
-        # PATCH hashtags — should strip leading #
-        pr2 = requests.patch(f"{API}/marketing-pack/{pack_id}",
-                             json={"hashtags": ["burger", "#nola"]},
-                             headers=H, timeout=15)
-        assert pr2.status_code == 200
-        tags = pr2.json()["result"]["hashtags"]
-        assert tags == ["burger", "nola"]
+    def test_patch_any_id_404_or_405(self, H):
+        r = requests.patch(f"{API}/marketing-pack/{uuid.uuid4()}",
+                           json={"caption": "x"}, headers=H, timeout=15)
+        assert r.status_code in (404, 405), f"PATCH should be gone, got {r.status_code}"
 
 
 # ---------------- Regenerate ----------------

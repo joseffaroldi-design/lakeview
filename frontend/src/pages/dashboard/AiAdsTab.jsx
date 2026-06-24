@@ -108,7 +108,7 @@ const AiAdsTab = ({ getAuthHeader }) => {
           >
             <span className="flex items-center gap-1.5">
               <Megaphone className="w-3.5 h-3.5 text-navy/60" />
-              Need a quick text-only pack (captions, SMS, email, 15-sec video)?
+              Need a 15-second promo video for this item?
             </span>
             <button
               type="button"
@@ -116,7 +116,7 @@ const AiAdsTab = ({ getAuthHeader }) => {
               className="text-xs font-semibold text-gold hover:underline"
               data-testid="aiads-open-marketing-pack"
             >
-              Use Marketing Pack →
+              Make a video →
             </button>
           </div>
         </>
