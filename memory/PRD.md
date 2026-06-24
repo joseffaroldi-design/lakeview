@@ -1552,3 +1552,76 @@ big-monolith refactors are intentionally deferred to later phases.
 - MODIFIED: `backend/ai_engine/__init__.py`
 - MODIFIED: `backend/ai_engine/prompts.py`
 
+
+### Sprint 16B.2 — Legacy AI Ads Test Consolidation (Feb 24, 2026)
+**Goal**: Clean up the 4 pre-Sprint-15B test files that were failing
+because they reference removed `/api/ai-ads/*` and `/api/media/*` routes.
+
+**Files changed**:
+- `tests/test_iter15_maintenance.py` — full rewrite (149 → 115 LOC).
+  Was: latency SLOs on `/ai-ads/health`, `/assets`, `/calendar`,
+  `/publish-queue`, `/analytics`, `/plugins/*`, `/provider-connections/*`
+  (all GONE). Now: parametrised regression that 11 GET + 4 POST removed
+  routes all return 404/405, plus the 2 auth login checks.
+- `tests/test_phase8_media_studio.py` — trimmed (266 → 130 LOC).
+  Was: TestEdit (3 tests on `/api/media/edit`), TestSocialExport (3 tests
+  on `/export-social` + `/social-formats`), TestVideoRender (2 tests on
+  `/video/*`). All removed-route tests deleted. Kept: TestUpload (2 tests)
+  + TestStats (1 test, schema softened). Added: TestRemovedRoutes asserting
+  3 POST + 3 GET endpoints stay gone.
+- `tests/test_sprint_12c.py` — trimmed (344 → 210 LOC).
+  Was: TestAiAdsAssetsMigrated (5 tests on removed `/ai-ads/assets/*`
+  CRUD + bulk + export), regression smokes on `/ai-ads/plugins`,
+  `/plugins/restaurant`, `/templates`, `/providers`, plus
+  `test_social_formats` and `test_video_jobs`. All deleted.
+  `test_stats_asset_counts` softened (legacy migration data is gone — now
+  just asserts shape). `test_friday_fish_fry_stable_id` removed (too coupled
+  to seed). Kept: media GET smokes, TTL indexes (1 collection dropped from
+  list), specials list, regression smokes for menu/content/home/items.
+  Added: TestRemovedRoutes parametrised over 7 removed paths.
+- `tests/test_phase11_marketing_pack.py` — surgical edits.
+  Deleted `TestPipeline::test_asset_tags_and_folder` (used removed
+  `GET /api/media/assets/{id}`). `TestRegression::test_endpoint_status`
+  dropped the `/api/ai-ads/plugins` param, added `/api/ai-ads/stats`
+  (current surface). `test_ai_image_unknown_job_404` now hits the current
+  `/api/ai-image/job/{id}` path; added a sibling test confirming the
+  legacy `/api/media/ai-image/*` prefix stays 404.
+
+**Rate-limit fix**:
+All 4 files now use `X-Forwarded-For: 198.51.100.<random>` on login so
+they can run back-to-back without tripping the 5/15-min auth rate-limit.
+Same pattern as `test_flyer_themes.py`.
+
+**Production code**: NOT modified. No real bugs found — every failure was
+attributable to Sprint-15B-removed endpoints (audited via
+`from server import app; for r in app.routes ...`).
+
+**Final pass/fail count**:
+- ✅ `test_iter15_maintenance.py`: 17 / 17
+- ✅ `test_phase8_media_studio.py`: 9 / 9
+- ✅ `test_sprint_12c.py`: 23 / 23
+- ✅ `test_phase11_marketing_pack.py` (Auth + Suggestions + Regression):
+  14 / 14 (Pipeline/Patch/Regenerate/Janitor classes intentionally not run
+  here — each takes 130s + restarts the backend; they hit only active
+  `/marketing-pack/*` routes and are unchanged in this sprint)
+- **Total: 63 / 63 in scope**
+
+**Out of scope but flagged for follow-up**:
+Same dead-route pattern still exists in:
+- `tests/test_final_launch.py` — all assertions against deleted
+  `/api/ai-ads/provider-connections/*` and removed `/api/health`. Whole
+  file is a carcass; needs the same rewrite treatment.
+- `tests/test_phase10_persistence.py` — TestEditPersistence,
+  TestExportSocialPersistence, TestRenderPersistence,
+  TestRestartSurvival::ai_image, TestJanitor, and 2
+  `TestRegression::test_endpoint_200[/api/ai-ads/plugins…]` params target
+  removed routes.
+- `tests/test_cleanup_p0_p1.py` — 3 parametrised tests assert auth-401
+  on `POST/PUT/DELETE /api/specials`, but those CRUD specials routes were
+  removed (read-only now). 3-line fix.
+
+Sprint 16B.3 candidate.
+
+**Backend boot**: clean. `/api/auth/verify` returns 401 on bad token,
+`/api/menu` returns 200, no startup errors in supervisor logs.
+
