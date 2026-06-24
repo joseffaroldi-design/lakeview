@@ -1454,3 +1454,46 @@ routes return 404/405.
   enough as visual accents; not photo-realistic.
 - No SVG fallback — if a user adds a niche ingredient (e.g. "smoked gouda"),
   the legacy text marker shows.
+
+### Sprint 16A.3 — Media Orphan & Health Scanner (Feb 24, 2026)
+**Goal**: Provide a safe, dry-run-first maintenance script that finds broken
+`media_assets` rows (missing storage files) and orphan local files, without
+ever hard-deleting anything.
+
+**Added** (new module + tests):
+- `/app/backend/scripts/__init__.py` (new package)
+- `/app/backend/scripts/media_orphans.py` — pure-function classifier +
+  async scanner + soft-archive helper + argparse CLI.
+- `/app/backend/tests/test_media_orphans.py` — 17 tests covering classifier,
+  scanner, archive (incl. idempotency), local-orphan detection, and CLI flags.
+
+**Categories produced**:
+- `healthy` — DB row + source file + cached thumb present
+- `missing_file` — row references storage_path that doesn't exist
+- `missing_thumbnail` — source file present, thumb cache miss (regenerable on demand)
+- `orphaned_record` — row has empty/missing storage_path or id
+- `orphaned_storage_file` — local-disk fallback file with no DB row
+  (object-storage listing not exposed by Emergent API, so only legacy
+  local files are detectable here)
+
+**Safety design**:
+- Default mode is dry-run; explicit `--archive` flag required to mutate
+- `--archive` only sets `status="archived"` on `missing_file` rows + writes
+  `archived_at` and `archived_reason` audit fields. **NEVER hard-deletes.**
+- Idempotent: re-running on already-archived rows is a no-op (zero modified)
+- Refuses to run in production without `--allow-prod` (env-var bug guard)
+- Closes the Motor client in `finally` to avoid event-loop hang on exit
+
+**CLI flags**:
+- `--dry-run` (default) — read-only scan
+- `--archive` — soft-archive `missing_file` rows
+- `--report PATH` — write full JSON report
+- `--limit N` — cap on rows scanned (safety on huge collections)
+- `--status FILTER` — defaults to `active`; pass empty to scan all
+- `--allow-prod` — required to run in production
+
+**First live run against preview** (200 rows):
+- 86 healthy, 0 missing_file, 114 missing_thumbnail, 0 orphaned_record,
+  0 orphaned_storage_file. No broken assets — the missing thumbnails are
+  expected (AI Designer outputs regen thumbs on first GET).
+
