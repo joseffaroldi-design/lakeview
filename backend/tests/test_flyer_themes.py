@@ -76,6 +76,64 @@ class TestFlyerThemes:
             _brush_stamp,
         )
 
+    def test_ingredient_icons_complete(self):
+        """Sprint 16A.2 — all 10 ingredient drawers exist and a representative
+        feature for each maps to the correct icon kind."""
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from routers.ai_designer import _ICON_DRAWERS, _icon_for_feature
+
+        expected = {
+            "burger", "cheese", "onion", "sauce", "fries",
+            "shrimp", "fish", "pickle", "drink", "lettuce",
+        }
+        assert set(_ICON_DRAWERS) == expected, set(_ICON_DRAWERS)
+
+        cases = {
+            "2 Burger Patties": "burger",
+            "American Cheese": "cheese",
+            "Sweet Onion": "onion",
+            "Garlic Aioli": "sauce",
+            "Comes With Fries": "fries",
+            "Grilled Shrimp": "shrimp",
+            "Blackened Catfish": "fish",
+            "Pickle Slice": "pickle",
+            "Coca Cola": "drink",
+            "Fresh Lettuce": "lettuce",
+        }
+        for feat, kind in cases.items():
+            assert _icon_for_feature(feat) == kind, (feat, _icon_for_feature(feat))
+
+        assert _icon_for_feature("") is None
+        assert _icon_for_feature("something random") is None
+
+    def test_ingredient_icons_render_pixels(self):
+        """Each icon drawer must produce visible pixels in its bounding box.
+        Drawing an icon on a fully transparent canvas must yield a non-empty
+        bbox after the draw."""
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from PIL import Image
+        from routers.ai_designer import _ICON_DRAWERS, _draw_ingredient_icon
+
+        for kind in _ICON_DRAWERS:
+            canvas = Image.new("RGBA", (60, 60), (0, 0, 0, 0))
+            _draw_ingredient_icon(canvas, kind, 4, 4, 50, (255, 0, 0))
+            assert canvas.getbbox() is not None, f"{kind} drew nothing"
+
+    def test_flyer_themes_have_icons_flag(self):
+        """Each of the 5 flyer themes must opt in to icons; legacy themes
+        must NOT (icons would clash with their non-flyer typography)."""
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from routers.ai_designer import THEME_STYLES
+
+        for t in ("comic_pop", "vintage_diner", "bold_purple_pop",
+                  "casual_teal", "distressed_orange"):
+            assert THEME_STYLES[t].get("icons") is True, t
+        for t in ("luxury", "vintage", "modern", "social", "cajun"):
+            assert not THEME_STYLES[t].get("icons"), t
+
     def test_display_fonts_installed_and_loadable(self):
         """Sprint 16A.1 — three display fonts must be on disk and openable
         in PIL. Falls back gracefully if missing (covered by next test) but

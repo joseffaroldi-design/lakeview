@@ -1407,3 +1407,50 @@ Collections dropped:
 - Ingredient icons (burger/cheese/onion silhouettes) still not rendered — markers vary by theme (▸ ★ ✓ ■) but each feature is still rendered as plain text next to its marker. Sprint 16A.2 candidate.
 - No font subsetting — all 3 TTFs ship full. Total disk footprint: 254 KB. Negligible.
 
+
+
+### Sprint 16A.2 — Flyer Ingredient Icons (Feb 24, 2026)
+**Goal**: Replace plain text bullets on the 5 flyer-grade themes with small,
+deterministic PIL-drawn ingredient glyphs (no LLM, no external assets). When
+a feature keyword matches, the marker character is swapped for the matching
+icon; otherwise the legacy text marker still renders.
+
+**Added** (all in `/app/backend/routers/ai_designer.py`):
+- 10 ingredient drawers: `_icon_burger`, `_icon_cheese`, `_icon_onion`,
+  `_icon_sauce`, `_icon_fries`, `_icon_shrimp`, `_icon_fish`,
+  `_icon_pickle`, `_icon_drink`, `_icon_lettuce`
+- `ICON_KEYWORDS` table (case-insensitive, first-hit-wins) covering common
+  menu phrasing — incl. "patties", "aioli", "remoulade", "catfish", "cola",
+  "arugula", etc.
+- `_icon_for_feature(text)` → returns icon kind or `None`
+- `_draw_ingredient_icon(canvas, kind, x, y, size, color)` dispatcher
+- `"icons": True` flag added to all 5 flyer themes
+  (`comic_pop`, `vintage_diner`, `bold_purple_pop`, `casual_teal`,
+  `distressed_orange`); legacy themes intentionally NOT flagged
+
+**Modified**:
+- `_draw_bullets` already had the integration scaffold; now wired to the
+  real icon system. Falls back to text marker when no keyword matches or
+  when the theme doesn't opt in.
+
+**Tests** added to `/app/backend/tests/test_flyer_themes.py`:
+- `test_ingredient_icons_complete` — all 10 drawers registered + 10
+  representative feature strings map to the right icon
+- `test_ingredient_icons_render_pixels` — every icon produces a non-empty
+  bbox on a transparent canvas
+- `test_flyer_themes_have_icons_flag` — only flyer themes opt in
+
+Also rewrote `/app/backend/tests/test_ai_ads.py` (was 17 stale tests of
+endpoints removed in Sprint 15B). Now: 13 focused tests covering auth,
+`/api/ai-ads/stats`, and a parametrised regression confirming the 9 removed
+routes return 404/405.
+
+**Preserved**:
+- All 5 legacy themes still render with original text markers
+- Frontend untouched — no API surface change
+
+**Honest limitations**:
+- Icons are monochrome silhouettes drawn in the theme's marker color. Good
+  enough as visual accents; not photo-realistic.
+- No SVG fallback — if a user adds a niche ingredient (e.g. "smoked gouda"),
+  the legacy text marker shows.

@@ -154,6 +154,7 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (255, 235, 70), "letter_spacing": 2},
         "price": {"bg": (255, 235, 70), "fg": (12, 12, 16), "ring": (255, 255, 255), "font": FONT_BUNGEE},
         "branding_color": (255, 235, 70),
+        "icons": True,
     },
     "vintage_diner": {
         "label": "Vintage Diner (Flyer)",
@@ -165,6 +166,7 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (180, 50, 40), "letter_spacing": 3},
         "price": {"bg": (180, 50, 40), "fg": (244, 232, 200), "ring": (35, 90, 50), "font": FONT_BEBAS_NEUE},
         "branding_color": (90, 70, 40),
+        "icons": True,
     },
     "bold_purple_pop": {
         "label": "Bold Purple Pop",
@@ -176,6 +178,7 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (255, 240, 100), "letter_spacing": 2},
         "price": {"bg": (255, 240, 100), "fg": (38, 18, 60), "ring": (240, 60, 140), "font": FONT_BUNGEE},
         "branding_color": (240, 200, 220),
+        "icons": True,
     },
     "casual_teal": {
         "label": "Casual Teal",
@@ -187,6 +190,7 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (220, 110, 60), "letter_spacing": 2},
         "price": {"bg": (250, 245, 230), "fg": (30, 70, 70), "ring": (220, 110, 60), "font": FONT_PERMANENT_MARKER},
         "branding_color": (50, 90, 90),
+        "icons": True,
     },
     "distressed_orange": {
         "label": "Distressed Orange",
@@ -198,6 +202,7 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
                   "marker_color": (252, 240, 215), "letter_spacing": 3},
         "price": {"bg": (40, 25, 20), "fg": (252, 240, 215), "ring": (252, 240, 215), "font": FONT_PERMANENT_MARKER},
         "branding_color": (252, 240, 215),
+        "icons": True,
     },
 }
 
@@ -778,6 +783,202 @@ def _drop_shadow(im: Image.Image, blur: int = 18, opacity: int = 110, offset: Tu
     return layer
 
 
+# ---------------------------------------------------------------- Ingredient icons
+# Sprint 16A.2 — small deterministic PIL glyphs drawn next to bullet text on
+# flyer themes (when `theme["icons"] is True`). Each ingredient maps to one
+# of 10 simple silhouettes. Keyword matching is case-insensitive and matches
+# anywhere in the feature text; the first hit wins. When nothing matches,
+# `_draw_bullets` falls back to the legacy text marker (e.g. "▸", "★").
+#
+# All icons are monochrome and rendered in the theme's `marker_color`, so
+# they share the visual language of the existing bullets and stay legible
+# against the decorative background. Icons fit inside a `size x size` box
+# anchored at (x, y) — caller controls placement.
+
+ICON_KEYWORDS: List[Tuple[str, str]] = [
+    # specific tokens first; first hit wins
+    ("burger", "burger"), ("patties", "burger"), ("patty", "burger"),
+    ("american cheese", "cheese"), ("cheddar", "cheese"),
+    ("mozzarella", "cheese"), ("cheese", "cheese"),
+    ("onion", "onion"),
+    ("aioli", "sauce"), ("ketchup", "sauce"), ("mustard", "sauce"),
+    ("mayo", "sauce"), ("remoulade", "sauce"), ("sauce", "sauce"),
+    ("fries", "fries"), ("fry", "fries"),
+    ("shrimp", "shrimp"), ("prawn", "shrimp"),
+    ("catfish", "fish"), ("salmon", "fish"), ("tuna", "fish"),
+    ("cod", "fish"), ("fish", "fish"),
+    ("pickled", "pickle"), ("pickle", "pickle"),
+    ("soda", "drink"), ("cola", "drink"), ("beverage", "drink"),
+    ("drink", "drink"),
+    ("lettuce", "lettuce"), ("arugula", "lettuce"),
+    ("spinach", "lettuce"), ("greens", "lettuce"),
+]
+
+
+def _icon_for_feature(text: str) -> Optional[str]:
+    """Return the icon kind that matches `text`, or None."""
+    s = (text or "").lower()
+    if not s:
+        return None
+    for kw, kind in ICON_KEYWORDS:
+        if kw in s:
+            return kind
+    return None
+
+
+def _rgba(color) -> Tuple[int, int, int, int]:
+    if isinstance(color, tuple) and len(color) == 3:
+        return color + (255,)
+    return color
+
+
+def _icon_burger(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Top bun (rounded hump) + patty/cheese strip + bottom bun (flat-top hump)
+    th = max(4, int(s * 0.42))
+    bh = max(4, int(s * 0.32))
+    d.pieslice((x, y, x + s, y + th * 2), 180, 360, fill=c)
+    mid_y1 = y + th + 2
+    mid_y2 = y + s - bh - 2
+    if mid_y2 > mid_y1:
+        d.rectangle((x + s // 14, mid_y1, x + s - s // 14, mid_y2), fill=c)
+    d.pieslice((x, y + s - bh * 2, x + s, y + s), 0, 180, fill=c)
+
+
+def _icon_cheese(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Wedge triangle pointing up-right
+    pts = [(x, y + s - 2), (x + s - 2, y + s - 2), (x + s - 2, y + s // 5)]
+    d.polygon(pts, fill=c)
+
+
+def _icon_onion(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Concentric rings — top-down view of a sliced onion
+    cx, cy = x + s // 2, y + s // 2
+    w = max(2, s // 22)
+    for r in (s // 2 - 1, int(s * 0.36), int(s * 0.22), max(3, s // 10)):
+        if r > 0:
+            d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=c, width=w)
+
+
+def _icon_sauce(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Squeeze bottle: rounded rect body + small triangle nozzle on top
+    body_w = max(8, s * 3 // 5)
+    body_x = x + (s - body_w) // 2
+    body_y = y + s // 4
+    d.rounded_rectangle(
+        (body_x, body_y, body_x + body_w, y + s - 2),
+        radius=max(3, s // 10), fill=c,
+    )
+    d.polygon(
+        [(x + s * 2 // 5, body_y), (x + s * 3 // 5, body_y), (x + s // 2, y)],
+        fill=c,
+    )
+
+
+def _icon_fries(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # 4 vertical sticks + trapezoidal holder
+    hy1 = y + s * 3 // 5
+    d.polygon(
+        [(x + s // 8, hy1), (x + s - s // 8, hy1),
+         (x + s - s // 5, y + s - 2), (x + s // 5, y + s - 2)],
+        fill=c,
+    )
+    stick_w = max(3, s // 11)
+    starts = [x + int(s * 0.22), x + int(s * 0.38),
+              x + int(s * 0.54), x + int(s * 0.70)]
+    tops = [y + s // 14, y, y + s // 9, y + s // 6]
+    for sx, sy_top in zip(starts, tops):
+        d.rectangle((sx, sy_top, sx + stick_w, hy1), fill=c)
+
+
+def _icon_shrimp(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Curved C-shape body + small tail fan on the right
+    w = max(4, s // 8)
+    d.arc((x + s // 10, y + s // 10, x + s - s // 4, y + s - s // 10),
+          30, 330, fill=c, width=w)
+    d.polygon(
+        [(x + s - s // 4, y + s // 2),
+         (x + s - 2, y + s // 4),
+         (x + s - 2, y + s * 3 // 4)],
+        fill=c,
+    )
+
+
+def _icon_fish(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Oval body + triangle tail on the right
+    d.ellipse((x + s // 10, y + s // 4, x + s - s // 4, y + s * 3 // 4), fill=c)
+    d.polygon(
+        [(x + s - s // 4 - 2, y + s // 2),
+         (x + s - 2, y + s // 5),
+         (x + s - 2, y + s - s // 5)],
+        fill=c,
+    )
+
+
+def _icon_pickle(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Vertical oval + 3 small bumps along one edge
+    d.ellipse((x + s // 3, y + s // 8, x + s * 2 // 3, y + s - s // 8), fill=c)
+    bump = max(3, s // 12)
+    for fy in (y + s // 3, y + s // 2, y + s * 2 // 3):
+        d.ellipse(
+            (x + s * 2 // 3 - bump // 2, fy - bump // 2,
+             x + s * 2 // 3 + bump, fy + bump),
+            fill=c,
+        )
+
+
+def _icon_drink(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Cup trapezoid + lid line + straw poking out the top
+    cy1 = y + s // 4
+    cx1, cx2 = x + s // 5, x + s - s // 5
+    d.polygon(
+        [(cx1, cy1), (cx2, cy1),
+         (x + s - s // 4, y + s - 2), (x + s // 4, y + s - 2)],
+        fill=c,
+    )
+    d.line((cx1 - 2, cy1, cx2 + 2, cy1), fill=c, width=max(3, s // 14))
+    d.line((x + s // 2, cy1 - 2, x + s * 2 // 3, y),
+           fill=c, width=max(3, s // 14))
+
+
+def _icon_lettuce(d: ImageDraw.ImageDraw, x: int, y: int, s: int, c) -> None:
+    # Leaf: oval body + small notch cuts to suggest frilly edge
+    d.ellipse((x + s // 8, y + s // 6, x + s - s // 8, y + s - s // 6), fill=c)
+    # Frilly cuts (3 small triangles bitten out of the top edge)
+    bg = (255, 255, 255, 0)
+    for i in range(3):
+        cx = x + s // 4 + i * (s // 4)
+        d.polygon(
+            [(cx - s // 14, y + s // 6),
+             (cx + s // 14, y + s // 6),
+             (cx, y + s // 6 + s // 10)],
+            fill=bg,
+        )
+
+
+_ICON_DRAWERS = {
+    "burger": _icon_burger,
+    "cheese": _icon_cheese,
+    "onion": _icon_onion,
+    "sauce": _icon_sauce,
+    "fries": _icon_fries,
+    "shrimp": _icon_shrimp,
+    "fish": _icon_fish,
+    "pickle": _icon_pickle,
+    "drink": _icon_drink,
+    "lettuce": _icon_lettuce,
+}
+
+
+def _draw_ingredient_icon(canvas: Image.Image, kind: str, x: int, y: int,
+                          size: int, color) -> None:
+    """Draw the ingredient glyph `kind` at (x, y) within a `size x size` box."""
+    fn = _ICON_DRAWERS.get(kind)
+    if not fn:
+        return
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    fn(draw, x, y, size, _rgba(color))
+
+
 # ---------------------------------------------------------------- Composition
 
 def _draw_price_badge(canvas: Image.Image, theme: Dict[str, Any], price_text: str, cx: int, cy: int, radius: int) -> None:
@@ -799,20 +1000,35 @@ def _draw_price_badge(canvas: Image.Image, theme: Dict[str, Any], price_text: st
 
 def _draw_bullets(canvas: Image.Image, theme: Dict[str, Any], features: List[str],
                   x: int, y: int, max_w: int) -> None:
-    """Draw up to 5 feature bullets stacked vertically."""
+    """Draw up to 5 feature bullets stacked vertically.
+
+    Sprint 16A.2 — when `theme["icons"]` is True (flyer themes only), each
+    feature line gets a small PIL-drawn ingredient icon in place of the
+    text marker. Falls back to the text marker when no keyword matches.
+    """
     if not features:
         return
     draw = ImageDraw.Draw(canvas, "RGBA")
     body = theme["body"]
     f = _font(body["font"], body["size"])
     line_h = body["size"] + 14
+    use_icons = bool(theme.get("icons"))
+    icon_size = max(28, min(40, body["size"] + 4))
+    icon_color = body.get("marker_color", (255, 255, 255))
     for i, feat in enumerate(features[:5]):
         ty = y + i * line_h
-        marker = body["marker"]
-        # marker in marker_color
-        draw.text((x, ty), marker, fill=body["marker_color"], font=f)
-        mb = draw.textbbox((0, 0), marker + " ", font=f)
-        text_x = x + (mb[2] - mb[0])
+        icon_drawn = False
+        if use_icons:
+            kind = _icon_for_feature(feat)
+            if kind:
+                _draw_ingredient_icon(canvas, kind, x, ty + 2, icon_size, icon_color)
+                text_x = x + icon_size + 10
+                icon_drawn = True
+        if not icon_drawn:
+            marker = body["marker"]
+            draw.text((x, ty), marker, fill=body["marker_color"], font=f)
+            mb = draw.textbbox((0, 0), marker + " ", font=f)
+            text_x = x + (mb[2] - mb[0])
         # truncate single line if too wide
         wrapped = _wrap_text(draw, feat, f, max_w - (text_x - x))
         draw.text((text_x, ty), wrapped[0], fill=body["color"], font=f)
