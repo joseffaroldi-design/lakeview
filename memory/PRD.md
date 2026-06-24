@@ -1349,3 +1349,61 @@ Collections dropped:
 - Headline fonts use existing FreeSans/FreeSerif at larger sizes. Adding true display fonts (Bebas Neue, Bungee, Permanent Marker) would lift quality further but requires a font download to `/app/backend/fonts/` — out of scope for 16A.
 - Ingredient icons are NOT yet rendered. The bullet markers vary by theme (▸ ★ ✓ ■ + plain) but each feature still renders as text. Icon glyphs are a natural Sprint 16B if owner wants further visual richness.
 
+
+### Sprint 16A.1 — Flyer Typography Upgrade (Feb 22, 2026)
+**Goal**: Replace FreeFont placeholders with professional display typography on the 5 flyer themes so output reads like real restaurant advertising.
+
+**Display fonts installed at `/app/backend/fonts/`** (SIL OFL / Apache):
+- `BebasNeue-Regular.ttf` (60 KB) — clean condensed sans, used as body on all 5 flyer themes
+- `Bungee-Regular.ttf` (118 KB) — chunky inline display, used as headline on comic_pop + bold_purple_pop
+- `PermanentMarker-Regular.ttf` (74 KB) — hand-drawn brush, used as headline on casual_teal + distressed_orange
+- vintage_diner uses Bebas Neue for both headline and body
+
+**Font infrastructure**:
+- New `_resolve_font_path()` helper with explicit `_FONT_FALLBACKS` mapping. Each display font has a registered FreeFont fallback (Bungee → FreeSansBold, Permanent Marker → FreeSerifBold). If a TTF is missing at runtime, the composer degrades gracefully instead of crashing.
+- `_font()` (existing helper) now routes through `_resolve_font_path` so EVERY font load in the file is fallback-safe.
+
+**Typography improvements applied to flyer themes** (legacy themes untouched):
+- Headline sizes bumped from 90–100 px → 104–112 px
+- Body sizes bumped from 28–30 px → 32–34 px
+- `letter_spacing` field added — per-glyph spacing via new `_draw_spaced()` helper (PIL doesn't do letter-spacing natively)
+- `stroke_width` / `stroke_fill` fields for outlined headlines (legibility against decorative backgrounds)
+- `shadow` field for soft drop-shadow behind each headline line
+- Automatic line wrapping (`_wrap_text`) still applied — handles long item names without crashing
+
+**Per-theme font assignments**:
+| Theme | Headline | Body |
+|---|---|---|
+| comic_pop | Bungee | Bebas Neue |
+| vintage_diner | Bebas Neue | Bebas Neue |
+| bold_purple_pop | Bungee | Bebas Neue |
+| casual_teal | Permanent Marker | Bebas Neue |
+| distressed_orange | Permanent Marker | Bebas Neue |
+
+**Tests added**: `test_display_fonts_installed_and_loadable`, `test_font_resolver_falls_back_for_missing_file`. Plus the existing 14 flyer-themes tests all still pass.
+
+**Acceptance renders** (all completed 3/3 variations):
+- SMASH BURGER on comic_pop — `/api/media/thumb/eb5c56bb-…`
+- SHRIMP PO-BOY on distressed_orange — `/api/media/thumb/95efac8f-…`
+- CAFE FRIES on casual_teal — `/api/media/thumb/254ad9ce-…`
+
+**Independent visual verification**: image-analyzer rated the comic_pop output **7/10 for a restaurant flyer**, identified the headline font as "similar to Bungee — thick, blocky, designed for high visibility." Halftone dots, lightning bolts, yellow price badge, ingredient list all rendering as intended.
+
+**Files modified**:
+- `backend/routers/ai_designer.py` — added 3 font constants + `_FONT_FALLBACKS` + `_resolve_font_path()` + `_draw_spaced()` + reworked title-drawing for stroke/shadow/letter-spacing (~70 net lines)
+- `backend/fonts/` (new) — 3 TTF files
+- `backend/tests/test_flyer_themes.py` — added 2 font tests (now 16 total)
+
+**Preserved**:
+- All 5 legacy themes (luxury/vintage/modern/social/cajun) untouched — still pass parameterized regression
+- All decorative primitives (8 from 16A) untouched
+- `_compose_design()` flow unchanged (title still calls `_draw_title`, which now optionally honors the new spec fields)
+- Existing `/api/media/thumb` pipeline unchanged
+- Frontend zero changes — themes still pulled from `/api/ai-designer/themes`
+
+**Production deployment**: code-side ready. The 3 TTF files ship inside the backend image at next redeploy. No env changes needed.
+
+**Honest limitations**:
+- Ingredient icons (burger/cheese/onion silhouettes) still not rendered — markers vary by theme (▸ ★ ✓ ■) but each feature is still rendered as plain text next to its marker. Sprint 16A.2 candidate.
+- No font subsetting — all 3 TTFs ship full. Total disk footprint: 254 KB. Negligible.
+

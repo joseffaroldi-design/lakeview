@@ -76,6 +76,33 @@ class TestFlyerThemes:
             _brush_stamp,
         )
 
+    def test_display_fonts_installed_and_loadable(self):
+        """Sprint 16A.1 — three display fonts must be on disk and openable
+        in PIL. Falls back gracefully if missing (covered by next test) but
+        in a healthy deploy all three should exist."""
+        from pathlib import Path
+        from PIL import ImageFont
+        font_dir = Path("/app/backend/fonts")
+        for name in ("BebasNeue-Regular.ttf", "Bungee-Regular.ttf",
+                     "PermanentMarker-Regular.ttf"):
+            path = font_dir / name
+            assert path.exists(), f"Display font {name} missing — Sprint 16A.1 install failed"
+            ImageFont.truetype(str(path), 64)  # raises on corrupt files
+
+    def test_font_resolver_falls_back_for_missing_file(self):
+        """If a flyer-theme references a font that doesn't exist on disk,
+        the resolver must return the registered FreeFont fallback — never
+        a missing-file string that would crash truetype()."""
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from routers.ai_designer import _resolve_font_path, FONT_SANS_BOLD
+        from PIL import ImageFont
+        bogus = "/app/backend/fonts/Does-Not-Exist.ttf"
+        resolved = _resolve_font_path(bogus)
+        assert resolved != bogus, "resolver returned non-existent path"
+        ImageFont.truetype(resolved, 64)  # must be loadable
+        assert resolved == FONT_SANS_BOLD or resolved.endswith(".ttf")
+
     def test_all_ten_themes_registered(self, token):
         r = requests.get(
             f"{BASE_URL}/api/ai-designer/themes",

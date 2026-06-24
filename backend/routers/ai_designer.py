@@ -34,6 +34,7 @@ import io
 import logging
 import os
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Cookie, Header, HTTPException
@@ -56,6 +57,34 @@ FONT_SERIF_BOLD   = "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"
 FONT_SERIF        = "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
 FONT_SANS_BOLD    = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
 FONT_SANS         = "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
+
+# Sprint 16A.1 — Display fonts for flyer-grade themes. Files live in
+# /app/backend/fonts/ and are downloaded once at build time (SIL OFL / Apache).
+# If a file is missing at runtime, `_resolve_font_path()` falls back to the
+# matching FreeFont so the composer never crashes — themes just look closer
+# to their legacy form on that machine.
+_FONT_DIR = Path(__file__).resolve().parent.parent / "fonts"
+FONT_BEBAS_NEUE       = str(_FONT_DIR / "BebasNeue-Regular.ttf")
+FONT_BUNGEE           = str(_FONT_DIR / "Bungee-Regular.ttf")
+FONT_PERMANENT_MARKER = str(_FONT_DIR / "PermanentMarker-Regular.ttf")
+
+# Fallback chain: each display font maps to the closest FreeFont so the
+# layout still looks deliberate when a display font is unavailable.
+_FONT_FALLBACKS = {
+    FONT_BEBAS_NEUE:       FONT_SANS_BOLD,
+    FONT_BUNGEE:           FONT_SANS_BOLD,
+    FONT_PERMANENT_MARKER: FONT_SERIF_BOLD,
+}
+
+
+def _resolve_font_path(path: str) -> str:
+    """Return `path` if the font file exists; otherwise return the registered
+    fallback. Tested at every theme resolution so a missing font file
+    degrades gracefully instead of crashing."""
+    if Path(path).exists():
+        return path
+    fallback = _FONT_FALLBACKS.get(path, FONT_SANS_BOLD)
+    return fallback if Path(fallback).exists() else FONT_SANS_BOLD
 
 
 # ---------------------------------------------------------------- Theme styles
@@ -110,51 +139,64 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
         "branding_color": (200, 170, 100),
     },
     # ---------------- Sprint 16A — Flyer-grade themes ----------------
-    # Larger headline sizes (90-100px) + saturated palettes + chunky badges so
+    # Larger headline sizes (90-110px) + saturated palettes + chunky badges so
     # the output reads as a marketing flyer, not a polite menu card.
+    # Sprint 16A.1 layered in display fonts (Bebas Neue / Bungee /
+    # Permanent Marker), bigger headline scaling, and a stroke/shadow pass
+    # for flyer themes so headlines pop against the decorative backgrounds.
     "comic_pop": {
         "label": "Comic Pop",
         "bg_color": (12, 12, 16),
-        "title": {"font": FONT_SANS_BOLD, "color": (255, 235, 70), "size": 100},
-        "body":  {"font": FONT_SANS_BOLD, "color": (255, 255, 255), "size": 30, "marker": "▸",
-                  "marker_color": (255, 235, 70)},
-        "price": {"bg": (255, 235, 70), "fg": (12, 12, 16), "ring": (255, 255, 255), "font": FONT_SANS_BOLD},
+        "title": {"font": FONT_BUNGEE, "color": (255, 235, 70), "size": 112,
+                  "stroke_width": 4, "stroke_fill": (12, 12, 16),
+                  "letter_spacing": 4, "shadow": (0, 0, 0, 180)},
+        "body":  {"font": FONT_BEBAS_NEUE, "color": (255, 255, 255), "size": 34, "marker": "▸",
+                  "marker_color": (255, 235, 70), "letter_spacing": 2},
+        "price": {"bg": (255, 235, 70), "fg": (12, 12, 16), "ring": (255, 255, 255), "font": FONT_BUNGEE},
         "branding_color": (255, 235, 70),
     },
     "vintage_diner": {
         "label": "Vintage Diner (Flyer)",
         "bg_color": (244, 232, 200),
-        "title": {"font": FONT_SERIF_BOLD, "color": (35, 90, 50), "size": 92},
-        "body":  {"font": FONT_SANS_BOLD, "color": (35, 60, 40), "size": 28, "marker": "★",
-                  "marker_color": (180, 50, 40)},
-        "price": {"bg": (180, 50, 40), "fg": (244, 232, 200), "ring": (35, 90, 50), "font": FONT_SERIF_BOLD},
+        "title": {"font": FONT_BEBAS_NEUE, "color": (35, 90, 50), "size": 108,
+                  "stroke_width": 3, "stroke_fill": (244, 232, 200),
+                  "letter_spacing": 6, "shadow": (35, 90, 50, 60)},
+        "body":  {"font": FONT_BEBAS_NEUE, "color": (35, 60, 40), "size": 32, "marker": "★",
+                  "marker_color": (180, 50, 40), "letter_spacing": 3},
+        "price": {"bg": (180, 50, 40), "fg": (244, 232, 200), "ring": (35, 90, 50), "font": FONT_BEBAS_NEUE},
         "branding_color": (90, 70, 40),
     },
     "bold_purple_pop": {
         "label": "Bold Purple Pop",
         "bg_color": (38, 18, 60),
-        "title": {"font": FONT_SANS_BOLD, "color": (255, 240, 240), "size": 100},
-        "body":  {"font": FONT_SANS_BOLD, "color": (255, 240, 240), "size": 30, "marker": "▸",
-                  "marker_color": (255, 240, 100)},
-        "price": {"bg": (255, 240, 100), "fg": (38, 18, 60), "ring": (240, 60, 140), "font": FONT_SANS_BOLD},
+        "title": {"font": FONT_BUNGEE, "color": (255, 240, 240), "size": 112,
+                  "stroke_width": 4, "stroke_fill": (38, 18, 60),
+                  "letter_spacing": 4, "shadow": (240, 60, 140, 200)},
+        "body":  {"font": FONT_BEBAS_NEUE, "color": (255, 240, 240), "size": 34, "marker": "▸",
+                  "marker_color": (255, 240, 100), "letter_spacing": 2},
+        "price": {"bg": (255, 240, 100), "fg": (38, 18, 60), "ring": (240, 60, 140), "font": FONT_BUNGEE},
         "branding_color": (240, 200, 220),
     },
     "casual_teal": {
         "label": "Casual Teal",
         "bg_color": (170, 220, 215),
-        "title": {"font": FONT_SERIF_BOLD, "color": (30, 70, 70), "size": 90},
-        "body":  {"font": FONT_SANS_BOLD, "color": (30, 70, 70), "size": 28, "marker": "✓",
-                  "marker_color": (220, 110, 60)},
-        "price": {"bg": (250, 245, 230), "fg": (30, 70, 70), "ring": (220, 110, 60), "font": FONT_SERIF_BOLD},
+        "title": {"font": FONT_PERMANENT_MARKER, "color": (30, 70, 70), "size": 104,
+                  "stroke_width": 2, "stroke_fill": (250, 245, 230),
+                  "letter_spacing": 2, "shadow": (220, 110, 60, 100)},
+        "body":  {"font": FONT_BEBAS_NEUE, "color": (30, 70, 70), "size": 32, "marker": "✓",
+                  "marker_color": (220, 110, 60), "letter_spacing": 2},
+        "price": {"bg": (250, 245, 230), "fg": (30, 70, 70), "ring": (220, 110, 60), "font": FONT_PERMANENT_MARKER},
         "branding_color": (50, 90, 90),
     },
     "distressed_orange": {
         "label": "Distressed Orange",
         "bg_color": (200, 80, 35),
-        "title": {"font": FONT_SERIF_BOLD, "color": (252, 240, 215), "size": 96},
-        "body":  {"font": FONT_SANS_BOLD, "color": (252, 240, 215), "size": 28, "marker": "■",
-                  "marker_color": (252, 240, 215)},
-        "price": {"bg": (40, 25, 20), "fg": (252, 240, 215), "ring": (252, 240, 215), "font": FONT_SERIF_BOLD},
+        "title": {"font": FONT_PERMANENT_MARKER, "color": (252, 240, 215), "size": 110,
+                  "stroke_width": 3, "stroke_fill": (40, 25, 20),
+                  "letter_spacing": 2, "shadow": (40, 25, 20, 200)},
+        "body":  {"font": FONT_BEBAS_NEUE, "color": (252, 240, 215), "size": 32, "marker": "■",
+                  "marker_color": (252, 240, 215), "letter_spacing": 3},
+        "price": {"bg": (40, 25, 20), "fg": (252, 240, 215), "ring": (252, 240, 215), "font": FONT_PERMANENT_MARKER},
         "branding_color": (252, 240, 215),
     },
 }
@@ -212,7 +254,7 @@ def _normalize_theme(theme: str) -> str:
 
 def _font(path: str, size: int) -> ImageFont.FreeTypeFont:
     try:
-        return ImageFont.truetype(path, size=size)
+        return ImageFont.truetype(_resolve_font_path(path), size=size)
     except Exception:
         return ImageFont.load_default()
 
@@ -778,24 +820,75 @@ def _draw_bullets(canvas: Image.Image, theme: Dict[str, Any], features: List[str
 
 def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
                 x: int, y: int, max_w: int, align: str = "center") -> int:
-    """Draw the item title; returns the y after the title block."""
+    """Draw the item title; returns the y after the title block.
+
+    Sprint 16A.1 — for flyer themes the title spec may carry:
+      * `stroke_width` / `stroke_fill` — outlines the headline for legibility
+      * `shadow` — RGBA tuple drops a soft shadow behind each line
+      * `letter_spacing` — extra px between glyphs for that poster look
+    None of these are required; legacy themes that don't set them render
+    identically to their pre-16A.1 form.
+    """
     draw = ImageDraw.Draw(canvas, "RGBA")
     t = theme["title"]
     f = _font(t["font"], t["size"])
     lines = _wrap_text(draw, item_name, f, max_w)
+    stroke_w = t.get("stroke_width", 0)
+    stroke_fill = t.get("stroke_fill")
+    shadow = t.get("shadow")
+    letter_spacing = t.get("letter_spacing", 0)
     cur_y = y
     for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=f)
-        lw = bbox[2] - bbox[0]
+        # Measure with letter-spacing applied (PIL doesn't do this natively;
+        # we render each glyph individually when letter_spacing > 0).
+        if letter_spacing:
+            glyph_widths = [draw.textbbox((0, 0), ch, font=f)[2] for ch in line]
+            lw = sum(glyph_widths) + letter_spacing * max(0, len(line) - 1)
+        else:
+            bbox = draw.textbbox((0, 0), line, font=f)
+            lw = bbox[2] - bbox[0]
         if align == "center":
             lx = x + (max_w - lw) // 2
         elif align == "right":
             lx = x + (max_w - lw)
         else:
             lx = x
-        draw.text((lx, cur_y), line, fill=t["color"], font=f)
+
+        # Shadow (offset down-right, behind the stroke).
+        if shadow:
+            sx, sy = lx + 4, cur_y + 5
+            if letter_spacing:
+                _draw_spaced(draw, line, f, sx, sy, letter_spacing, fill=shadow)
+            else:
+                draw.text((sx, sy), line, fill=shadow, font=f)
+
+        # Main glyph pass — with optional stroke for chunky headlines.
+        if letter_spacing:
+            _draw_spaced(draw, line, f, lx, cur_y, letter_spacing,
+                         fill=t["color"], stroke_width=stroke_w,
+                         stroke_fill=stroke_fill)
+        else:
+            kwargs = {"fill": t["color"], "font": f}
+            if stroke_w and stroke_fill:
+                kwargs["stroke_width"] = stroke_w
+                kwargs["stroke_fill"] = stroke_fill
+            draw.text((lx, cur_y), line, **kwargs)
         cur_y += t["size"] + 8
     return cur_y
+
+
+def _draw_spaced(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
+                 x: int, y: int, spacing: int, *, fill,
+                 stroke_width: int = 0, stroke_fill=None) -> None:
+    """Render `text` glyph-by-glyph with `spacing` extra pixels between."""
+    cx = x
+    for ch in text:
+        kwargs = {"fill": fill, "font": font}
+        if stroke_width and stroke_fill:
+            kwargs["stroke_width"] = stroke_width
+            kwargs["stroke_fill"] = stroke_fill
+        draw.text((cx, y), ch, **kwargs)
+        cx += draw.textbbox((0, 0), ch, font=font)[2] + spacing
 
 
 def _draw_branding(canvas: Image.Image, theme: Dict[str, Any]) -> None:
