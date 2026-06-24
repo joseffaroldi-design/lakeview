@@ -1,0 +1,322 @@
+{
+  "started_at": 1782282296.8320365,
+  "finished_at": 1782282627.0750592,
+  "base_url": "https://food-graphics-lab.preview.emergentagent.com",
+  "promotions": [
+    {
+      "slug": "smash-burger",
+      "name": "Smash Burger",
+      "theme": "comic_pop",
+      "source_asset_id": "2efb4bcd-9048-4fca-9760-b1b5d6f3829e",
+      "designer_job_id": "ab987126-4870-491d-ae15-d5bc534d02dc",
+      "pack_job_id": "a62e6986-22b8-4920-a646-867c6ae11cf9",
+      "designer_status": "completed",
+      "variations_count": 3,
+      "copy_pack": {
+        "fb_post": "POW! Our Smash Burger just hit Lakeview with double the sizzle. Two crispy-edged patties piled with melty American cheese, tangy pickled onions, and a swipe of our house aioli, all riding a toasted bun. And because we love you like family, fries are included\u2014right at $13.95. It\u2019s the kind of bite that makes traffic on Canal feel worth it \ud83d\ude0b. Swing through for lunch or make it a late-night craving crusher. Comic-pop flavor, New Orleans soul.\nOrder now",
+        "ig_post": "BAM! Double-patty Smash Burger stacked with American cheese, pickled onions, and house aioli\u2014plus fries\u2014for $13.95. Crispy edges, big NOLA flavor. Comic-pop vibes, Lakeview love. \ud83c\udf54\ud83d\udd25 Perfect for lunch or late-night cravings. Tap to order.",
+        "gbp": "Smash Burger + fries for just $13.95. Two crispy-edged patties meet melty American cheese, bright pickled onions, and our silky house aioli on a toasted bun\u2014built to deliver that comic-pop POW in every bite. At Lakeview Burgers & Seafood, we keep it local: fast, friendly, and full of New Orleans flavor. Whether you\u2019re grabbing a quick lunch between errands on Harrison or settling in after the game, this double-stack brings the heat without the fuss. Fresh, hot fries are included, so you\u2019re walking out happy and full. Dine in, take it to-go, or order online for easy pickup. Order online or swing by Lakeview Burgers & Seafood today.",
+        "sms": "Smash Burger $13.95: 2 patties, American cheese, pickled onions, house aioli + fries. Comic-pop crunch, NOLA flavor. Order now.",
+        "email": {
+          "subject": "Double Smash, Big NOLA Flavor",
+          "body": "Meet the Smash Burger that\u2019s stealing hearts in Lakeview. We press two beef patties for those craveable crispy edges, melt on American cheese, stack bright pickled onions, and finish with our creamy house aioli on a toasted bun. Fries come along for the ride\u2014all for $13.95. It\u2019s POW-level flavor with hometown comfort, ready for lunch, dinner, or that sudden late-night craving. Swing by Lakeview Burgers & Seafood, call ahead for pickup, or order online and we\u2019ll have it hot when you arrive."
+        },
+        "hashtags": [
+          "smashburger",
+          "lakeviewnola",
+          "neworleansfood",
+          "nolaeats",
+          "burgersandfries",
+          "americancheese",
+          "pickledonions",
+          "houseaioli",
+          "comicpop",
+          "lunchinlakeview",
+          "supportlocalnola",
+          "lakeviewburgersandseafood"
+        ],
+        "generated_at": "2026-06-24T06:25:40.149684+00:00"
+      },
+      "has_copy": true,
+      "flyer_asset_id": "c910d6cb-1a9d-4d6b-9e51-961e6af4db93",
+      "variation_asset_ids": [
+        "c910d6cb-1a9d-4d6b-9e51-961e6af4db93",
+        "bc77c70c-370c-4e27-b959-d8844190fd80",
+        "0804e2ce-995b-4c1b-9ed0-0e0537aeb13e"
+      ],
+      "pack_status": "completed",
+      "video_asset_id": "16a2c229-9d8d-4333-b9d9-d8aeaba293e8",
+      "pack_clean": true,
+      "flyer": {
+        "asset_id": "c910d6cb-1a9d-4d6b-9e51-961e6af4db93",
+        "kind": "flyer",
+        "file_size": 121303,
+        "file_path": "/app/memory/launch/assets/smash-burger-flyer.png",
+        "file_ctype": "image/png",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 24140
+      },
+      "video": {
+        "asset_id": "16a2c229-9d8d-4333-b9d9-d8aeaba293e8",
+        "kind": "video",
+        "file_size": 91619,
+        "file_path": "/app/memory/launch/assets/smash-burger-video.mp4",
+        "file_ctype": "video/mp4",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 10196
+      },
+      "status": "ok"
+    },
+    {
+      "slug": "cafe-fries",
+      "name": "Caf\u00e9 Fries",
+      "theme": "vintage_diner",
+      "source_asset_id": "403b8d20-8232-4bcd-aafe-5ef8e3c6b67c",
+      "designer_job_id": "e5f58ba3-09d9-46cf-9a7a-d5ca6365306e",
+      "pack_job_id": "18a62d90-3fe6-4233-855e-aecfcf590638",
+      "designer_status": "completed",
+      "variations_count": 3,
+      "copy_pack": {
+        "fb_post": "Meet our Caf\u00e9 Fries, y\u2019all\u2014hand-cut and golden, dusted with Cajun swagger, crowned with melty cheese, and served with cool, garlicky aioli for dipping. It\u2019s the retro-diner snack Lakeview\u2019s been craving, and it\u2019s only $8.50. Perfect solo, even better beside a juicy burger or crispy seafood. Pull up to our vintage vibe, sip a cold drink, and let those New Orleans flavors do their thing. Hungry yet? \ud83c\udf5f\nSwing by Lakeview Burgers & Seafood or order online today.",
+        "ig_post": "Vintage diner mood, NOLA flavor. Our Caf\u00e9 Fries are hand-cut, Cajun-kissed, cheese-topped, with cool garlic aioli for the dunk. Just $8.50. Pull up, y\u2019all. \ud83c\udf5f\ud83e\uddc4\ud83e\uddc0\nWho's snagging a basket today?",
+        "gbp": "Caf\u00e9 Fries for $8.50\u2014hand-cut potatoes fried golden, tossed in our house Cajun seasoning, topped with melty cheese, and paired with cool garlic aioli. This is a Lakeview classic in the making, served with vintage diner flair and New Orleans soul. Perfect as a shareable starter, a late-afternoon pick\u2011me\u2011up, or the ultimate side for your burger or crispy seafood plate. We cut \u2019em fresh, season \u2019em bold, and serve \u2019em hot, so every bite hits that comfort-food sweet spot. Craving the crunch and the creamy dip? Order online for pickup or swing by Lakeview Burgers & Seafood today.",
+        "sms": "Caf\u00e9 Fries $8.50\u2014hand-cut, Cajun seasoned, cheesy, with garlic aioli. Lakeview Burgers & Seafood. Swing by or order now!",
+        "email": {
+          "subject": "Hot Caf\u00e9 Fries, Lakeview!",
+          "body": "Step into our vintage diner vibes and meet your new craving: Caf\u00e9 Fries for just $8.50. We hand-cut every potato, fry them golden, dust them with bold Cajun seasoning, blanket them in melty cheese, and serve with cool, garlicky aioli for the perfect dunk. They\u2019re snack-worthy solo and unbeatable beside a juicy burger or crispy seafood.\n\nPull up a stool in Lakeview, or order online for quick pickup. The fries are hot, the dip is chilled, and the flavor is pure New Orleans comfort."
+        },
+        "hashtags": [
+          "cafe fries",
+          "new orleans eats",
+          "lakeview nola",
+          "burgers and seafood",
+          "cajun seasoning",
+          "garlic aioli",
+          "cheesy fries",
+          "hand cut fries",
+          "vintage diner vibes",
+          "nola food",
+          "comfort food"
+        ],
+        "generated_at": "2026-06-24T06:26:26.716746+00:00"
+      },
+      "has_copy": true,
+      "flyer_asset_id": "fa31486f-2e7e-44f2-af6f-e0ab1179770a",
+      "variation_asset_ids": [
+        "fa31486f-2e7e-44f2-af6f-e0ab1179770a",
+        "352d7a40-b57d-4258-ac77-b28fabf367b2",
+        "654fb0fe-7eda-4e17-a6ff-87303db42b33"
+      ],
+      "pack_status": "completed",
+      "video_asset_id": "cbc781d0-fcaf-4585-ad7c-64a2d3da8803",
+      "pack_clean": true,
+      "flyer": {
+        "asset_id": "fa31486f-2e7e-44f2-af6f-e0ab1179770a",
+        "kind": "flyer",
+        "file_size": 115592,
+        "file_path": "/app/memory/launch/assets/cafe-fries-flyer.png",
+        "file_ctype": "image/png",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 17863
+      },
+      "video": {
+        "asset_id": "cbc781d0-fcaf-4585-ad7c-64a2d3da8803",
+        "kind": "video",
+        "file_size": 87247,
+        "file_path": "/app/memory/launch/assets/cafe-fries-video.mp4",
+        "file_ctype": "video/mp4",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 9847
+      },
+      "status": "ok"
+    },
+    {
+      "slug": "wings",
+      "name": "Chicken Wings",
+      "theme": "bold_purple_pop",
+      "source_asset_id": "8ee14d02-1ae8-44e1-b61d-310f8ec98740",
+      "designer_job_id": "2e370aef-b146-4ef9-8975-dc7f713b18b5",
+      "pack_job_id": "ef73d2d9-44c6-43ef-b0ee-f3188a6e83d8",
+      "designer_status": "completed",
+      "variations_count": 3,
+      "copy_pack": {
+        "fb_post": "Lakeview, meet your new wing crush. Our 6-piece Chicken Wings come tossed in House Buffalo, cooled with creamy Blue Cheese Dip, and served with crisp celery & carrots for the perfect bite. It\u2019s the kind of heat that sings like a brass band and the crunch you can hear over the lake breeze. All that for just $10.95. Bring your krewe, claim a table, and soak up our bold purple pop vibes. \ud83d\udc9c\nOrder now.",
+        "ig_post": "Six bold Buffalo wings, creamy blue cheese dip, crisp celery and carrots\u2014Lakeview heat with a cool NOLA beat for $10.95. Bold purple pop, big flavor, zero regrets. \ud83d\udc9c\ud83d\udd25\ud83c\udf57\nHungry? Swing by or order now.",
+        "gbp": "Get 6 Chicken Wings for just $10.95\u2014tossed in our House Buffalo, paired with cool Blue Cheese Dip, and served with crisp celery and carrots. This is Lakeview snacking at its finest: juicy, zesty, and ready when you are. Whether you\u2019re fueling game night, grabbing a quick lunch, or sharing with your krewe, our wings bring that perfect NOLA balance of heat and harmony. Settle into our bold purple pop vibe or take them to-go\u2014either way, you\u2019ll taste the love in every bite. Gluten-free friendly when ordered without dip. Want more? Add fries or a cold drink and make it a feast. Order online, call, or swing by today.",
+        "sms": "6 Chicken Wings $10.95\u2014House Buffalo, blue cheese dip, celery & carrots. Lakeview heat, cool finish. Order now for pickup or dine-in!",
+        "email": {
+          "subject": "Buffalo Wings, Lakeview Style",
+          "body": "Craving that perfect wing night? Our Chicken Wings come as a 6-pack, tossed in House Buffalo and cooled with creamy Blue Cheese Dip, plus crisp celery and carrots to keep things snappy. It\u2019s the saucy, crunchy Lakeview combo you love, all for just $10.95. Settle into our bold purple pop vibe or grab them to-go\u2014either way, they\u2019ll hit the spot. Add fries or a cold drink to make it a feast. Ready to taste the heat and the harmony? Order now for pickup or dine-in."
+        },
+        "hashtags": [
+          "lakeviewnola",
+          "neworleans",
+          "nolaeats",
+          "chickenwings",
+          "buffalo",
+          "bluecheese",
+          "lakeviewburgersandseafood",
+          "takeoutnola",
+          "gamedayfood",
+          "boldpurplepop"
+        ],
+        "generated_at": "2026-06-24T06:27:13.024081+00:00"
+      },
+      "has_copy": true,
+      "flyer_asset_id": "88926842-4cc0-41b3-b1ba-3167ecaaa5c7",
+      "variation_asset_ids": [
+        "88926842-4cc0-41b3-b1ba-3167ecaaa5c7",
+        "de396705-6105-44f2-95bf-e46183161933",
+        "adea1ed6-c1b3-4428-84ee-dbebf2f1d364"
+      ],
+      "pack_status": "completed",
+      "video_asset_id": "b6e1956a-c76e-40e7-9529-c79559fde732",
+      "pack_clean": true,
+      "flyer": {
+        "asset_id": "88926842-4cc0-41b3-b1ba-3167ecaaa5c7",
+        "kind": "flyer",
+        "file_size": 169587,
+        "file_path": "/app/memory/launch/assets/wings-flyer.png",
+        "file_ctype": "image/png",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 24009
+      },
+      "video": {
+        "asset_id": "b6e1956a-c76e-40e7-9529-c79559fde732",
+        "kind": "video",
+        "file_size": 90098,
+        "file_path": "/app/memory/launch/assets/wings-video.mp4",
+        "file_ctype": "video/mp4",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 8599
+      },
+      "status": "ok"
+    },
+    {
+      "slug": "shrimp-poboy",
+      "name": "Shrimp Po-Boy",
+      "theme": "casual_teal",
+      "source_asset_id": "5a71e40f-29c9-48f6-acc9-9d631de84168",
+      "designer_job_id": "9cbdda82-2534-45dc-adf7-787d7f46cc24",
+      "pack_job_id": "89b8d7d2-facc-4d3e-a87f-4b95b6947e96",
+      "designer_status": "completed",
+      "variations_count": 3,
+      "copy_pack": {
+        "fb_post": "Lakeview, meet your lunchtime crush: our Shrimp Po-Boy. We pile hot, crispy Gulf shrimp onto soft New Orleans French bread, add cool lettuce and ripe tomato, then swipe on a zesty house remoulade for that kick you crave. It\u2019s the kind of bite that tastes like a breezy day on the lake\u2014casual, bright, and blissfully local \ud83e\udd90 All that for just $14.95 at Lakeview Burgers & Seafood, made to order and gone in a few happy minutes.\n\nCome grab yours today!",
+        "ig_post": "Crispy Gulf shrimp, cool lettuce and tomato, bold remoulade, all on New Orleans French bread. Our Shrimp Po-Boy hits every crave spot \ud83e\udd90\ud83d\udd25\ud83e\udd56 $14.95\u2014casual teal vibes, big flavor. Tap to order or swing by!",
+        "gbp": "Shrimp Po-Boy for $14.95\u2014only at Lakeview Burgers & Seafood. We stack golden-fried Gulf shrimp inside authentic New Orleans French bread, layer on cool lettuce and ripe tomato, and finish with our tangy house remoulade that brings just the right Creole kick. It\u2019s a Lakeview classic: crisp, saucy, and satisfyingly messy in the best way. Grab it for lunch on the go or make it dinner with fries and a cold drink. Our vibe is casual teal and easy-going, just like the neighborhood\u2014order at the counter, settle in, and let the good times roll. Fresh, fast, and made to order, every po-boy tastes like home. Craving one now? We\u2019ve got you.\n\nOrder online, give us a call, or stop by today.",
+        "sms": "Shrimp Po-Boy $14.95: crispy Gulf shrimp + remoulade on NOLA French bread. Lakeview Burgers & Seafood. Order now or swing by!",
+        "email": {
+          "subject": "Your New Shrimp Po-Boy Fix",
+          "body": "Craving a true New Orleans bite? Our Shrimp Po-Boy is calling. We tuck crispy Gulf shrimp into soft French bread, add cool lettuce and ripe tomato, and swipe on zesty house remoulade for that Creole kick you love. It\u2019s fresh, fast, and just $14.95 at Lakeview Burgers & Seafood. Perfect for a quick lunch or a laid-back dinner, with fries and a cold drink if you please. Swing through for casual teal vibes and friendly faces, or grab it to-go.\n\nOrder online or stop by today."
+        },
+        "hashtags": [
+          "lakeviewburgersandseafood",
+          "shrimp",
+          "poboy",
+          "gulfshrimp",
+          "neworleans",
+          "nolaeats",
+          "seafood",
+          "frenchbread",
+          "remoulade",
+          "casualteal",
+          "lakeview",
+          "lunch"
+        ],
+        "generated_at": "2026-06-24T06:28:09.839340+00:00"
+      },
+      "has_copy": true,
+      "flyer_asset_id": "f1a7aeb5-17c0-4845-b3bf-dc74bfbe940a",
+      "variation_asset_ids": [
+        "f1a7aeb5-17c0-4845-b3bf-dc74bfbe940a",
+        "ba6b9e0d-d138-4caf-a5a1-3edb71678bdf",
+        "55a8de5d-0445-4fc5-99df-1008bcab2688"
+      ],
+      "pack_status": "completed",
+      "video_asset_id": "a3e32cad-32d5-4ac7-ac11-f384f3315052",
+      "pack_clean": true,
+      "flyer": {
+        "asset_id": "f1a7aeb5-17c0-4845-b3bf-dc74bfbe940a",
+        "kind": "flyer",
+        "file_size": 184275,
+        "file_path": "/app/memory/launch/assets/shrimp-poboy-flyer.png",
+        "file_ctype": "image/png",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 17045
+      },
+      "video": {
+        "asset_id": "a3e32cad-32d5-4ac7-ac11-f384f3315052",
+        "kind": "video",
+        "file_size": 85615,
+        "file_path": "/app/memory/launch/assets/shrimp-poboy-video.mp4",
+        "file_ctype": "video/mp4",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 9077
+      },
+      "status": "ok"
+    },
+    {
+      "slug": "oyster-plate",
+      "name": "Fried Oyster Plate",
+      "theme": "distressed_orange",
+      "source_asset_id": "dbbd6633-3404-44fb-a9f6-cdc46a3db80d",
+      "designer_job_id": "efa5605a-2376-4d65-8792-f79911af1769",
+      "pack_job_id": "0d3b7092-6ff3-4e36-8d0e-18ba74a72337",
+      "designer_status": "completed",
+      "variations_count": 3,
+      "copy_pack": {},
+      "has_copy": false,
+      "flyer_asset_id": "115f95ec-b3ef-4233-b266-a9a8933a303e",
+      "variation_asset_ids": [
+        "115f95ec-b3ef-4233-b266-a9a8933a303e",
+        "51519eaf-e297-4699-8f24-5d1dc0162867",
+        "d23e0d8c-b789-41e7-bc46-9fba2feafe7e"
+      ],
+      "pack_status": "completed",
+      "video_asset_id": "6b4b7fd7-37f7-4bd6-b786-e49df21c999b",
+      "pack_clean": true,
+      "flyer": {
+        "asset_id": "115f95ec-b3ef-4233-b266-a9a8933a303e",
+        "kind": "flyer",
+        "file_size": 160196,
+        "file_path": "/app/memory/launch/assets/oyster-plate-flyer.png",
+        "file_ctype": "image/png",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 19739
+      },
+      "video": {
+        "asset_id": "6b4b7fd7-37f7-4bd6-b786-e49df21c999b",
+        "kind": "video",
+        "file_size": 86358,
+        "file_path": "/app/memory/launch/assets/oyster-plate-video.mp4",
+        "file_ctype": "video/mp4",
+        "file_ok": true,
+        "thumb_ok": true,
+        "thumb_status": 200,
+        "thumb_size": 9606
+      },
+      "status": "fail"
+    }
+  ],
+  "pass_count": 4,
+  "fail_count": 1
+}

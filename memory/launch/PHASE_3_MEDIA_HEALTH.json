@@ -1,0 +1,420 @@
+{
+  "generated_at": "2026-06-24T06:32:12.821343+00:00",
+  "totals": {
+    "healthy": 12,
+    "missing_file": 0,
+    "missing_thumbnail": 38,
+    "orphaned_record": 0,
+    "orphaned_storage_file": 0,
+    "scanned_rows": 50
+  },
+  "details": {
+    "healthy": [
+      {
+        "id": "115f95ec-b3ef-4233-b266-a9a8933a303e",
+        "filename": "design-distressed_orange-fried-oyster-plate-A-115f95.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/115f95ec-b3ef-4233-b266-a9a8933a303e.png",
+        "uploaded_at": "2026-06-24T06:28:13.434258+00:00"
+      },
+      {
+        "id": "f1a7aeb5-17c0-4845-b3bf-dc74bfbe940a",
+        "filename": "design-casual_teal-shrimp-po-boy-A-f1a7ae.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/f1a7aeb5-17c0-4845-b3bf-dc74bfbe940a.png",
+        "uploaded_at": "2026-06-24T06:27:16.542493+00:00"
+      },
+      {
+        "id": "88926842-4cc0-41b3-b1ba-3167ecaaa5c7",
+        "filename": "design-bold_purple_pop-chicken-wings-A-889268.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/88926842-4cc0-41b3-b1ba-3167ecaaa5c7.png",
+        "uploaded_at": "2026-06-24T06:26:30.634917+00:00"
+      },
+      {
+        "id": "fa31486f-2e7e-44f2-af6f-e0ab1179770a",
+        "filename": "design-vintage_diner-caf\u00e9-fries-A-fa3148.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/fa31486f-2e7e-44f2-af6f-e0ab1179770a.png",
+        "uploaded_at": "2026-06-24T06:25:43.863384+00:00"
+      },
+      {
+        "id": "c910d6cb-1a9d-4d6b-9e51-961e6af4db93",
+        "filename": "design-comic_pop-smash-burger-A-c910d6.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/c910d6cb-1a9d-4d6b-9e51-961e6af4db93.png",
+        "uploaded_at": "2026-06-24T06:24:58.839429+00:00"
+      },
+      {
+        "id": "350f36b4-bf47-4059-9582-ff86ab6c4a00",
+        "filename": "phase10_seed.png",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/350f36b4-bf47-4059-9582-ff86ab6c4a00.png",
+        "uploaded_at": "2026-06-24T06:08:28.192616+00:00"
+      },
+      {
+        "id": "666617f8-31b8-4b85-9f46-2ef338e7b290",
+        "filename": "design-modern-regression-smoke-C-666617.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/666617f8-31b8-4b85-9f46-2ef338e7b290.png",
+        "uploaded_at": "2026-06-24T05:51:45.748854+00:00"
+      },
+      {
+        "id": "391aabc5-d710-4834-951d-100be481c6c1",
+        "filename": "design-modern-regression-smoke-B-391aab.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/391aabc5-d710-4834-951d-100be481c6c1.png",
+        "uploaded_at": "2026-06-24T05:51:44.740294+00:00"
+      },
+      {
+        "id": "95c3a6f1-f8ea-41cd-a562-f734f0d4222a",
+        "filename": "design-modern-regression-smoke-A-95c3a6.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/95c3a6f1-f8ea-41cd-a562-f734f0d4222a.png",
+        "uploaded_at": "2026-06-24T05:51:43.327969+00:00"
+      },
+      {
+        "id": "c23522ec-c344-406e-9ab7-8ba59bbd7b68",
+        "filename": "design-modern-regression-smoke-C-c23522.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/c23522ec-c344-406e-9ab7-8ba59bbd7b68.png",
+        "uploaded_at": "2026-06-24T05:51:24.330437+00:00"
+      },
+      {
+        "id": "749d49ab-5c10-47e3-896c-ae8ee3864ab7",
+        "filename": "design-modern-regression-smoke-B-749d49.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/749d49ab-5c10-47e3-896c-ae8ee3864ab7.png",
+        "uploaded_at": "2026-06-24T05:51:23.305623+00:00"
+      },
+      {
+        "id": "20fefe3b-cdc6-492c-aa43-2a9d2461ca19",
+        "filename": "design-modern-regression-smoke-A-20fefe.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/20fefe3b-cdc6-492c-aa43-2a9d2461ca19.png",
+        "uploaded_at": "2026-06-24T05:51:22.388564+00:00"
+      }
+    ],
+    "missing_file": [],
+    "missing_thumbnail": [
+      {
+        "id": "01af6a4d-842f-4d3e-aba0-0c5011bafb66",
+        "filename": "fried-oyster-plate-hero-01af6a.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/01af6a4d-842f-4d3e-aba0-0c5011bafb66.jpg",
+        "uploaded_at": "2026-06-24T06:28:24.170419+00:00"
+      },
+      {
+        "id": "a5a8078f-53a8-44ab-a026-befab8f5aa29",
+        "filename": "fried-oyster-plate-fb_post-a5a807.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/a5a8078f-53a8-44ab-a026-befab8f5aa29.jpg",
+        "uploaded_at": "2026-06-24T06:28:23.636064+00:00"
+      },
+      {
+        "id": "f005870f-a438-4926-ac06-b3442164da81",
+        "filename": "fried-oyster-plate-ig_story-f00587.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/f005870f-a438-4926-ac06-b3442164da81.jpg",
+        "uploaded_at": "2026-06-24T06:28:23.367493+00:00"
+      },
+      {
+        "id": "4e89bdc6-9036-4eb3-af5f-c7ed7bff39e5",
+        "filename": "fried-oyster-plate-ig_post-4e89bd.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/4e89bdc6-9036-4eb3-af5f-c7ed7bff39e5.jpg",
+        "uploaded_at": "2026-06-24T06:28:22.813629+00:00"
+      },
+      {
+        "id": "d23e0d8c-b789-41e7-bc46-9fba2feafe7e",
+        "filename": "design-distressed_orange-fried-oyster-plate-C-d23e0d.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/d23e0d8c-b789-41e7-bc46-9fba2feafe7e.png",
+        "uploaded_at": "2026-06-24T06:28:15.597543+00:00"
+      },
+      {
+        "id": "51519eaf-e297-4699-8f24-5d1dc0162867",
+        "filename": "design-distressed_orange-fried-oyster-plate-B-51519e.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/51519eaf-e297-4699-8f24-5d1dc0162867.png",
+        "uploaded_at": "2026-06-24T06:28:14.461594+00:00"
+      },
+      {
+        "id": "cc4039a3-42dc-4024-bfd9-3684defc29e3",
+        "filename": "shrimp-po-boy-hero-cc4039.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/cc4039a3-42dc-4024-bfd9-3684defc29e3.jpg",
+        "uploaded_at": "2026-06-24T06:28:11.930680+00:00"
+      },
+      {
+        "id": "dbbd6633-3404-44fb-a9f6-cdc46a3db80d",
+        "filename": "oyster-plate.jpg",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/dbbd6633-3404-44fb-a9f6-cdc46a3db80d.jpg",
+        "uploaded_at": "2026-06-24T06:28:11.529917+00:00"
+      },
+      {
+        "id": "eb0cc189-02bd-4131-8afa-cc738d053be1",
+        "filename": "shrimp-po-boy-fb_post-eb0cc1.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/eb0cc189-02bd-4131-8afa-cc738d053be1.jpg",
+        "uploaded_at": "2026-06-24T06:28:11.269918+00:00"
+      },
+      {
+        "id": "76ff2617-5fe4-49f4-b58f-f5225696311e",
+        "filename": "shrimp-po-boy-ig_story-76ff26.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/76ff2617-5fe4-49f4-b58f-f5225696311e.jpg",
+        "uploaded_at": "2026-06-24T06:28:10.976980+00:00"
+      },
+      {
+        "id": "0d9c391f-06d1-4a2a-b2c3-af24e900c66d",
+        "filename": "shrimp-po-boy-ig_post-0d9c39.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/0d9c391f-06d1-4a2a-b2c3-af24e900c66d.jpg",
+        "uploaded_at": "2026-06-24T06:28:10.539601+00:00"
+      },
+      {
+        "id": "55a8de5d-0445-4fc5-99df-1008bcab2688",
+        "filename": "design-casual_teal-shrimp-po-boy-C-55a8de.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/55a8de5d-0445-4fc5-99df-1008bcab2688.png",
+        "uploaded_at": "2026-06-24T06:27:19.701805+00:00"
+      },
+      {
+        "id": "ba6b9e0d-d138-4caf-a5a1-3edb71678bdf",
+        "filename": "design-casual_teal-shrimp-po-boy-B-ba6b9e.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/ba6b9e0d-d138-4caf-a5a1-3edb71678bdf.png",
+        "uploaded_at": "2026-06-24T06:27:18.053061+00:00"
+      },
+      {
+        "id": "5a71e40f-29c9-48f6-acc9-9d631de84168",
+        "filename": "shrimp-poboy.jpg",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/5a71e40f-29c9-48f6-acc9-9d631de84168.jpg",
+        "uploaded_at": "2026-06-24T06:27:15.208043+00:00"
+      },
+      {
+        "id": "0c97725c-c35f-49f6-b1a4-e8565396d2bb",
+        "filename": "chicken-wings-hero-0c9772.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/0c97725c-c35f-49f6-b1a4-e8565396d2bb.jpg",
+        "uploaded_at": "2026-06-24T06:27:14.878323+00:00"
+      },
+      {
+        "id": "fb0d8f14-9912-4cc3-be0e-bc3ab16f924e",
+        "filename": "chicken-wings-fb_post-fb0d8f.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/fb0d8f14-9912-4cc3-be0e-bc3ab16f924e.jpg",
+        "uploaded_at": "2026-06-24T06:27:14.418988+00:00"
+      },
+      {
+        "id": "175ca76a-5110-445d-b911-870d264703a1",
+        "filename": "chicken-wings-ig_story-175ca7.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/175ca76a-5110-445d-b911-870d264703a1.jpg",
+        "uploaded_at": "2026-06-24T06:27:13.921151+00:00"
+      },
+      {
+        "id": "a3cf5a45-8089-4eac-8220-294a5bdacf4c",
+        "filename": "chicken-wings-ig_post-a3cf5a.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/a3cf5a45-8089-4eac-8220-294a5bdacf4c.jpg",
+        "uploaded_at": "2026-06-24T06:26:43.172608+00:00"
+      },
+      {
+        "id": "adea1ed6-c1b3-4428-84ee-dbebf2f1d364",
+        "filename": "design-bold_purple_pop-chicken-wings-C-adea1e.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/adea1ed6-c1b3-4428-84ee-dbebf2f1d364.png",
+        "uploaded_at": "2026-06-24T06:26:33.984982+00:00"
+      },
+      {
+        "id": "de396705-6105-44f2-95bf-e46183161933",
+        "filename": "design-bold_purple_pop-chicken-wings-B-de3967.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/de396705-6105-44f2-95bf-e46183161933.png",
+        "uploaded_at": "2026-06-24T06:26:32.411676+00:00"
+      },
+      {
+        "id": "8d9816c6-9e77-4b14-96ed-d7c8dcf460cb",
+        "filename": "caf-fries-hero-8d9816.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/8d9816c6-9e77-4b14-96ed-d7c8dcf460cb.jpg",
+        "uploaded_at": "2026-06-24T06:26:29.126479+00:00"
+      },
+      {
+        "id": "8ee14d02-1ae8-44e1-b61d-310f8ec98740",
+        "filename": "wings.jpg",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/8ee14d02-1ae8-44e1-b61d-310f8ec98740.jpg",
+        "uploaded_at": "2026-06-24T06:26:28.788872+00:00"
+      },
+      {
+        "id": "d845db97-83b0-4835-809c-2c6865122454",
+        "filename": "caf-fries-fb_post-d845db.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/d845db97-83b0-4835-809c-2c6865122454.jpg",
+        "uploaded_at": "2026-06-24T06:26:28.430878+00:00"
+      },
+      {
+        "id": "519ab4c4-251d-4d12-80c2-588a356d9aa2",
+        "filename": "caf-fries-ig_story-519ab4.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/519ab4c4-251d-4d12-80c2-588a356d9aa2.jpg",
+        "uploaded_at": "2026-06-24T06:26:28.037996+00:00"
+      },
+      {
+        "id": "e81f09ce-a1b7-4647-b2cd-ea3a289de048",
+        "filename": "caf-fries-ig_post-e81f09.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/e81f09ce-a1b7-4647-b2cd-ea3a289de048.jpg",
+        "uploaded_at": "2026-06-24T06:26:27.608139+00:00"
+      },
+      {
+        "id": "654fb0fe-7eda-4e17-a6ff-87303db42b33",
+        "filename": "design-vintage_diner-caf\u00e9-fries-C-654fb0.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/654fb0fe-7eda-4e17-a6ff-87303db42b33.png",
+        "uploaded_at": "2026-06-24T06:25:45.706172+00:00"
+      },
+      {
+        "id": "352d7a40-b57d-4258-ac77-b28fabf367b2",
+        "filename": "design-vintage_diner-caf\u00e9-fries-B-352d7a.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/352d7a40-b57d-4258-ac77-b28fabf367b2.png",
+        "uploaded_at": "2026-06-24T06:25:44.796209+00:00"
+      },
+      {
+        "id": "f34e1a18-3da0-4fa9-9c87-b52afa616541",
+        "filename": "smash-burger-hero-f34e1a.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/f34e1a18-3da0-4fa9-9c87-b52afa616541.jpg",
+        "uploaded_at": "2026-06-24T06:25:42.788966+00:00"
+      },
+      {
+        "id": "403b8d20-8232-4bcd-aafe-5ef8e3c6b67c",
+        "filename": "cafe-fries.jpg",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/403b8d20-8232-4bcd-aafe-5ef8e3c6b67c.jpg",
+        "uploaded_at": "2026-06-24T06:25:42.405906+00:00"
+      },
+      {
+        "id": "c9a72984-8315-4275-98b0-b8fdf14cc15e",
+        "filename": "smash-burger-fb_post-c9a729.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/c9a72984-8315-4275-98b0-b8fdf14cc15e.jpg",
+        "uploaded_at": "2026-06-24T06:25:42.062294+00:00"
+      },
+      {
+        "id": "3a54118a-5cc8-4c24-83bd-4d5a4fc417b3",
+        "filename": "smash-burger-ig_story-3a5411.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/3a54118a-5cc8-4c24-83bd-4d5a4fc417b3.jpg",
+        "uploaded_at": "2026-06-24T06:25:41.296556+00:00"
+      },
+      {
+        "id": "0f13997a-a410-4655-b09b-19979f65b51a",
+        "filename": "smash-burger-ig_post-0f1399.jpg",
+        "kind": "image",
+        "source": "marketing_pack",
+        "storage_path": "lakeview/marketing_pack/0f13997a-a410-4655-b09b-19979f65b51a.jpg",
+        "uploaded_at": "2026-06-24T06:25:40.936152+00:00"
+      },
+      {
+        "id": "0804e2ce-995b-4c1b-9ed0-0e0537aeb13e",
+        "filename": "design-comic_pop-smash-burger-C-0804e2.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/0804e2ce-995b-4c1b-9ed0-0e0537aeb13e.png",
+        "uploaded_at": "2026-06-24T06:25:00.346530+00:00"
+      },
+      {
+        "id": "bc77c70c-370c-4e27-b959-d8844190fd80",
+        "filename": "design-comic_pop-smash-burger-B-bc77c7.png",
+        "kind": "image",
+        "source": "ai_designer",
+        "storage_path": "lakeview/ai_designs/bc77c70c-370c-4e27-b959-d8844190fd80.png",
+        "uploaded_at": "2026-06-24T06:24:59.435637+00:00"
+      },
+      {
+        "id": "2efb4bcd-9048-4fca-9760-b1b5d6f3829e",
+        "filename": "smash-burger.jpg",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/2efb4bcd-9048-4fca-9760-b1b5d6f3829e.jpg",
+        "uploaded_at": "2026-06-24T06:24:57.282288+00:00"
+      },
+      {
+        "id": "9be97b99-2c41-49b3-a0f7-4d63c2a08521",
+        "filename": "phase10_seed.png (Copy)",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/upload/9be97b99-2c41-49b3-a0f7-4d63c2a08521.png",
+        "uploaded_at": "2026-06-24T06:08:30.626553+00:00"
+      },
+      {
+        "id": "fbffa0f3-b93b-4a30-beb6-6d7a47df1b15",
+        "filename": "TEST_phase8.jpg",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/fbffa0f3-b93b-4a30-beb6-6d7a47df1b15.jpg",
+        "uploaded_at": "2026-06-24T06:08:19.086939+00:00"
+      },
+      {
+        "id": "ae7de960-8a4c-4607-9896-dafad320cfa5",
+        "filename": "TEST_phase8.jpg",
+        "kind": "image",
+        "source": "upload",
+        "storage_path": "lakeview/uploads/ae7de960-8a4c-4607-9896-dafad320cfa5.jpg",
+        "uploaded_at": "2026-06-24T05:50:57.875877+00:00"
+      }
+    ],
+    "orphaned_record": [],
+    "orphaned_storage_file": []
+  }
+}

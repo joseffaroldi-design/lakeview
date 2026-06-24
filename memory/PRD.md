@@ -1764,3 +1764,34 @@ logic NOT touched (per scope item #8).
 **Net code reduction this sprint**: -309 LOC across 4 files (backend -92,
 frontend -217, plus test rewrite).
 
+
+### Sprint 16C — Launch Readiness (Feb 24, 2026)
+**Goal**: Stop feature work. Produce the production-stabilization audit,
+the operator runbook, and the end-to-end marketing engine validation.
+
+**Deliverables**: `/app/memory/launch/`
+- `LAUNCH_READINESS_REPORT.md` — the executive summary + final pass/fail
+- `PHASE_1_PRODUCTION_STABILIZATION_RCA.md` — handoff doc for Emergent Support
+- `PHASE_2_PRODUCTION_SMOKE_TEST_RUNBOOK.md` — 17-gate runbook for the operator
+- `PHASE_3_RESULTS.json` — machine-readable run output
+- `PHASE_3_MEDIA_HEALTH.json` — orphan scan snapshot
+- `assets/` — 20 files (5 sources + 5 flyers + 5 videos + 5 video-frame stills)
+- `scripts/launch_validation.py` + `scripts/launch_recover.py` — reusable
+
+**Results**:
+- 5/5 promotions completed (Smash Burger, Café Fries, Wings, Shrimp Po-Boy, Oyster Plate)
+- 15 flyer variations (3 per dish), each PIL-only, deterministic, with
+  Sprint 16A.1 typography + Sprint 16A.2 ingredient icons rendered
+- 5/5 videos: 720×1280 MP4 @ 15.07 s, downloadable, content-type=video/mp4
+- 4/5 copy packs generated; **Oyster Plate copy step hit the Emergent LLM
+  key budget cap** ($5.80) — an operational top-up, not a code defect
+- Media orphan scan: 0 missing_file, 0 orphaned_record, 0 corruption
+- Zero 5xx, zero crashes, zero worker restarts during the run
+- Total wall time: 221 s for 5 promotions
+
+**Recommendation**: **Engine is launch-ready.** Production launch needs
+three operational unblockers — Emergent Support env-var fix, operator
+runbook execution, LLM key budget top-up. None are code work.
+
+**No new feature work started** (per user directive).
+
