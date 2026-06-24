@@ -5,6 +5,7 @@ config, providers, settings, campaigns). Only `/api/ai-ads/stats` remains —
 it backs the Home tab KPI tiles. Anything beyond that should NOT exist.
 """
 import os
+import uuid
 
 import pytest
 import requests
@@ -14,6 +15,10 @@ BASE_URL = os.environ.get(
     "https://food-graphics-lab.preview.emergentagent.com",
 ).rstrip("/")
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+
+
+def _fresh_ip() -> str:
+    return f"198.51.100.{uuid.uuid4().int % 250 + 1}"
 
 
 # ---------- Fixtures ----------
@@ -27,7 +32,11 @@ def api():
 
 @pytest.fixture(scope="session")
 def token(api):
-    r = api.post(f"{BASE_URL}/api/auth/login", json={"password": ADMIN_PASSWORD})
+    r = api.post(
+        f"{BASE_URL}/api/auth/login",
+        json={"password": ADMIN_PASSWORD},
+        headers={"X-Forwarded-For": _fresh_ip()},
+    )
     assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
     data = r.json()
     tok = data.get("token") or data.get("session_token") or data.get("access_token")
@@ -44,7 +53,11 @@ def auth_headers(token):
 
 class TestAuth:
     def test_login_success(self, api):
-        r = api.post(f"{BASE_URL}/api/auth/login", json={"password": ADMIN_PASSWORD})
+        r = api.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": ADMIN_PASSWORD},
+            headers={"X-Forwarded-For": _fresh_ip()},
+        )
         assert r.status_code == 200
         d = r.json()
         tok = d.get("token") or d.get("session_token") or d.get("access_token")

@@ -3,15 +3,24 @@ P0/P1 Regression Tests for Lakeview Burgers & Seafood
 - P0: removed /api/status GET/POST endpoints (should 404)
 - P1: session persistence across backend restart (MongoDB-backed)
 - P0: ADMIN_PASSWORD loaded from .env (no hardcoded fallback)
+
+Sprint 16B.3: PROTECTED list trimmed to current router surface (removed
+specials write routes, giveaway routes, /api/menu/categories path). Added
+TestRemovedRoutes regression to keep them gone.
 """
 import os
 import time
 import subprocess
+import uuid
 import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+
+
+def _fresh_ip() -> str:
+    return f"203.0.113.{uuid.uuid4().int % 250 + 1}"
 
 
 # --- Removed /api/status endpoints (P0) ---
@@ -28,7 +37,11 @@ class TestRemovedStatusEndpoints:
 # --- ADMIN_PASSWORD from .env, no fallback (P0) ---
 class TestAdminPasswordFromEnv:
     def test_login_with_env_password_succeeds(self):
-        r = requests.post(f"{BASE_URL}/api/auth/login", json={"password": ADMIN_PASSWORD})
+        r = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": ADMIN_PASSWORD},
+            headers={"X-Forwarded-For": _fresh_ip()},
+        )
         assert r.status_code == 200
         assert "token" in r.json()
 
@@ -36,13 +49,11 @@ class TestAdminPasswordFromEnv:
         # If a hardcoded fallback was ever 'admin' or empty, ensure it does NOT work.
         # Use a fresh X-Forwarded-For per attempt — the global login rate limit
         # (5 / 15 minutes per IP, Sprint 15B.5) would otherwise interfere.
-        import uuid
         for bad in ["admin", "", "password", "lakeview"]:
-            ip = f"203.0.113.{uuid.uuid4().int % 250 + 1}"
             r = requests.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"password": bad},
-                headers={"X-Forwarded-For": ip},
+                headers={"X-Forwarded-For": _fresh_ip()},
             )
             assert r.status_code in (401, 422), f"Password '{bad}' unexpectedly accepted ({r.status_code})"
 
@@ -50,7 +61,11 @@ class TestAdminPasswordFromEnv:
 # --- Logout invalidates session ---
 class TestLogout:
     def test_logout_invalidates_token(self):
-        login = requests.post(f"{BASE_URL}/api/auth/login", json={"password": ADMIN_PASSWORD})
+        login = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": ADMIN_PASSWORD},
+            headers={"X-Forwarded-For": _fresh_ip()},
+        )
         token = login.json()["token"]
         h = {"Authorization": f"Bearer {token}"}
         # token works pre-logout
@@ -68,7 +83,11 @@ class TestLogout:
 class TestSessionPersistence:
     def test_token_survives_backend_restart(self):
         # Login
-        login = requests.post(f"{BASE_URL}/api/auth/login", json={"password": ADMIN_PASSWORD})
+        login = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"password": ADMIN_PASSWORD},
+            headers={"X-Forwarded-For": _fresh_ip()},
+        )
         assert login.status_code == 200
         token = login.json()["token"]
         h = {"Authorization": f"Bearer {token}"}
@@ -105,20 +124,18 @@ class TestSessionPersistence:
         assert data.get("authenticated") is True
 
 
-# --- All 21 protected endpoints reject missing/invalid token ---
+# --- All currently-protected endpoints reject missing/invalid token ---
+# Sprint 16B.3: trimmed the PROTECTED list to match the current router
+# surface — removed entries for /api/specials write routes (read-only now),
+# /api/giveaway/* (removed), and /api/menu/categories/{id} (wrong path —
+# real route is /api/menu/{category_id}, already covered).
 PROTECTED = [
     ("GET", "/api/analytics"),
-    ("POST", "/api/specials"),
-    ("PUT", "/api/specials/dummy-id"),
-    ("DELETE", "/api/specials/dummy-id"),
     ("PUT", "/api/content/hero"),
-    ("PUT", "/api/menu/categories/dummy"),
+    ("PUT", "/api/menu/dummy"),
     ("GET", "/api/catering/inquiries"),
     ("PUT", "/api/catering/inquiries/dummy/status"),
     ("GET", "/api/newsletter/subscribers"),
-    ("PUT", "/api/giveaway/settings"),
-    ("GET", "/api/giveaway/entries"),
-    ("PUT", "/api/giveaway/entries/dummy/claim"),
     ("GET", "/api/loyalty/members"),
     ("PUT", "/api/loyalty/members/dummy/stamp"),
     ("PUT", "/api/loyalty/members/dummy/claim"),
@@ -126,6 +143,19 @@ PROTECTED = [
     ("GET", "/api/messages/history"),
     ("POST", "/api/auth/logout"),
     ("GET", "/api/auth/verify"),
+]
+
+
+# --- Sprint 15B removed-routes regression ---
+# These used to be in PROTECTED — they're gone now, so auth-required tests
+# don't apply. Replace with a sanity check that they actually 404/405.
+REMOVED_ROUTES = [
+    ("POST", "/api/specials"),
+    ("PUT", "/api/specials/dummy-id"),
+    ("DELETE", "/api/specials/dummy-id"),
+    ("PUT", "/api/giveaway/settings"),
+    ("GET", "/api/giveaway/entries"),
+    ("PUT", "/api/giveaway/entries/dummy/claim"),
 ]
 
 
@@ -153,6 +183,22 @@ class TestProtectedEndpointsRequireAuth:
         else:
             # Must NOT return 200 with invalid token
             assert r.status_code != 200, f"{method} {path} accepted bad token! got {r.status_code}"
+
+
+# --- Sprint 15B removed routes regression ---
+
+class TestRemovedRoutes:
+    """Specials write routes + giveaway endpoints were removed in Sprint 15B.
+    They must stay gone — return 404 (no route) or 405 (method not allowed
+    when only GET is registered on a path)."""
+
+    @pytest.mark.parametrize("method,path", REMOVED_ROUTES)
+    def test_removed_route_returns_404_or_405(self, method, path):
+        url = f"{BASE_URL}{path}"
+        r = requests.request(method, url, json={} if method in ("POST", "PUT") else None)
+        assert r.status_code in (404, 405), (
+            f"{method} {path} should be removed (Sprint 15B) — got {r.status_code}"
+        )
 
 
 if __name__ == "__main__":

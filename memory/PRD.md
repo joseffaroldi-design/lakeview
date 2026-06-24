@@ -1625,3 +1625,54 @@ Sprint 16B.3 candidate.
 **Backend boot**: clean. `/api/auth/verify` returns 401 on bad token,
 `/api/menu` returns 200, no startup errors in supervisor logs.
 
+
+### Sprint 16B.3 — Remaining Legacy Test Cleanup (Feb 24, 2026)
+**Goal**: Clean up the 3 flagged legacy test files that still failed against
+removed Sprint-15B endpoints. Sprint 16B.2 marked these as out-of-scope
+follow-ups; 16B.3 closes them.
+
+**Route inventory verified against live `app.routes`** before any rewrite.
+
+**Files changed** (3 in scope):
+
+| File | Before | After | What |
+|---|---|---|---|
+| `test_final_launch.py` | 93 LOC | 101 LOC | Full rewrite. Was: `/ai-ads/health`, `/provider-setup/*`, `/provider-connections/*` (ALL gone). Now: 2 surviving health checks (`/home/health`, `/media/health`) + 17 removed-route regression params (9 GET, 6 POST). |
+| `test_phase10_persistence.py` | 412 LOC | 222 LOC | Trimmed. Deleted `TestAiImagePersistence`, `TestEditPersistence`, `TestExportSocialPersistence`, `TestRenderPersistence`, `TestRestartSurvival::ai_image`, `TestJanitor` (all on removed `/api/media/edit\|export-social\|video/*\|ai-image`). Kept: Upload+File+Thumb roundtrip, Duplicate, SoftDelete, Health (full storage+queue assertions), LegacyFallback. Trimmed `TestRegression` to drop dead `/ai-ads/plugins*` params. Added `TestRemovedRoutes` (4 POST + 6 GET). |
+| `test_cleanup_p0_p1.py` | 160 LOC | 205 LOC | Surgical edits. Trimmed PROTECTED list — removed 6 stale entries: 3 dead specials writes (returned 405), 3 dead giveaway routes (404). Fixed bogus `/api/menu/categories/{id}` path (real route is `/api/menu/{category_id}` — already covered via `PUT /api/menu/dummy`). Added `_fresh_ip()` helper and applied it to all login calls (was tripping the per-IP rate limit). Added `TestRemovedRoutes` regression block for the 6 removed paths. |
+
+**Production code**: NOT modified — every failure traced to Sprint-15B-removed endpoints.
+
+**Routes confirmed removed** (regression now enforced):
+- `/api/ai-ads/health`
+- `/api/ai-ads/provider-setup/*` (8 paths)
+- `/api/ai-ads/provider-connections` + `/{provider}/connect|disconnect|test`
+- `/api/ai-ads/plugins`, `/plugins/restaurant`
+- `/api/media/edit`
+- `/api/media/export-social`
+- `/api/media/video/render`, `/video/jobs`, `/video/jobs/{id}`
+- `/api/media/ai-image` (POST + GET `/job/{id}`)
+- `/api/media/social-formats`
+- `POST/PUT/DELETE /api/specials*` (specials are read-only)
+- `/api/giveaway/*` (settings, entries, entries/{id}/claim)
+
+**Side fix**: `test_ai_ads.py` login fixture now uses `_fresh_ip()` —
+was the last file in the suite that hit the 5/15-min auth rate-limit when
+the full test pack ran back-to-back.
+
+**Final pass count**:
+- ✅ `test_final_launch.py`: 19 / 19
+- ✅ `test_phase10_persistence.py`: 20 / 20
+- ✅ `test_cleanup_p0_p1.py`: 35 / 35 (SessionPersistence restart test
+  intentionally deselected — restarts the backend mid-run)
+- **74 / 74 in scope**
+
+**Full-suite run** (after side-fixing `test_ai_ads.py` rate-limit):
+**185 passed / 2 transient flakes / 22 deselected** — down from 36 failed +
+36 errors at the start of the 16B.x test consolidation arc. The 2 flakes
+in `test_image_pipeline_health.py` pass 4/4 standalone (rate-limit timing
+on the shared preview, not a regression).
+
+**Backend boot**: clean. `/api/menu` → 200, `/api/auth/verify` → 401 on
+bogus token.
+
