@@ -109,6 +109,54 @@ THEME_STYLES: Dict[str, Dict[str, Any]] = {
         "price": {"bg": (220, 130, 40), "fg": (30, 20, 10), "ring": (245, 210, 80), "font": FONT_SERIF_BOLD},
         "branding_color": (200, 170, 100),
     },
+    # ---------------- Sprint 16A — Flyer-grade themes ----------------
+    # Larger headline sizes (90-100px) + saturated palettes + chunky badges so
+    # the output reads as a marketing flyer, not a polite menu card.
+    "comic_pop": {
+        "label": "Comic Pop",
+        "bg_color": (12, 12, 16),
+        "title": {"font": FONT_SANS_BOLD, "color": (255, 235, 70), "size": 100},
+        "body":  {"font": FONT_SANS_BOLD, "color": (255, 255, 255), "size": 30, "marker": "▸",
+                  "marker_color": (255, 235, 70)},
+        "price": {"bg": (255, 235, 70), "fg": (12, 12, 16), "ring": (255, 255, 255), "font": FONT_SANS_BOLD},
+        "branding_color": (255, 235, 70),
+    },
+    "vintage_diner": {
+        "label": "Vintage Diner (Flyer)",
+        "bg_color": (244, 232, 200),
+        "title": {"font": FONT_SERIF_BOLD, "color": (35, 90, 50), "size": 92},
+        "body":  {"font": FONT_SANS_BOLD, "color": (35, 60, 40), "size": 28, "marker": "★",
+                  "marker_color": (180, 50, 40)},
+        "price": {"bg": (180, 50, 40), "fg": (244, 232, 200), "ring": (35, 90, 50), "font": FONT_SERIF_BOLD},
+        "branding_color": (90, 70, 40),
+    },
+    "bold_purple_pop": {
+        "label": "Bold Purple Pop",
+        "bg_color": (38, 18, 60),
+        "title": {"font": FONT_SANS_BOLD, "color": (255, 240, 240), "size": 100},
+        "body":  {"font": FONT_SANS_BOLD, "color": (255, 240, 240), "size": 30, "marker": "▸",
+                  "marker_color": (255, 240, 100)},
+        "price": {"bg": (255, 240, 100), "fg": (38, 18, 60), "ring": (240, 60, 140), "font": FONT_SANS_BOLD},
+        "branding_color": (240, 200, 220),
+    },
+    "casual_teal": {
+        "label": "Casual Teal",
+        "bg_color": (170, 220, 215),
+        "title": {"font": FONT_SERIF_BOLD, "color": (30, 70, 70), "size": 90},
+        "body":  {"font": FONT_SANS_BOLD, "color": (30, 70, 70), "size": 28, "marker": "✓",
+                  "marker_color": (220, 110, 60)},
+        "price": {"bg": (250, 245, 230), "fg": (30, 70, 70), "ring": (220, 110, 60), "font": FONT_SERIF_BOLD},
+        "branding_color": (50, 90, 90),
+    },
+    "distressed_orange": {
+        "label": "Distressed Orange",
+        "bg_color": (200, 80, 35),
+        "title": {"font": FONT_SERIF_BOLD, "color": (252, 240, 215), "size": 96},
+        "body":  {"font": FONT_SANS_BOLD, "color": (252, 240, 215), "size": 28, "marker": "■",
+                  "marker_color": (252, 240, 215)},
+        "price": {"bg": (40, 25, 20), "fg": (252, 240, 215), "ring": (252, 240, 215), "font": FONT_SERIF_BOLD},
+        "branding_color": (252, 240, 215),
+    },
 }
 
 THEME_IDS = list(THEME_STYLES.keys())
@@ -266,6 +314,67 @@ def _pil_background(theme_id: str, variant_idx: int) -> bytes:
             for sx in (0, CANVAS - 80):
                 for sy in range(0, CANVAS, 130):
                     _olive_branch(draw, (245, 210, 80, 150), x=sx + 10, y=sy + 10, size=90)
+    # ---------------- Sprint 16A flyer-grade themes ----------------
+    elif theme_id == "comic_pop":
+        # Black canvas, big yellow zap energy. Top headline band always present.
+        draw.rectangle((0, 0, CANVAS, 260), fill=(20, 20, 24))
+        if variant_idx == 0:
+            _halftone_dots(draw, (240, 60, 110, 200), start_xy=(CANVAS - 380, 0), end_xy=(CANVAS, 380), spacing=22, max_r=8)
+            _lightning_bolt(draw, (255, 235, 70, 240), tip=(CANVAS - 80, 200), size=140)
+        elif variant_idx == 1:
+            _halftone_dots(draw, (255, 235, 70, 180), start_xy=(0, CANVAS - 360), end_xy=(380, CANVAS), spacing=22, max_r=8)
+            _speed_lines(draw, (255, 235, 70, 230), origin=(80, CANVAS // 2), count=14, length=220)
+        else:
+            _lightning_bolt(draw, (240, 60, 110, 240), tip=(70, 220), size=120)
+            _lightning_bolt(draw, (255, 235, 70, 240), tip=(CANVAS - 70, CANVAS - 220), size=120)
+    elif theme_id == "vintage_diner":
+        # Cream backdrop + green checker border top/bottom + red star accents.
+        _checker_strip(draw, (35, 90, 50), (244, 232, 200), y=0, h=50, square=50)
+        _checker_strip(draw, (35, 90, 50), (244, 232, 200), y=CANVAS - 50, h=50, square=50)
+        if variant_idx == 0:
+            for cx, cy in [(120, 130), (CANVAS - 120, 130), (120, CANVAS - 130), (CANVAS - 120, CANVAS - 130)]:
+                _star(draw, (180, 50, 40, 240), cx=cx, cy=cy, r=22)
+        elif variant_idx == 1:
+            draw.rounded_rectangle((80, 80, CANVAS - 80, CANVAS - 80), radius=24,
+                                   outline=(180, 50, 40, 230), width=5)
+        else:
+            _distressed_grain(canvas, (35, 90, 50, 18), density=900)
+    elif theme_id == "bold_purple_pop":
+        # Deep purple base + magenta-to-yellow halftone gradient corners.
+        _radial_gradient(canvas, (60, 28, 90), (26, 12, 50), CANVAS // 2, int(CANVAS * 0.45), int(CANVAS * 0.85))
+        if variant_idx == 0:
+            _halftone_dots(draw, (240, 60, 140, 220), start_xy=(CANVAS - 420, 0), end_xy=(CANVAS, 420), spacing=24, max_r=10)
+            _lightning_bolt(draw, (255, 240, 100, 240), tip=(CANVAS - 90, 230), size=150)
+        elif variant_idx == 1:
+            _halftone_dots(draw, (255, 240, 100, 200), start_xy=(0, CANVAS - 420), end_xy=(420, CANVAS), spacing=24, max_r=10)
+            _speed_lines(draw, (240, 60, 140, 220), origin=(CANVAS - 80, 120), count=12, length=200)
+        else:
+            _lightning_bolt(draw, (255, 240, 100, 240), tip=(90, 200), size=130)
+            _lightning_bolt(draw, (240, 60, 140, 240), tip=(CANVAS - 90, CANVAS - 200), size=130)
+    elif theme_id == "casual_teal":
+        # Soft teal backdrop + brush squiggle + cream accents.
+        _radial_gradient(canvas, (185, 230, 222), (140, 200, 195), CANVAS // 2, int(CANVAS * 0.55), int(CANVAS * 0.85))
+        if variant_idx == 0:
+            _squiggle(draw, (220, 110, 60, 220), start=(120, 230), end=(CANVAS - 120, 230), amplitude=18, segments=10, width=6)
+        elif variant_idx == 1:
+            for cx, cy in [(150, 150), (CANVAS - 150, CANVAS - 150)]:
+                _sparks(draw, (250, 245, 230, 230), cx=cx, cy=cy, rays=8, length=44)
+        else:
+            _squiggle(draw, (250, 245, 230, 230), start=(80, CANVAS - 220), end=(CANVAS - 80, CANVAS - 220), amplitude=14, segments=12, width=5)
+            _squiggle(draw, (220, 110, 60, 220), start=(80, 230), end=(CANVAS - 80, 230), amplitude=14, segments=12, width=5)
+    elif theme_id == "distressed_orange":
+        # Burnt orange + heavy distressed grain + black brush stamps.
+        canvas.paste(Image.new("RGB", canvas.size, (200, 80, 35)))
+        _distressed_grain(canvas, (40, 25, 20, 38), density=2200)
+        if variant_idx == 0:
+            _brush_stamp(draw, (40, 25, 20, 230), x=60, y=60, w=CANVAS - 120, h=130)
+        elif variant_idx == 1:
+            _brush_stamp(draw, (252, 240, 215, 200), x=80, y=CANVAS - 200, w=CANVAS - 160, h=130)
+            for cx, cy in [(120, 200), (CANVAS - 120, 200)]:
+                _star(draw, (252, 240, 215, 230), cx=cx, cy=cy, r=20)
+        else:
+            _brush_stamp(draw, (40, 25, 20, 230), x=60, y=60, w=CANVAS - 120, h=120)
+            _brush_stamp(draw, (40, 25, 20, 230), x=60, y=CANVAS - 180, w=CANVAS - 120, h=120)
 
     out = io.BytesIO()
     canvas.save(out, "PNG", optimize=True)
@@ -273,6 +382,131 @@ def _pil_background(theme_id: str, variant_idx: int) -> bytes:
 
 
 # ---- PIL background primitives ------------------------------------------------
+
+# ---- Sprint 16A flyer-grade decorative primitives ----
+# All accept an ImageDraw or Image and draw in-place. Designed for the new
+# flyer themes (comic_pop, vintage_diner, bold_purple_pop, casual_teal,
+# distressed_orange). No external assets; everything is generated with PIL.
+
+def _halftone_dots(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
+                   start_xy: Tuple[int, int], end_xy: Tuple[int, int],
+                   spacing: int = 24, max_r: int = 8) -> None:
+    """Halftone gradient dots filling a rectangular zone — denser near the
+    near corner, sparser away. Color must be RGBA."""
+    x1, y1 = start_xy
+    x2, y2 = end_xy
+    diag = max(1.0, ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5)
+    for x in range(x1, x2, spacing):
+        for y in range(y1, y2, spacing):
+            d = ((x - x1) ** 2 + (y - y1) ** 2) ** 0.5
+            t = 1.0 - (d / diag)
+            r = max(1, int(max_r * t))
+            draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
+
+
+def _lightning_bolt(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
+                    tip: Tuple[int, int], size: int = 140) -> None:
+    """Classic Z-shaped bolt anchored at `tip` (bottom point)."""
+    cx, cy = tip
+    pts = [
+        (cx,                 cy),
+        (cx - int(size * 0.35), cy - int(size * 0.55)),
+        (cx + int(size * 0.05), cy - int(size * 0.45)),
+        (cx - int(size * 0.20), cy - size),
+        (cx + int(size * 0.30), cy - int(size * 0.45)),
+        (cx - int(size * 0.05), cy - int(size * 0.55)),
+        (cx + int(size * 0.18), cy - int(size * 0.20)),
+    ]
+    draw.polygon(pts, fill=color)
+
+
+def _speed_lines(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
+                 origin: Tuple[int, int], count: int = 12, length: int = 200) -> None:
+    """Radial speed lines (comic-style) emanating from `origin`."""
+    import math
+    ox, oy = origin
+    for i in range(count):
+        ang = (math.pi * 2 / count) * i
+        x2 = int(ox + math.cos(ang) * length)
+        y2 = int(oy + math.sin(ang) * length)
+        draw.line((ox, oy, x2, y2), fill=color, width=3)
+
+
+def _star(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
+          cx: int, cy: int, r: int = 20) -> None:
+    """5-point star, filled."""
+    import math
+    pts = []
+    for i in range(10):
+        ang = math.pi / 2 + (math.pi * 2 / 10) * i
+        rr = r if i % 2 == 0 else int(r * 0.45)
+        pts.append((cx + int(math.cos(ang) * rr), cy - int(math.sin(ang) * rr)))
+    draw.polygon(pts, fill=color)
+
+
+def _squiggle(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
+              start: Tuple[int, int], end: Tuple[int, int],
+              amplitude: int = 18, segments: int = 12, width: int = 5) -> None:
+    """Hand-drawn-feeling wavy line between two points."""
+    import math
+    x1, y1 = start
+    x2, y2 = end
+    pts = []
+    for s in range(segments + 1):
+        t = s / segments
+        bx = x1 + (x2 - x1) * t
+        by = y1 + (y2 - y1) * t + math.sin(t * math.pi * 3) * amplitude
+        pts.append((int(bx), int(by)))
+    for i in range(len(pts) - 1):
+        draw.line((pts[i], pts[i + 1]), fill=color, width=width)
+
+
+def _sparks(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
+            cx: int, cy: int, rays: int = 8, length: int = 40) -> None:
+    """Star-burst rays (like a hand-drawn pop accent)."""
+    import math
+    for i in range(rays):
+        ang = (math.pi * 2 / rays) * i
+        x2 = int(cx + math.cos(ang) * length)
+        y2 = int(cy + math.sin(ang) * length)
+        draw.line((cx, cy, x2, y2), fill=color, width=4)
+
+
+def _distressed_grain(canvas: Image.Image, color: Tuple[int, int, int, int],
+                      density: int = 1200) -> None:
+    """Sprinkle small specks across the canvas for a worn / aged look."""
+    import random
+    random.seed(density + color[0])
+    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    for _ in range(density):
+        x = random.randint(0, CANVAS - 1)
+        y = random.randint(0, CANVAS - 1)
+        s = random.choice((1, 1, 1, 2))
+        od.rectangle((x, y, x + s, y + s), fill=color)
+    canvas.paste(overlay, (0, 0), overlay)
+
+
+def _brush_stamp(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
+                 x: int, y: int, w: int, h: int) -> None:
+    """A ragged-edge rectangle that reads as a brush-painted block — good
+    for layering distressed headline plates."""
+    import random
+    random.seed(x + y + w + h)
+    draw.rectangle((x, y, x + w, y + h), fill=color)
+    # Add jagged edges by painting thin slivers of background back over the
+    # top/bottom — easier than computing a true alpha mask, and matches the
+    # distressed-orange / vintage-diner aesthetic.
+    bg = (255, 255, 255, 0)  # transparent — we'll just punch holes
+    for _ in range(40):
+        ex = random.randint(x - 6, x + w + 6)
+        ew = random.randint(8, 28)
+        et = random.randint(0, 1)
+        if et == 0:
+            draw.rectangle((ex, y - random.randint(2, 10), ex + ew, y + random.randint(0, 6)), fill=bg)
+        else:
+            draw.rectangle((ex, y + h - random.randint(0, 6), ex + ew, y + h + random.randint(2, 10)), fill=bg)
+
 
 def _radial_gradient(canvas: Image.Image, inner_rgb: Tuple[int, int, int],
                      outer_rgb: Tuple[int, int, int], cx: int, cy: int, r: int) -> None:

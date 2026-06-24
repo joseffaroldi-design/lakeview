@@ -1298,3 +1298,54 @@ Collections dropped:
 3. Owner runs production load test (4 image gens + dashboard + menu + analytics + media upload) — verify no 502/520, no starvation, no hangs.
 4. After 7 consecutive stable days, set `AI_IMAGE_MAX_VARIATIONS=4` → preview-equivalent UX, zero deploy.
 
+
+### Sprint 16A — Flyer-Grade Themes (Feb 22, 2026)
+**Goal**: Close the visual gap between AI Designer output and professional restaurant marketing flyers (bold typography, decorative accents, prominent price/ingredients).
+
+**Approach**: deterministic PIL composer upgrade — NO new engine, NO Flux/gpt-image-1 dependency (AI image models can't reliably produce designed typography). The existing `_compose_design()` pipeline (title block, bullet block, price badge, branding) already handles all required data fields. We only needed richer themes + decorative primitives.
+
+**Added — 5 new theme presets in `routers/ai_designer.py` THEME_STYLES**:
+- `comic_pop` — black canvas, yellow zaps, halftone gradients, speed-lines (100px headline)
+- `vintage_diner` (Flyer) — cream + forest green checker borders, red stars, distressed grain (92px headline)
+- `bold_purple_pop` — deep purple radial + magenta-to-yellow halftones, lightning bolts (100px headline)
+- `casual_teal` — soft teal, brush squiggles, cream sparks (90px headline)
+- `distressed_orange` — burnt orange, heavy grain, black brush-stamp plates (96px headline)
+
+**Added — 8 new PIL decorative primitives** (all generated procedurally, no external assets):
+`_halftone_dots`, `_lightning_bolt`, `_speed_lines`, `_star`, `_squiggle`, `_sparks`, `_distressed_grain`, `_brush_stamp`.
+
+**Each theme variant (A/B/C) uses a different decorative pattern**, so the 3-variation generation produces visually-distinct flyers.
+
+**Preserved**:
+- All 5 legacy themes (luxury, vintage, modern, social, cajun) still render — verified via pytest parameterization.
+- `_compose_design()` not touched — themes plug into the existing scaffold (title → bullets → price badge → branding).
+- Today's Pick auto-cron path untouched.
+- Frontend `AiDesigner.jsx` automatically picks up the new themes via `/api/ai-designer/themes` (no frontend change needed).
+
+**Tests added**: `backend/tests/test_flyer_themes.py` — 14 tests:
+- All 10 themes registered ✅
+- Decorative primitives importable ✅
+- Each of 5 new flyer themes completes 3/3 variations end-to-end ✅
+- Bare flyer (no price, no features) doesn't crash ✅
+- Generated thumbnails retrievable from storage ✅
+- All 5 legacy themes still complete ✅
+
+**Validation**:
+- 14/14 pytest passing in 64s
+- 15 fresh flyer variations generated (3 per theme × 5 themes), zero failures
+- 528 KB rendered PNG confirmed retrievable via `/api/media/file/`
+- Backend lint clean
+- Preview backend healthy
+
+**Files modified**:
+- `backend/routers/ai_designer.py` — added 5 themes + 8 decorative primitives (~250 lines net)
+- `backend/tests/test_flyer_themes.py` (new) — 14-test regression
+
+**Production deployment**: code-side this is shipped to preview. Production redeploy will surface the 5 new themes automatically — they show up in `GET /api/ai-designer/themes` and become selectable in the existing theme picker. No env changes needed.
+
+**Frontend implications**: zero. The existing AiDesigner theme picker reads `/api/ai-designer/themes` dynamically. New themes appear in the UI on next page load.
+
+**Honest limitations** (worth knowing, not blockers):
+- Headline fonts use existing FreeSans/FreeSerif at larger sizes. Adding true display fonts (Bebas Neue, Bungee, Permanent Marker) would lift quality further but requires a font download to `/app/backend/fonts/` — out of scope for 16A.
+- Ingredient icons are NOT yet rendered. The bullet markers vary by theme (▸ ★ ✓ ■ + plain) but each feature still renders as text. Icon glyphs are a natural Sprint 16B if owner wants further visual richness.
+
