@@ -1497,3 +1497,58 @@ ever hard-deleting anything.
   0 orphaned_storage_file. No broken assets — the missing thumbnails are
   expected (AI Designer outputs regen thumbs on first GET).
 
+
+### Sprint 16B.1 — Dead-Weight Cleanup, Phase 1 (Feb 24, 2026)
+**Goal**: Remove the unused `ai_engine/industries/` abstraction. Scope was
+strictly Phase 1 — `marketing_pack.py` trim, Customers/Catering merge, and
+big-monolith refactors are intentionally deferred to later phases.
+
+**Investigation** (before deletion):
+- Searched all of `/app/backend` and `/app/frontend` for any reference to
+  `ai_engine.industries`, `from .industries`, or `import industries`.
+- Found ONE runtime import: `ai_engine/prompts.py:72`, inside
+  `resolve_system_prompt(industry)` which is itself NEVER called from any
+  router / service / test. Dead transitively.
+- Zero test files reference `industries/` or `resolve_system_prompt`.
+- Only other mentions were stale text comments and a frontend babel cache
+  artifact (regenerated on rebuild).
+
+**Removed**:
+- `/app/backend/ai_engine/industries/` (entire directory)
+  - `__init__.py` — 6 LOC
+  - `restaurant.py` — 12 LOC
+  - **18 LOC removed**
+- The dead import branch in `ai_engine/prompts.py::resolve_system_prompt()`
+  (function kept as a no-op pass-through that returns `BASE_SYSTEM_PROMPT`
+  for ALL inputs, so the signature stays available if a future industry
+  layer is reintroduced).
+
+**Modified**:
+- `ai_engine/__init__.py` — dropped the "Industry-specific modules under
+  ./industries/ contribute templates + system prompts." doc line.
+- `ai_engine/prompts.py` — dropped industry-override doc line + simplified
+  `resolve_system_prompt` body (5 lines → 1).
+
+**Acceptance verified**:
+- Backend supervisor restart: clean (`Backend startup complete`).
+- `/api/auth/verify` returns 401 for bogus token (auth path live).
+- Direct python import smoke: `ai_engine.industries` is `ModuleNotFoundError`,
+  `resolve_system_prompt` returns `BASE_SYSTEM_PROMPT` for `restaurant`,
+  `None`, and any other input. `build_master_user_prompt` still composes.
+- Sprint-16-era tests: 37 / 37 pass (`test_media_orphans.py`,
+  `test_ai_ads.py`, the offline/font/icon subset of `test_flyer_themes.py`).
+- Pre-existing test failures (`test_iter15_maintenance.py`,
+  `test_phase11_marketing_pack.py`, `test_sprint_12c.py`,
+  `test_phase8_media_studio.py`) all target `/api/ai-ads/*` routes removed
+  in Sprint 15B or are tripping on the preview pod's 502s — none of them
+  touch `ai_engine`. Same failure surface existed before 16B.1.
+- Ruff lint clean on the `ai_engine` package.
+
+**Production deploy**: NOT performed (per task scope).
+
+**Files changed**:
+- DELETED: `backend/ai_engine/industries/__init__.py`
+- DELETED: `backend/ai_engine/industries/restaurant.py`
+- MODIFIED: `backend/ai_engine/__init__.py`
+- MODIFIED: `backend/ai_engine/prompts.py`
+

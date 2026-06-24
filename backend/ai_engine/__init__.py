@@ -7,5 +7,4 @@ Designed for multi-business reuse:
   - Generic SaaS / Retail / Service (default)
 
 The core engine handles prompt assembly, LLM calls, and structured output parsing.
-Industry-specific modules under ./industries/ contribute templates + system prompts.
 """

@@ -4,9 +4,6 @@ Architecture:
   - BASE_SYSTEM_PROMPT — common marketer persona
   - build_master_user_prompt(...) — composes the user prompt from a CampaignBrief
   - SCHEMA_HINT — JSON shape the model must return
-
-Industry modules can override BASE_SYSTEM_PROMPT (e.g. restaurant.SYSTEM_PROMPT)
-while keeping the user-prompt composition identical.
 """
 from typing import Optional, Dict, Any
 
@@ -67,8 +64,8 @@ def build_master_user_prompt(brief: Dict[str, Any]) -> str:
 
 
 def resolve_system_prompt(industry: Optional[str]) -> str:
-    """Pick the right system prompt based on industry. Future industries plug in here."""
-    if industry == "restaurant":
-        from ai_engine.industries.restaurant import SYSTEM_PROMPT
-        return SYSTEM_PROMPT
+    """Pick the system prompt to use. Currently a no-op pass-through to the
+    base marketer persona — the per-industry override layer was removed in
+    Sprint 16B.1 (was unused). Keep the signature so callers don't break if
+    a future industry layer is re-introduced."""
     return BASE_SYSTEM_PROMPT
