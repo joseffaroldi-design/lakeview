@@ -143,7 +143,10 @@ const Dashboard = () => {
             </h2>
             <p className="text-sm text-muted-foreground mb-6">Edit your menu, hero, gallery, and page copy in one place.</p>
             <div className="space-y-8">
-              <MenuEditor getAuthHeader={getAuthHeader} />
+              <MenuEditor
+                getAuthHeader={getAuthHeader}
+                onPromoteDeepLink={() => setActiveTab("promotions")}
+              />
               <div className="border-t-2 border-navy/10 pt-6">
                 <h3 className="font-serif text-lg text-navy font-bold mb-4">Site Content</h3>
                 <ContentEditor getAuthHeader={getAuthHeader} />

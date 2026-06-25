@@ -4,9 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Plus, Trash2, ChevronDown, ChevronUp, FileText, UtensilsCrossed, GripVertical, Sparkles } from "lucide-react";
 import axios from "axios";
-import PromoteThisItem from "@/pages/dashboard/aiads/PromoteThisItem";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Sprint 16F.2 — sessionStorage handoff key. MenuEditor (sparkle ✨) writes
+// the selected menu item here, then asks Dashboard to switch to the Promote
+// tab. PhotoToFlyer reads + clears the key on mount so the Review step
+// starts with `name / features / price` already populated.
+export const PHOTO_FLYER_PREFILL_KEY = "lakeview.photo_flyer.prefill";
 
 // Site Content Editor
 export const ContentEditor = ({ getAuthHeader, onSaved }) => {
@@ -157,17 +162,47 @@ export const ContentEditor = ({ getAuthHeader, onSaved }) => {
 };
 
 // Menu Editor
-export const MenuEditor = ({ getAuthHeader, onSaved }) => {
+export const MenuEditor = ({ getAuthHeader, onSaved, onPromoteDeepLink }) => {
   const [categories, setCategories] = useState([]);
   const [expandedCat, setExpandedCat] = useState(null);
   const [saving, setSaving] = useState(null);
-  const [promoting, setPromoting] = useState(null); // { item, category }
 
   const fetchMenu = useCallback(() => {
     axios.get(`${API}/menu`).then(res => setCategories(res.data)).catch(console.error);
   }, []);
 
   useEffect(() => { fetchMenu(); }, [fetchMenu]);
+
+  // Sprint 16F.2 — sparkle ✨ now deep-links into the Photo → Flyer
+  // workflow (Promote tab). We stash the menu-item fields in sessionStorage
+  // and ask Dashboard to switch to the Promote tab; PhotoToFlyer consumes
+  // the payload on mount.
+  const handlePromote = (item, category) => {
+    if (!item || !item.name) return;
+    try {
+      const featuresFromDesc = (item.description || "")
+        .split(/[,•·]\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const payload = {
+        name: item.name,
+        features: featuresFromDesc,
+        price: item.price || "",
+        headline: "",
+        cta: "Order Now",
+        source: "menu_editor",
+        category_slug: category && category.slug,
+        category_display_name: category && (category.display_name || category.name),
+        ts: Date.now(),
+      };
+      sessionStorage.setItem(PHOTO_FLYER_PREFILL_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn("[menu-editor] prefill sessionStorage write failed", e);
+    }
+    if (typeof onPromoteDeepLink === "function") {
+      onPromoteDeepLink();
+    }
+  };
 
   const saveCategory = async (cat) => {
     setSaving(cat.id);
@@ -269,10 +304,10 @@ export const MenuEditor = ({ getAuthHeader, onSaved }) => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setPromoting({ item, category: cat.display_name })}
+                          onClick={() => handlePromote(item, cat)}
                           className="text-gold hover:text-gold hover:bg-gold/10 h-9 px-2"
                           data-testid={`promote-item-${cat.slug}-${itemIdx}`}
-                          title="Promote with AI"
+                          title="Promote with Photo → Flyer"
                           disabled={!item.name}
                         >
                           <Sparkles className="w-4 h-4" />
@@ -302,21 +337,6 @@ export const MenuEditor = ({ getAuthHeader, onSaved }) => {
           )}
         </Card>
       ))}
-      {promoting ? (
-        <PromoteThisItem
-          mode="modal"
-          getAuthHeader={getAuthHeader}
-          initialMenuItem={promoting.item ? {
-            item_key: `${(promoting.category && promoting.category.slug) || "menu"}::${(promoting.item.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
-            name: promoting.item.name,
-            description: promoting.item.description,
-            price: promoting.item.price,
-            category_slug: promoting.category && promoting.category.slug,
-            category_display_name: promoting.category && (promoting.category.display_name || promoting.category.name),
-          } : null}
-          onClose={() => setPromoting(null)}
-        />
-      ) : null}
     </div>
   );
 };

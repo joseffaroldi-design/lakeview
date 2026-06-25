@@ -1975,3 +1975,74 @@ scrolling a flat 22-theme list.
 **Files modified**: 1 (`/app/frontend/src/pages/dashboard/aiads/AiDesigner.jsx`).
 **Backend untouched. No production deploy** (per scope).
 
+
+### Sprint 16F.2 — Marketing-Workflow Consolidation (Option A surgical) (Feb 25, 2026)
+
+**Goal**: Stop the duplicate/confusing entry points users were hitting in
+production. Photo→Flyer becomes the single primary marketing workflow;
+Template Designer remains as the "advanced" alternative; the Menu
+sparkle now deep-links into Photo→Flyer instead of opening a parallel
+modal; Photo→Flyer's flat theme dropdown picks up the same grouped
+pack picker that Template Designer uses.
+
+**Behaviour changes**:
+1. `AiAdsTab.jsx` — removed the `"pack"` mode + the footer
+   "Need a 15-second promo video? Make a video →" CTA. Video is still
+   produced from inside Photo→Flyer step 4 (opt-in) and from each AI
+   Designer job's "Make video" button — no functionality lost.
+2. `ContentEditor.js` `MenuEditor` — the ✨ sparkle button on each menu
+   item no longer mounts `<PromoteThisItem mode="modal">`. Instead it
+   writes the item (`name / features / price / cta`) to
+   `sessionStorage["lakeview.photo_flyer.prefill"]` and calls a new
+   `onPromoteDeepLink()` callback. `Dashboard.js` wires this callback
+   to `setActiveTab("promotions")`.
+3. `PhotoToFlyer.jsx`:
+   * Reads the prefill payload on mount, shows a gold prefill banner on
+     the Upload step ("Promoting from menu: {name} — Detected price:
+     {price}"), and seeds the Review step's `name / features / price /
+     headline` from the payload (overriding the AI's vision guess
+     because the owner explicitly picked it).
+   * "Clear" button on the banner discards the prefill.
+   * Theme picker upgraded: flat `<select>` replaced with a compact
+     grouped picker (`InlineThemePicker`) — one `<details>` per pack
+     with a count chip and color-dot per theme. Falls back to a flat
+     `<select>` (5 themes) when `/api/ai-designer/themes` is
+     unreachable or `packs[]` is absent.
+   * Themes + packs loaded from `/api/ai-designer/themes` on mount.
+
+**Backend**: untouched (per scope). The existing `/api/ai-designer/themes`,
+`/api/photo-flyer/analyze`, `/api/ai-designer/generate` and
+`/api/marketing-pack/generate` endpoints all continue to serve the new
+flow without modification.
+
+**What's preserved**:
+- `PromoteThisItem.jsx` component still exists and is still mounted by
+  HomeTab / Dashboard.js for legacy "Promote it" 1-click cards.
+- Template Designer (`AiDesigner.jsx`) remains as the "Advanced" mode
+  switch inside the Promote tab.
+- All existing video routes and Marketing Pack backend work unchanged.
+
+**Verification**:
+- Live preview smoke test (logged-in admin):
+  * Menu tab → expand Appetizers → click ✨ on Café Fries → instantly
+    landed on Promote tab → Photo→Flyer with gold banner reading
+    "Promoting from menu: Café Fries — Detected price: 13.25".
+  * Promote tab → Template Designer (advanced) → footer "Make a video"
+    no longer present (DOM count = 0 for both `aiads-secondary-cta`
+    test-id and "Make a video" text).
+  * Photo→Flyer Review step rendered the grouped picker:
+    `picker=1, pack sections=6, theme cards=22` matching all 6 packs
+    (Classic / Flyer / Burger / Seafood / Game Day / Seasonal).
+- Pytest: `test_theme_packs.py` (27/27) and the parametrised
+  `test_each_new_flyer_theme_completes` (5/5) pass on retry — initial
+  combined run had 4 transient worker-pool exhaustion failures that
+  cleared immediately on re-run, unrelated to this sprint.
+
+**Files modified** (frontend only):
+- `/app/frontend/src/pages/dashboard/AiAdsTab.jsx` (rewrote — 71 LOC, was 132)
+- `/app/frontend/src/pages/ContentEditor.js` (sparkle handler refactor)
+- `/app/frontend/src/pages/Dashboard.js` (MenuEditor prop wiring)
+- `/app/frontend/src/pages/dashboard/aiads/PhotoToFlyer.jsx` (prefill consumption + grouped picker)
+
+**No production deploy** (per scope).
+

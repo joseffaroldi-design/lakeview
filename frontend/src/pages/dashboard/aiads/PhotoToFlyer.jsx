@@ -6,6 +6,14 @@
  * auto-filled flyer + caption in one click. Video is opt-in from the
  * review screen ("Turn this into a 15s video").
  *
+ * Sprint 16F.2 additions:
+ *   * Reads sessionStorage key `lakeview.photo_flyer.prefill` (set by
+ *     MenuEditor sparkle ✨) so menu items deep-link in with name /
+ *     features / price already populated.
+ *   * Theme picker upgraded from a flat <select> to the same grouped
+ *     pack picker the Template Designer ships, with a flat-select fall
+ *     back when /api/ai-designer/themes doesn't expose packs[].
+ *
  * Pipelines reused (NOT duplicated):
  *   POST /api/photo-flyer/analyze    (new orchestrator: upload+enhance+vision+menu)
  *   POST /api/ai-designer/generate   (flyer + auto_copy) — existing
@@ -26,7 +34,12 @@ import StructuredErrorCard, { parseAxiosError } from "./StructuredErrorCard";
 const POLL_MS = 3000;
 const POLL_TIMEOUT_MS = 4 * 60 * 1000;
 
-const THEMES = [
+// Sprint 16F.2 — must match the key written by ContentEditor.MenuEditor.
+const PREFILL_KEY = "lakeview.photo_flyer.prefill";
+
+// Fallback theme list for when /api/ai-designer/themes is unreachable —
+// kept short on purpose so the picker still renders something.
+const FALLBACK_THEMES = [
   { value: "comic_pop",         label: "Comic Pop" },
   { value: "vintage_diner",     label: "Vintage Diner" },
   { value: "bold_purple_pop",   label: "Bold Purple Pop" },
@@ -34,10 +47,26 @@ const THEMES = [
   { value: "distressed_orange", label: "Distressed Orange" },
 ];
 
+const readPrefill = () => {
+  try {
+    const raw = sessionStorage.getItem(PREFILL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.name ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const clearPrefill = () => {
+  try { sessionStorage.removeItem(PREFILL_KEY); } catch { /* ignore */ }
+};
+
+
 
 // ============================== Step 1 — Upload ==========================
 
-const UploadStep = ({ onAnalyzed, getAuthHeader }) => {
+const UploadStep = ({ onAnalyzed, getAuthHeader, prefill, onDiscardPrefill }) => {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState(null);
@@ -66,6 +95,33 @@ const UploadStep = ({ onAnalyzed, getAuthHeader }) => {
 
   return (
     <div className="space-y-4" data-testid="photo-flyer-step-upload">
+      {prefill ? (
+        <div
+          className="flex items-start justify-between gap-3 rounded-md border border-gold/40 bg-gold/10 p-3"
+          data-testid="photo-flyer-prefill-banner"
+        >
+          <div className="flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+            <div className="text-xs leading-snug">
+              <p className="font-semibold text-navy">
+                Promoting from menu: <span className="text-gold">{prefill.name}</span>
+              </p>
+              <p className="text-navy/70">
+                Item name, features and price will be pre-filled after you upload a photo.
+                {prefill.price ? <> Detected price: <strong>{prefill.price}</strong>.</> : null}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onDiscardPrefill}
+            className="text-[11px] font-semibold text-navy/60 hover:text-navy underline shrink-0"
+            data-testid="photo-flyer-prefill-clear"
+          >
+            Clear
+          </button>
+        </div>
+      ) : null}
       <Section title="Start with a food photo" icon={Wand2} testId="photo-upload">
         <p className="text-sm text-navy/70 mb-3">
           Upload a photo of any dish. We&apos;ll detect the food, enhance the
@@ -111,14 +167,105 @@ const UploadStep = ({ onAnalyzed, getAuthHeader }) => {
 
 // ============================== Step 2 — Review & Edit ==================
 
-const AnalysisReviewStep = ({ analysis, onBack, onGenerate, busy }) => {
-  const [name, setName] = useState(analysis.food_type || "");
-  const [features, setFeatures] = useState((analysis.features || []).join(", "));
-  const [price, setPrice] = useState(analysis.menu_match?.price
-    ? (analysis.menu_match.price.startsWith("$") ? analysis.menu_match.price
-       : `$${analysis.menu_match.price}`)
-    : "");
-  const [headline, setHeadline] = useState("");
+// Sprint 16F.2 — compact grouped theme picker. When `packs[]` is present
+// renders one <details> per pack; otherwise falls back to a flat <select>.
+const InlineThemePicker = ({ themes, packs, value, onChange }) => {
+  if (!packs || packs.length === 0) {
+    return (
+      <select value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-navy/20 rounded-md px-2 py-1.5 text-sm bg-white"
+        data-testid="photo-flyer-theme">
+        {themes.map((t) => (
+          <option key={t.id} value={t.id}>{t.label}</option>
+        ))}
+      </select>
+    );
+  }
+
+  // Bucket themes by pack, preserve packs[] ordering.
+  const byPack = new Map();
+  for (const t of themes) {
+    const pid = t.pack || "_other";
+    if (!byPack.has(pid)) byPack.set(pid, []);
+    byPack.get(pid).push(t);
+  }
+  const selectedPack = (themes.find((t) => t.id === value) || {}).pack;
+
+  return (
+    <div className="border border-navy/20 rounded-md bg-white max-h-72 overflow-y-auto"
+         data-testid="photo-flyer-theme">
+      {packs.map((p, idx) => {
+        const list = byPack.get(p.id) || [];
+        if (list.length === 0) return null;
+        const open = selectedPack ? selectedPack === p.id : idx === 0;
+        return (
+          <details
+            key={p.id}
+            open={open}
+            className="border-b border-navy/10 last:border-b-0"
+            data-testid={`photo-flyer-pack-${p.id}`}
+          >
+            <summary className="cursor-pointer select-none flex items-center justify-between px-2.5 py-1.5 list-none [&::-webkit-details-marker]:hidden hover:bg-navy/5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-navy">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-gold mr-1.5 align-middle" />
+                {p.label}
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground bg-navy/5 rounded-full px-2 py-0.5"
+                    data-testid={`photo-flyer-pack-count-${p.id}`}>
+                {list.length}
+              </span>
+            </summary>
+            <div className="px-1 pb-1.5 grid grid-cols-2 gap-1">
+              {list.map((t) => {
+                const selected = value === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => onChange(t.id)}
+                    aria-pressed={selected}
+                    className={`text-left text-[11px] rounded px-2 py-1.5 border transition-colors ${
+                      selected
+                        ? "border-gold bg-gold/15 text-navy font-semibold"
+                        : "border-navy/10 hover:border-gold/50 text-navy/80"
+                    }`}
+                    data-testid={`photo-flyer-theme-${t.id}`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {t.preview_color ? (
+                        <span className="inline-block w-2.5 h-2.5 rounded-full border border-navy/20 shrink-0"
+                              style={{ backgroundColor: t.preview_color }} />
+                      ) : null}
+                      <span className="truncate">{t.label}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
+};
+
+const AnalysisReviewStep = ({ analysis, prefill, themes, packs, onBack, onGenerate, busy }) => {
+  // Sprint 16F.2 — when MenuEditor deep-linked us, prefer the menu item's
+  // values over the AI vision's guesses (the owner explicitly picked it).
+  const seedName = (prefill && prefill.name) || analysis.food_type || "";
+  const seedFeatures = (prefill && prefill.features && prefill.features.length
+    ? prefill.features
+    : analysis.features || []).join(", ");
+  const seedPrice = (() => {
+    const raw = (prefill && prefill.price) || analysis.menu_match?.price || "";
+    if (!raw) return "";
+    return raw.toString().startsWith("$") ? raw : `$${raw}`;
+  })();
+
+  const [name, setName] = useState(seedName);
+  const [features, setFeatures] = useState(seedFeatures);
+  const [price, setPrice] = useState(seedPrice);
+  const [headline, setHeadline] = useState((prefill && prefill.headline) || "");
   const [theme, setTheme] = useState(analysis.suggested_theme || "comic_pop");
 
   const submit = () => {
@@ -212,13 +359,8 @@ const AnalysisReviewStep = ({ analysis, onBack, onGenerate, busy }) => {
             </div>
             <div>
               <label className="text-xs font-semibold text-navy">Theme</label>
-              <select value={theme} onChange={e => setTheme(e.target.value)}
-                className="w-full border border-navy/20 rounded-md px-2 py-1.5 text-sm bg-white"
-                data-testid="photo-flyer-theme">
-                {THEMES.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
+              <InlineThemePicker themes={themes} packs={packs}
+                value={theme} onChange={setTheme} />
             </div>
           </div>
         </div>
@@ -514,6 +656,27 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
   const [designerJobId, setDesignerJobId] = useState(null);
   const [designerJob, setDesignerJob] = useState(null);
   const [topError, setTopError] = useState(null);
+  // Sprint 16F.2 — menu-item prefill from MenuEditor sparkle ✨ deep-link.
+  const [prefill, setPrefill] = useState(() => readPrefill());
+  // Sprint 16F.2 — themes + packs[] payload used by the grouped picker.
+  // Loaded once per mount; falls back to FALLBACK_THEMES on error.
+  const [themesData, setThemesData] = useState({ themes: null, packs: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    axios.get(`${API}/ai-designer/themes`, { headers: getAuthHeader() })
+      .then((r) => {
+        if (cancelled) return;
+        setThemesData({
+          themes: r.data.themes || null,
+          packs: r.data.packs || null,
+        });
+      })
+      .catch(() => { /* non-fatal — UI falls back to FALLBACK_THEMES */ });
+    return () => { cancelled = true; };
+  }, [getAuthHeader]);
+
+  const discardPrefill = () => { clearPrefill(); setPrefill(null); };
 
   const onAnalyzed = (data) => {
     setAnalysis(data); setStep("review"); setTopError(null);
@@ -585,10 +748,16 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
       ) : null}
 
       {step === "upload" && (
-        <UploadStep onAnalyzed={onAnalyzed} getAuthHeader={getAuthHeader} />
+        <UploadStep onAnalyzed={onAnalyzed} getAuthHeader={getAuthHeader}
+          prefill={prefill} onDiscardPrefill={discardPrefill} />
       )}
       {step === "review" && analysis && (
         <AnalysisReviewStep analysis={analysis}
+          prefill={prefill}
+          themes={themesData.themes || FALLBACK_THEMES.map(t => ({
+            id: t.value, label: t.label, pack: "",
+          }))}
+          packs={themesData.packs}
           onBack={startOver} onGenerate={onGenerate} busy={genBusy} />
       )}
       {step === "generating" && designerJobId && (
