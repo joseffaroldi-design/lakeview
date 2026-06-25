@@ -88,125 +88,20 @@ def _resolve_font_path(path: str) -> str:
 
 
 # ---------------------------------------------------------------- Theme styles
-# Each theme defines: human label, and PIL drawing constants (fonts, colors,
-# badge styling). Variations come from 3 layout templates applied to the same
-# theme, giving 3 visually distinct designs per run.
+# Sprint 16F — Themes now live in `/app/backend/theme_packs/` (one file per
+# industry pack). The registry below dynamically loads + validates them at
+# import time. `THEME_STYLES` keeps its original shape so the rest of this
+# module + the existing test suite continue to work unchanged.
+#
+# To add a new theme: edit (or create) a `<name>_pack.py` under theme_packs/
+# and add it to `theme_packs.__init__._PACK_MODULES`. No edits here required.
 
-THEME_STYLES: Dict[str, Dict[str, Any]] = {
-    "luxury": {
-        "label": "Luxury Black & Gold",
-        "bg_color": (16, 16, 16),
-        "title": {"font": FONT_SERIF_BOLD, "color": (212, 175, 55), "size": 76},
-        "body":  {"font": FONT_SANS, "color": (245, 235, 200), "size": 30, "marker": "•",
-                  "marker_color": (212, 175, 55)},
-        "price": {"bg": (212, 175, 55), "fg": (16, 16, 16), "ring": (255, 220, 120), "font": FONT_SERIF_BOLD},
-        "branding_color": (180, 160, 110),
-    },
-    "vintage": {
-        "label": "Vintage Diner",
-        "bg_color": (240, 220, 195),
-        "title": {"font": FONT_SERIF_BOLD, "color": (160, 30, 30), "size": 80},
-        "body":  {"font": FONT_SANS_BOLD, "color": (50, 25, 15), "size": 28, "marker": "*",
-                  "marker_color": (160, 30, 30)},
-        "price": {"bg": (220, 50, 50), "fg": (255, 245, 220), "ring": (255, 245, 220), "font": FONT_SERIF_BOLD},
-        "branding_color": (90, 50, 30),
-    },
-    "modern": {
-        "label": "Modern Restaurant",
-        "bg_color": (248, 245, 240),
-        "title": {"font": FONT_SERIF_BOLD, "color": (24, 28, 48), "size": 72},
-        "body":  {"font": FONT_SANS, "color": (60, 65, 80), "size": 28, "marker": "—",
-                  "marker_color": (24, 28, 48)},
-        "price": {"bg": (24, 28, 48), "fg": (255, 245, 215), "ring": (215, 195, 130), "font": FONT_SERIF_BOLD},
-        "branding_color": (130, 130, 140),
-    },
-    "social": {
-        "label": "Bright Social",
-        "bg_color": (255, 200, 90),
-        "title": {"font": FONT_SANS_BOLD, "color": (40, 25, 5), "size": 86},
-        "body":  {"font": FONT_SANS_BOLD, "color": (40, 25, 5), "size": 30, "marker": ">",
-                  "marker_color": (220, 60, 40)},
-        "price": {"bg": (220, 50, 50), "fg": (255, 245, 220), "ring": (255, 200, 90), "font": FONT_SANS_BOLD},
-        "branding_color": (110, 60, 30),
-    },
-    "cajun": {
-        "label": "Cajun / Bayou",
-        "bg_color": (60, 40, 20),
-        "title": {"font": FONT_SERIF_BOLD, "color": (245, 210, 80), "size": 78},
-        "body":  {"font": FONT_SANS_BOLD, "color": (245, 235, 210), "size": 28, "marker": "+",
-                  "marker_color": (220, 100, 30)},
-        "price": {"bg": (220, 130, 40), "fg": (30, 20, 10), "ring": (245, 210, 80), "font": FONT_SERIF_BOLD},
-        "branding_color": (200, 170, 100),
-    },
-    # ---------------- Sprint 16A — Flyer-grade themes ----------------
-    # Larger headline sizes (90-110px) + saturated palettes + chunky badges so
-    # the output reads as a marketing flyer, not a polite menu card.
-    # Sprint 16A.1 layered in display fonts (Bebas Neue / Bungee /
-    # Permanent Marker), bigger headline scaling, and a stroke/shadow pass
-    # for flyer themes so headlines pop against the decorative backgrounds.
-    "comic_pop": {
-        "label": "Comic Pop",
-        "bg_color": (12, 12, 16),
-        "title": {"font": FONT_BUNGEE, "color": (255, 235, 70), "size": 112,
-                  "stroke_width": 4, "stroke_fill": (12, 12, 16),
-                  "letter_spacing": 4, "shadow": (0, 0, 0, 180)},
-        "body":  {"font": FONT_BEBAS_NEUE, "color": (255, 255, 255), "size": 34, "marker": "▸",
-                  "marker_color": (255, 235, 70), "letter_spacing": 2},
-        "price": {"bg": (255, 235, 70), "fg": (12, 12, 16), "ring": (255, 255, 255), "font": FONT_BUNGEE},
-        "branding_color": (255, 235, 70),
-        "icons": True,
-    },
-    "vintage_diner": {
-        "label": "Vintage Diner (Flyer)",
-        "bg_color": (244, 232, 200),
-        "title": {"font": FONT_BEBAS_NEUE, "color": (35, 90, 50), "size": 108,
-                  "stroke_width": 3, "stroke_fill": (244, 232, 200),
-                  "letter_spacing": 6, "shadow": (35, 90, 50, 60)},
-        "body":  {"font": FONT_BEBAS_NEUE, "color": (35, 60, 40), "size": 32, "marker": "★",
-                  "marker_color": (180, 50, 40), "letter_spacing": 3},
-        "price": {"bg": (180, 50, 40), "fg": (244, 232, 200), "ring": (35, 90, 50), "font": FONT_BEBAS_NEUE},
-        "branding_color": (90, 70, 40),
-        "icons": True,
-    },
-    "bold_purple_pop": {
-        "label": "Bold Purple Pop",
-        "bg_color": (38, 18, 60),
-        "title": {"font": FONT_BUNGEE, "color": (255, 240, 240), "size": 112,
-                  "stroke_width": 4, "stroke_fill": (38, 18, 60),
-                  "letter_spacing": 4, "shadow": (240, 60, 140, 200)},
-        "body":  {"font": FONT_BEBAS_NEUE, "color": (255, 240, 240), "size": 34, "marker": "▸",
-                  "marker_color": (255, 240, 100), "letter_spacing": 2},
-        "price": {"bg": (255, 240, 100), "fg": (38, 18, 60), "ring": (240, 60, 140), "font": FONT_BUNGEE},
-        "branding_color": (240, 200, 220),
-        "icons": True,
-    },
-    "casual_teal": {
-        "label": "Casual Teal",
-        "bg_color": (170, 220, 215),
-        "title": {"font": FONT_PERMANENT_MARKER, "color": (30, 70, 70), "size": 104,
-                  "stroke_width": 2, "stroke_fill": (250, 245, 230),
-                  "letter_spacing": 2, "shadow": (220, 110, 60, 100)},
-        "body":  {"font": FONT_BEBAS_NEUE, "color": (30, 70, 70), "size": 32, "marker": "✓",
-                  "marker_color": (220, 110, 60), "letter_spacing": 2},
-        "price": {"bg": (250, 245, 230), "fg": (30, 70, 70), "ring": (220, 110, 60), "font": FONT_PERMANENT_MARKER},
-        "branding_color": (50, 90, 90),
-        "icons": True,
-    },
-    "distressed_orange": {
-        "label": "Distressed Orange",
-        "bg_color": (200, 80, 35),
-        "title": {"font": FONT_PERMANENT_MARKER, "color": (252, 240, 215), "size": 110,
-                  "stroke_width": 3, "stroke_fill": (40, 25, 20),
-                  "letter_spacing": 2, "shadow": (40, 25, 20, 200)},
-        "body":  {"font": FONT_BEBAS_NEUE, "color": (252, 240, 215), "size": 32, "marker": "■",
-                  "marker_color": (252, 240, 215), "letter_spacing": 3},
-        "price": {"bg": (40, 25, 20), "fg": (252, 240, 215), "ring": (252, 240, 215), "font": FONT_PERMANENT_MARKER},
-        "branding_color": (252, 240, 215),
-        "icons": True,
-    },
-}
+from theme_packs import THEME_STYLES, THEME_META, PACKS as THEME_PACKS, WARNINGS as _THEME_WARNINGS  # noqa: E402
 
 THEME_IDS = list(THEME_STYLES.keys())
+
+if _THEME_WARNINGS:
+    logger.warning("[ai-designer] theme pack warnings: %s", "; ".join(_THEME_WARNINGS))
 
 # Three layout templates so each variation FEELS distinct beyond just the background.
 LAYOUTS = ["centered", "asym_left", "stacked"]
@@ -290,12 +185,27 @@ def _pil_background(theme_id: str, variant_idx: int) -> bytes:
 
     `variant_idx` (0/1/2) selects between three PIL pattern variants per theme.
     PIL output is always crisp — no AI image generation involved.
+
+    Sprint 16F dispatch:
+      * If the theme defines a callable `background_fn`, we call it with
+        `(canvas, draw, variant_idx)` and let the pack module own the
+        whole render. This is how the new burger/seafood/game_day/seasonal
+        packs ship without touching this router.
+      * Otherwise we fall through to the inline branches below (classic +
+        flyer-grade themes shipped before 16F).
     """
     style = THEME_STYLES[theme_id]
     bg_color = style["bg_color"]
     accent = style["title"]["color"]
     canvas = Image.new("RGB", (CANVAS, CANVAS), bg_color)
     draw = ImageDraw.Draw(canvas, "RGBA")
+
+    bg_fn = style.get("background_fn")
+    if callable(bg_fn):
+        bg_fn(canvas, draw, variant_idx)
+        out = io.BytesIO()
+        canvas.save(out, "PNG", optimize=True)
+        return out.getvalue()
 
     if theme_id == "luxury":
         # Dark gradient + gold filigree corners
@@ -1372,15 +1282,41 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
 
 @router.get("/themes")
 async def list_themes(authorization: str = Header(None), session_token: str = Cookie(None)):
+    """Sprint 16F — Flat theme list enriched with pack metadata.
+
+    Response shape is backward compatible: `themes[*]` still carries
+    `{id, label, preview_color}`. New fields (added, never removed):
+        * pack       – pack id (e.g. "burger", "seafood")
+        * pack_label – human pack name ("Burger Joint")
+        * category   – pack category tag ("burger", "sports", …)
+        * best_use   – per-theme tagline ("Smash burgers, Tuesday burger nights")
+
+    `packs[]` is added as an optional grouped index for richer UIs.
+    """
     await verify_session(authorization, session_token)
+    themes_payload = []
+    for tid, t in THEME_STYLES.items():
+        m = THEME_META.get(tid, {})
+        themes_payload.append({
+            "id": tid,
+            "label": t["label"],
+            "preview_color": "#{:02x}{:02x}{:02x}".format(*t["bg_color"]),
+            "pack": m.get("pack", ""),
+            "pack_label": m.get("pack_label", ""),
+            "category": m.get("category", ""),
+            "best_use": m.get("best_use", ""),
+        })
     return {
-        "themes": [
+        "themes": themes_payload,
+        "packs": [
             {
-                "id": tid,
-                "label": t["label"],
-                "preview_color": "#{:02x}{:02x}{:02x}".format(*t["bg_color"]),
+                "id": p["id"],
+                "label": p["label"],
+                "category": p["category"],
+                "description": p["description"],
+                "theme_ids": p["theme_ids"],
             }
-            for tid, t in THEME_STYLES.items()
+            for p in THEME_PACKS
         ],
         "variations_per_run": 3,
     }

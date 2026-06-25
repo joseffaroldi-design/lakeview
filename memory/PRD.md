@@ -1871,3 +1871,57 @@ Total per end-to-end: ~$0.055.
 
 **No production deploy** (per scope).
 
+
+### Sprint 16F — AI Designer Theme Pack System + 12 New Themes (Feb 25, 2026)
+
+**Goal**: Extract themes from the monolith router into modular pack
+files, and ship 12 new niche themes (Burger / Seafood / Game Day /
+Seasonal) without bloating `routers/ai_designer.py`.
+
+**Architecture changes**:
+- New package `/app/backend/theme_packs/`:
+  - `_shared.py` — CANVAS, font path constants (single source of truth).
+  - `classic_pack.py` — 5 legacy themes (luxury, vintage, modern, social, cajun).
+  - `flyer_pack.py` — 5 Sprint 16A flyer-grade themes.
+  - `burger_pack.py` — 3 themes + `background_fn` per theme.
+  - `seafood_pack.py` — 3 themes + `background_fn` per theme.
+  - `game_day_pack.py` — 3 themes + `background_fn` per theme.
+  - `seasonal_pack.py` — 3 themes + `background_fn` per theme.
+  - `__init__.py` — dynamic loader + validator (duplicate-id check,
+    missing-key check, invalid-color check). Surfaces warnings.
+- `routers/ai_designer.py` now imports `THEME_STYLES` + `THEME_META` +
+  `PACKS` from the registry; the inline ~135-line dict was deleted.
+- `_pil_background()` dispatch: if a theme defines a callable
+  `background_fn`, the router delegates to it. Legacy themes keep their
+  existing if/elif branches → zero regressions.
+
+**12 new themes**:
+- **Burger Pack**: `burger_classic` (red diner checker), `burger_neon_diner`
+  (dark + neon), `burger_grill_smoke` (brown grill marks).
+- **Seafood Pack**: `seafood_coastal` (navy + nautical rope + anchor),
+  `seafood_lagoon` (teal + starfish + waves), `seafood_dockside`
+  (weathered blue planks + lighthouse beam).
+- **Game Day Pack**: `game_day_scoreboard` (black/gold LED matrix),
+  `game_day_tailgate` (red/blue split + stars), `game_day_locker`
+  (chalkboard play diagram + yardlines).
+- **Seasonal Pack**: `mardi_gras` (purple/green/gold bead strings),
+  `summer_splash` (palm fronds + sun rays + yellow bands),
+  `holiday_cheer` (red/green + snowflakes + gold garland).
+
+**API contract (`GET /api/ai-designer/themes`)**:
+- Backward compatible — `themes[*]` still carries `{id, label, preview_color}`.
+- Added per-theme: `pack`, `pack_label`, `category`, `best_use`.
+- Added top-level: `packs[]` (grouped index with id, label, category,
+  description, theme_ids[]).
+- Total: **22 themes** across **6 packs** (was 10 across 0 packs).
+
+**Tests**: 27 new tests in `tests/test_theme_packs.py` (loader assembly,
+metadata enrichment, validator behaviour, endpoint shape, e2e
+generation across 12 themes, dispatch correctness). All 19 existing
+`test_flyer_themes.py` tests still pass — zero regressions.
+
+**Files added**: 7 (theme_packs/ + test). **Files modified**: 1
+(routers/ai_designer.py).
+
+**No production deploy** (env-var propagation still blocked on
+Emergent Support).
