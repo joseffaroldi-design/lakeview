@@ -1925,3 +1925,53 @@ generation across 12 themes, dispatch correctness). All 19 existing
 
 **No production deploy** (env-var propagation still blocked on
 Emergent Support).
+
+### Sprint 16F.1 — Grouped Theme Picker UX (Feb 25, 2026)
+
+**Goal**: Wire the new `packs[]` payload from Sprint 16F into the
+`AiDesigner.jsx` theme picker so owners browse by pack instead of
+scrolling a flat 22-theme list.
+
+**Frontend changes (only `AiDesigner.jsx`)**:
+- `ThemeCard` upgraded: now renders a 12px color swatch (using
+  `theme.preview_color`) and the per-theme `best_use` tagline (falls
+  back to legacy `theme.style` if present).
+- New `PackSection` component: native `<details>/<summary>`
+  collapsible section per pack. Shows the pack `label`, `description`,
+  and a "N themes" count chip. Bullet-dot indicator + uppercase tracked
+  pack title for hierarchy.
+- Picker rendering: if `packs.length > 0`, renders one `PackSection`
+  per pack with themes bucketed by their `pack` field. The pack
+  containing the currently selected theme is auto-opened; the first
+  pack opens by default when nothing matches. Themes without a `pack`
+  fall into a final "Other" section.
+- Backward compatibility: when `packs` is missing (older preview pods
+  still returning the pre-16F payload), the picker falls back to the
+  flat 2-column grid via `data-testid="designer-themes-flat"`.
+- Plumbing: `Designer` accepts new `prefetchedPacks` prop; parent
+  `AiAdsTab` derives `packs` from `boot.themes.data.packs` and streams
+  it down. Local fetch fallback in `Designer` also captures
+  `r.data.packs`.
+
+**Test IDs added** (for QA hooks):
+- `designer-pack-{id}`           — each `<details>` container
+- `designer-pack-summary-{id}`   — each `<summary>` header
+- `designer-pack-count-{id}`     — "N themes" chip
+- `designer-theme-swatch-{id}`   — color dot inside each card
+- `designer-themes-flat`         — fallback flat grid (only when packs[] absent)
+
+**Verification**:
+- Backend pytest `tests/test_theme_packs.py` — 27/27 green
+  (loader, validator, endpoint contract, e2e generation of 12 new
+  themes, dispatch correctness).
+- Frontend smoke screenshot captured: live picker shows all 6 pack
+  sections (Classic Restaurant, Flyer-Grade Poster, Burger Joint,
+  Gulf Seafood, Game Day, Seasonal & Holiday) with correct "5/5/3/3/3/3"
+  theme counts and bg-color swatch dots per card.
+- "Modern Restaurant" default selection still highlighted with gold
+  border; Photo→Flyer default tab unchanged; Template Designer flow
+  unchanged.
+
+**Files modified**: 1 (`/app/frontend/src/pages/dashboard/aiads/AiDesigner.jsx`).
+**Backend untouched. No production deploy** (per scope).
+

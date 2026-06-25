@@ -184,23 +184,88 @@ const ThemeCard = ({ theme, selected, onToggle }) => (
     aria-pressed={selected}
   >
     <div className="flex items-center justify-between gap-2">
-      <p className="text-sm font-semibold text-navy">{theme.label}</p>
-      {selected ? <Bookmark className="w-4 h-4 text-gold" /> : null}
+      <div className="flex items-center gap-2 min-w-0">
+        {theme.preview_color ? (
+          <span
+            aria-hidden="true"
+            className="w-3 h-3 rounded-full border border-navy/20 shrink-0"
+            style={{ backgroundColor: theme.preview_color }}
+            data-testid={`designer-theme-swatch-${theme.id}`}
+          />
+        ) : null}
+        <p className="text-sm font-semibold text-navy truncate">{theme.label}</p>
+      </div>
+      {selected ? <Bookmark className="w-4 h-4 text-gold shrink-0" /> : null}
     </div>
-    <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{theme.style}</p>
+    {(theme.best_use || theme.style) ? (
+      <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+        {theme.best_use || theme.style}
+      </p>
+    ) : null}
   </button>
 );
+
+// Sprint 16F.1 — Grouped theme picker. Renders one collapsible section per
+// pack so the 22-theme list stays scannable. Falls back to a flat grid when
+// the backend doesn't ship `packs[]` metadata (older preview pods).
+const PackSection = ({ pack, packThemes, pickedId, onToggle, defaultOpen }) => {
+  if (!packThemes || packThemes.length === 0) return null;
+  return (
+    <details
+      open={defaultOpen}
+      className="rounded-md border border-navy/10 bg-card/40 px-2.5 py-2 mb-2 last:mb-0 group"
+      data-testid={`designer-pack-${pack.id}`}
+    >
+      <summary
+        className="cursor-pointer select-none flex items-center justify-between gap-2 list-none [&::-webkit-details-marker]:hidden"
+        data-testid={`designer-pack-summary-${pack.id}`}
+      >
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-navy uppercase tracking-wide">
+            <span className="inline-block w-2 h-2 rounded-full bg-gold mr-2 align-middle" aria-hidden="true" />
+            {pack.label}
+          </p>
+          {pack.description ? (
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug truncate">
+              {pack.description}
+            </p>
+          ) : null}
+        </div>
+        <span
+          className="text-[10px] font-medium text-muted-foreground bg-navy/5 rounded-full px-2 py-0.5 shrink-0"
+          data-testid={`designer-pack-count-${pack.id}`}
+        >
+          {packThemes.length} themes
+        </span>
+      </summary>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+        {packThemes.map((t) => (
+          <ThemeCard
+            key={t.id}
+            theme={t}
+            selected={pickedId === t.id}
+            onToggle={() => onToggle(t.id)}
+          />
+        ))}
+      </div>
+    </details>
+  );
+};
 
 const Designer = ({
   getAuthHeader, asset, onBack, onJobStarted, templates, initialValues,
   // Sprint 15B.2: parent may prefetch themes during boot
   prefetchedThemes, prefetchedThemesLoading, prefetchedThemesError, onRetryThemes,
+  // Sprint 16F.1: parent may also stream the `packs[]` grouped metadata
+  prefetchedPacks,
 }) => {
   const init = initialValues || {};
   const usingPrefetchThemes = prefetchedThemes !== undefined;
   const [themesLocal, setThemesLocal] = useState([]);
+  const [packsLocal, setPacksLocal] = useState([]);
   const [themesLoadingLocal, setThemesLoadingLocal] = useState(!usingPrefetchThemes);
   const themes = usingPrefetchThemes ? (prefetchedThemes || []) : themesLocal;
+  const packs = usingPrefetchThemes ? (prefetchedPacks || []) : packsLocal;
   const themesLoading = usingPrefetchThemes ? !!prefetchedThemesLoading : themesLoadingLocal;
   const themesError = usingPrefetchThemes ? prefetchedThemesError : null;
   const [name, setName] = useState(init.item_name || "");
@@ -244,7 +309,12 @@ const Designer = ({
     if (usingPrefetchThemes) return undefined;
     let cancelled = false;
     axios.get(`${API}/ai-designer/themes`, { headers: getAuthHeader() })
-      .then((r) => { if (!cancelled) { setThemesLocal(r.data.themes || []); setThemesLoadingLocal(false); } })
+      .then((r) => {
+        if (cancelled) return;
+        setThemesLocal(r.data.themes || []);
+        setPacksLocal(r.data.packs || []);
+        setThemesLoadingLocal(false);
+      })
       .catch((e) => { if (!cancelled) { setError(parseAxiosError(e)); setThemesLoadingLocal(false); } });
     return () => { cancelled = true; };
   }, []);
@@ -440,10 +510,48 @@ const Designer = ({
                 3 variations × free
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="designer-themes">
-              {themes.map((t) => (
-                <ThemeCard key={t.id} theme={t} selected={picked[0] === t.id} onToggle={() => togglePick(t.id)} />
-              ))}
+            <div data-testid="designer-themes">
+              {packs && packs.length > 0 ? (
+                (() => {
+                  // Sprint 16F.1: bucket themes by pack (preserves pack ordering).
+                  const byPack = new Map();
+                  for (let i = 0; i < themes.length; i += 1) {
+                    const t = themes[i];
+                    const pid = t.pack || "_other";
+                    if (!byPack.has(pid)) byPack.set(pid, []);
+                    byPack.get(pid).push(t);
+                  }
+                  // Open the pack that contains the currently picked theme;
+                  // if nothing matches, open the first pack.
+                  const pickedPack = (themes.find((t) => t.id === picked[0]) || {}).pack;
+                  const orderedPacks = packs.slice();
+                  const otherThemes = byPack.get("_other") || [];
+                  if (otherThemes.length) {
+                    orderedPacks.push({ id: "_other", label: "Other", description: "", theme_ids: otherThemes.map((t) => t.id) });
+                  }
+                  return orderedPacks.map((p, idx) => {
+                    const list = byPack.get(p.id) || [];
+                    const isPickedPack = pickedPack ? pickedPack === p.id : idx === 0;
+                    return (
+                      <PackSection
+                        key={p.id}
+                        pack={p}
+                        packThemes={list}
+                        pickedId={picked[0]}
+                        onToggle={togglePick}
+                        defaultOpen={isPickedPack}
+                      />
+                    );
+                  });
+                })()
+              ) : (
+                // Backward-compatible flat grid when /themes payload lacks packs[]
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="designer-themes-flat">
+                  {themes.map((t) => (
+                    <ThemeCard key={t.id} theme={t} selected={picked[0] === t.id} onToggle={() => togglePick(t.id)} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1308,6 +1416,10 @@ const AiDesigner = ({ getAuthHeader }) => {
   // Convenience: derive `templates` array from boot state (used by Designer).
   const templates = (boot.templates.data && boot.templates.data.templates) || [];
   const themes = (boot.themes.data && boot.themes.data.themes) || undefined;
+  // Sprint 16F.1 — `packs[]` is the grouped index emitted by the new theme-pack
+  // backend. May be undefined on older preview pods, in which case Designer
+  // falls back to a flat grid automatically.
+  const packs = (boot.themes.data && boot.themes.data.packs) || undefined;
   const recentJobs = (boot.jobsRecent.data && boot.jobsRecent.data.jobs) || undefined;
   const mediaAssets = (boot.mediaAssets.data && boot.mediaAssets.data.assets) || undefined;
 
@@ -1417,6 +1529,7 @@ const AiDesigner = ({ getAuthHeader }) => {
           initialValues={initialValues}
           onBack={() => setStep("pick")}
           prefetchedThemes={themes}
+          prefetchedPacks={packs}
           prefetchedThemesLoading={boot.themes.loading}
           prefetchedThemesError={boot.themes.error}
           onRetryThemes={boot.themes.retry || undefined}
