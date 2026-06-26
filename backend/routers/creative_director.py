@@ -4,6 +4,11 @@ A pure scoring engine that recommends 3 themes (Best / Good / Alternative).
 NEVER auto-applies. The owner always picks. Reuses the existing theme_packs
 registry — no duplicate theme metadata.
 
+Sprint 17B: now also returns a bundled style recommendation per theme
+(layout / typography / badge / overlay) so the FE can render ONE compact
+"Apply Recommended Style" card. Also weights favorited media_assets so
+the engine learns what the owner actually likes over time.
+
 Single endpoint: POST /api/creative-director/recommend
 """
 from __future__ import annotations
@@ -155,6 +160,74 @@ def _color_match_bonus(dominant_colors: List[str], theme_id: str) -> Tuple[int, 
     return 0, ""
 
 
+# ---------------------------------------------------------------- style traits
+
+# Sprint 17B — user-facing labels that describe a theme's typical layout /
+# typography / badge / overlay. The rendering engine doesn't change; this
+# is purely so the FE can show ONE "Apply Recommended Style" card that
+# tells the owner what they'll actually get.
+_PACK_TRAITS: Dict[str, Dict[str, str]] = {
+    "burger":   {"layout": "Hero Left",   "typography": "Bold Stacked",     "badge": "Paint Splash",  "overlay": "Burger Smoke"},
+    "seafood":  {"layout": "Diagonal",    "typography": "Display Serif",    "badge": "Ribbon Banner", "overlay": "Citrus Mist"},
+    "sports":   {"layout": "Centered",    "typography": "Stencil Bold",     "badge": "Sunburst Star", "overlay": "Confetti Burst"},
+    "seasonal": {"layout": "Off-Center",  "typography": "Ornate Display",   "badge": "Filigree",      "overlay": "Atmosphere"},
+    "general":  {"layout": "Symmetric",   "typography": "Sans Heavy",       "badge": "Pill Chip",     "overlay": "Subtle Vignette"},
+    "poster":   {"layout": "Magazine",    "typography": "Editorial Bold",   "badge": "Number Tag",    "overlay": "Halftone"},
+}
+
+
+def _style_traits_for(theme_id: str) -> Dict[str, str]:
+    meta = THEME_META.get(theme_id, {})
+    pack_cat = meta.get("category", "general")
+    return _PACK_TRAITS.get(pack_cat, _PACK_TRAITS["general"])
+
+
+async def _favorite_theme_counts(item_key: Optional[str]) -> Dict[str, int]:
+    """For the given item_key, return {theme_id: favorited_count}. Used by
+    the scorer to boost themes the owner has actively favorited. Falls back
+    to global counts (all items) when no item_key is supplied.
+
+    We deliberately do NOT restrict to source='ai_designer' — any favorited
+    image carrying a theme tag is a signal the owner likes that style.
+    """
+    base = {"is_favorite": True, "status": "active", "kind": "image"}
+    if item_key:
+        # Prefer per-item favorites when the asset has item_key (new schema).
+        match = {**base, "item_key": item_key}
+    else:
+        match = base
+    counts: Dict[str, int] = {}
+    try:
+        async for row in db.media_assets.find(match, {"_id": 0, "tags": 1, "theme": 1}):
+            theme = row.get("theme")
+            if not theme:
+                # Legacy rows store the theme inside `tags: ["theme:<id>", ...]`
+                for t in (row.get("tags") or []):
+                    if isinstance(t, str) and t.startswith("theme:"):
+                        theme = t.split(":", 1)[1]
+                        break
+            if theme:
+                counts[theme] = counts.get(theme, 0) + 1
+    except Exception:  # noqa: BLE001
+        pass
+    # If an item_key was supplied but we found nothing, fall back to globals
+    # (so the system still learns from favorited flyers across the brand).
+    if item_key and not counts:
+        try:
+            async for row in db.media_assets.find(base, {"_id": 0, "tags": 1, "theme": 1}):
+                theme = row.get("theme")
+                if not theme:
+                    for t in (row.get("tags") or []):
+                        if isinstance(t, str) and t.startswith("theme:"):
+                            theme = t.split(":", 1)[1]
+                            break
+                if theme:
+                    counts[theme] = counts.get(theme, 0) + 1
+        except Exception:  # noqa: BLE001
+            pass
+    return counts
+
+
 async def _load_brand_color() -> Optional[Tuple[int, int, int]]:
     """Read brand accent color from site_content. Defaults to gold (#a5935b)
     if the CMS doesn't expose anything (the legacy seed). Never raises.
@@ -198,7 +271,8 @@ def _score_themes(*, category: str,
                   memory_theme: Optional[str],
                   season: str, holiday: str,
                   dominant_colors: List[str],
-                  brand_rgb: Optional[Tuple[int, int, int]]) -> List[Dict[str, Any]]:
+                  brand_rgb: Optional[Tuple[int, int, int]],
+                  favorite_counts: Optional[Dict[str, int]] = None) -> List[Dict[str, Any]]:
     """Score every theme. Returns a list sorted by score desc."""
     rows: List[Dict[str, Any]] = []
     for tid, spec in THEME_STYLES.items():
@@ -246,6 +320,17 @@ def _score_themes(*, category: str,
         score += b_bonus
         if b_reason:
             reasons.append(b_reason)
+
+        # 6) Favorite bias — themes the owner has explicitly starred for this
+        # item (or globally if no item_key was supplied) should rise to the
+        # top. Each favorited flyer using this theme adds +8 (capped at +24)
+        # so a string of favorites can compete with category baseline but
+        # never overwhelm an explicit Design Memory pick (+60).
+        fav_n = (favorite_counts or {}).get(tid, 0)
+        if fav_n > 0:
+            fav_bonus = min(24, fav_n * 8)
+            score += fav_bonus
+            reasons.append(f"You favorited {fav_n} flyer{'s' if fav_n > 1 else ''} with this style.")
 
         rows.append({
             "id": tid,
@@ -297,6 +382,11 @@ async def recommend(body: RecommendRequest,
     # 4) Brand color from CMS (fail-soft)
     brand_rgb = await _load_brand_color()
 
+    # 4b) Sprint 17B — Favorited-flyer learning loop. Count how many
+    # favorited flyers each theme has for this item (or globally) and
+    # bias the scorer toward them.
+    fav_counts = await _favorite_theme_counts(body.item_key)
+
     # 5) Score every theme.
     ranked = _score_themes(
         category=category,
@@ -304,6 +394,7 @@ async def recommend(body: RecommendRequest,
         season=season, holiday=holiday,
         dominant_colors=body.dominant_colors or [],
         brand_rgb=brand_rgb,
+        favorite_counts=fav_counts,
     )
 
     # 6) Trim to top 3, attach rank label + a primary reason.
@@ -322,6 +413,8 @@ async def recommend(body: RecommendRequest,
             "stars": stars,
             "reason": primary,
             "all_reasons": reasons,
+            # Sprint 17B — bundled style descriptors
+            "style_traits": _style_traits_for(row["id"]),
         })
 
     log.info("CD_RECOMMEND item_key=%s category=%s holiday=%s memory_theme=%s -> %s",

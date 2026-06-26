@@ -32,12 +32,15 @@ import { API, Section } from "./shared";
 import StructuredErrorCard, { parseAxiosError } from "./StructuredErrorCard";
 import MenuItemPicker from "./MenuItemPicker";
 import CreativeDirectorRecs from "./CreativeDirectorRecs";
+import RecommendedStyleCard from "./RecommendedStyleCard";
+import VisionReconciliationBanner from "./VisionReconciliationBanner";
 
 const POLL_MS = 3000;
 const POLL_TIMEOUT_MS = 4 * 60 * 1000;
 
 // Sprint 16F.2 — must match the key written by ContentEditor.MenuEditor.
 const PREFILL_KEY = "lakeview.photo_flyer.prefill";
+const REMIX_KEY = "lakeview.photo_flyer.remix";
 
 // Fallback theme list for when /api/ai-designer/themes is unreachable —
 // kept short on purpose so the picker still renders something.
@@ -62,6 +65,23 @@ const readPrefill = () => {
 
 const clearPrefill = () => {
   try { sessionStorage.removeItem(PREFILL_KEY); } catch { /* ignore */ }
+};
+
+// Sprint 17B — Remix prefill. Library writes this when the owner clicks
+// the 🔁 Remix button on a flyer; we read it here on mount to pre-load
+// the source photo + menu item + last-used theme.
+const readRemix = () => {
+  try {
+    const raw = sessionStorage.getItem(REMIX_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.source_asset_id ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+const clearRemix = () => {
+  try { sessionStorage.removeItem(REMIX_KEY); } catch { /* ignore */ }
 };
 
 
@@ -316,16 +336,26 @@ const InlineThemePicker = ({ themes, packs, value, onChange }) => {
 const AnalysisReviewStep = ({
   analysis, prefill, themes, packs,
   menuItem, recs, recsContext, useSaved,
+  savedMemory, onPersistVisionChoice,
   onBack, onGenerate, busy,
 }) => {
-  // Sprint 17A — Menu picker > prefill > vision (most specific wins).
-  // If the owner explicitly picked a menu item, we trust those values.
-  // Otherwise fall back to the older MenuEditor sparkle prefill, then to
-  // whatever the AI vision returned.
-  const seedName = (menuItem && menuItem.name)
-    || (prefill && prefill.name)
-    || analysis.food_type
-    || "";
+  const [visionChoice, setVisionChoice] = useState(
+    (savedMemory && savedMemory.vision_choice) || (menuItem ? "menu" : null)
+  );
+  const [showOtherThemes, setShowOtherThemes] = useState(false);
+
+  // Sprint 17B — derive effective name from the vision choice.
+  // "menu" wins → menu item name; "ai" wins → AI detection; "merge" → "Menu (also AI)".
+  const aiName = analysis.food_type || "";
+  const menuName = (menuItem && menuItem.name) || "";
+  const effectiveName = (() => {
+    if (!menuItem) return aiName || prefill?.name || "";
+    if (visionChoice === "ai")   return aiName || menuName;
+    if (visionChoice === "merge") return aiName && aiName.toLowerCase() !== menuName.toLowerCase()
+      ? `${menuName} (${aiName})` : menuName;
+    return menuName;  // "menu" or default
+  })();
+
   const seedFeatures = (
     (menuItem && menuItem.features && menuItem.features.length)
       ? menuItem.features
@@ -342,7 +372,10 @@ const AnalysisReviewStep = ({
     return raw.toString().startsWith("$") ? raw : `$${raw}`;
   })();
 
-  const [name, setName] = useState(seedName);
+  const [name, setName] = useState(effectiveName || "");
+  // Keep `name` in sync when the user flips vision choice.
+  useEffect(() => { setName(effectiveName || ""); /* eslint-disable-next-line */ }, [visionChoice]);
+
   const [features, setFeatures] = useState(seedFeatures);
   const [price, setPrice] = useState(seedPrice);
   const [headline, setHeadline] = useState((prefill && prefill.headline) || "");
@@ -354,6 +387,9 @@ const AnalysisReviewStep = ({
     || "comic_pop"
   );
 
+  const topRec = recs && recs[0];
+  const isRecApplied = !!(topRec && theme === topRec.id);
+
   const submit = () => {
     const feats = features.split(",").map(s => s.trim()).filter(Boolean);
     onGenerate({
@@ -363,7 +399,15 @@ const AnalysisReviewStep = ({
       price: price.trim(),
       headline: headline.trim() || null,
       theme,
+      item_key: menuItem?.item_key || null,
     });
+  };
+
+  const onVisionChoice = (choice) => {
+    setVisionChoice(choice);
+    if (menuItem && onPersistVisionChoice) {
+      onPersistVisionChoice(menuItem.item_key, choice);
+    }
   };
 
   return (
@@ -383,6 +427,17 @@ const AnalysisReviewStep = ({
           </div>
         </div>
       ) : null}
+
+      {/* Sprint 17B — Menu vs Vision reconciliation. Only renders when both
+          a menu item and a high-confidence vision label are present and
+          they disagree. */}
+      <VisionReconciliationBanner
+        menuItemName={menuName}
+        detectedName={aiName}
+        confidence={analysis.confidence || 0}
+        savedChoice={visionChoice}
+        onChoose={onVisionChoice}
+      />
 
       <Section title="We analyzed your photo" icon={Sparkles} testId="photo-flyer-analysis">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -452,18 +507,32 @@ const AnalysisReviewStep = ({
         </div>
       </Section>
 
-      {/* Sprint 17A — Creative Director recommendations + collapsible full picker */}
-      <Section title="Choose a theme" icon={Sparkles} testId="photo-flyer-theme-section">
-        <CreativeDirectorRecs
-          recs={recs}
+      {/* Sprint 17B — Single Recommended Style card. Other themes are
+          collapsible behind "View other themes" so the owner sees ONE
+          decision instead of 22. */}
+      <Section title="Choose a style" icon={Sparkles} testId="photo-flyer-theme-section">
+        <RecommendedStyleCard
+          rec={topRec}
           context={recsContext}
-          value={theme}
-          onPick={setTheme}
-          renderAll={() => (
-            <InlineThemePicker themes={themes} packs={packs}
-              value={theme} onChange={setTheme} />
-          )}
+          isSelected={isRecApplied}
+          onApply={() => topRec && setTheme(topRec.id)}
+          onShowOther={() => setShowOtherThemes((v) => !v)}
+          showingOther={showOtherThemes}
         />
+        {showOtherThemes ? (
+          <div className="mt-3 space-y-3" data-testid="photo-flyer-other-themes">
+            <CreativeDirectorRecs
+              recs={recs}
+              context={recsContext}
+              value={theme}
+              onPick={setTheme}
+              renderAll={() => (
+                <InlineThemePicker themes={themes} packs={packs}
+                  value={theme} onChange={setTheme} />
+              )}
+            />
+          </div>
+        ) : null}
       </Section>
 
       <div className="flex gap-2">
@@ -577,6 +646,12 @@ const ReviewStep = ({
     document.body.appendChild(a);
     a.click();
     a.remove();
+    // Sprint 17B — bump the smart-sort signal so favorites + recent-use
+    // surface this flyer at the top of the Library next time.
+    if (flyer.asset_id) {
+      axios.post(`${API}/media/assets/${flyer.asset_id}/used`, null,
+        { headers: getAuthHeader(), timeout: 10000 }).catch(() => {});
+    }
   };
   const onDownloadClick = () => {
     const eligible = !askedToSave && menuItem && themeUsed && onSavePreferredStyle;
@@ -874,6 +949,32 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
     return () => { cancelled = true; };
   }, [getAuthHeader]);
 
+  // Sprint 17B — Remix prefill from the Library. When present, pre-load
+  // the original photo + menu item + last-used theme so the owner only
+  // changes one thing and regenerates. We synthesize an "analysis"-shaped
+  // object from the asset id (no new vision call) so the Review step
+  // renders straight away.
+  useEffect(() => {
+    const r = readRemix();
+    if (!r) return;
+    clearRemix();
+    setMenuItem(r.menu_item || null);
+    setUseSaved(r.theme ? { theme: r.theme } : null);
+    setAnalysis({
+      original_asset_id: r.source_asset_id,
+      enhanced_asset_id: r.source_asset_id,
+      food_type: r.food_type || (r.menu_item && r.menu_item.name) || "",
+      features: r.features || [],
+      confidence: 1.0,
+      vision_ok: true,
+      menu_match: { matched: false },
+      suggested_theme: r.theme || null,
+    });
+    setLastTheme(r.theme || null);
+    setStep("review");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const discardPrefill = () => { clearPrefill(); setPrefill(null); };
 
   // Sprint 17A — Load design memory + recommendations whenever the menu
@@ -938,6 +1039,7 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
         price: params.price,
         theme: params.theme,
         headline: params.headline,
+        item_key: params.item_key || null,
         variations: 1,
         auto_copy: true,
         remove_background: false,
@@ -1049,6 +1151,11 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
           recs={recs}
           recsContext={recsContext}
           useSaved={useSaved}
+          savedMemory={savedMemory}
+          onPersistVisionChoice={(item_key, choice) =>
+            axios.put(`${API}/design-memory/${encodeURIComponent(item_key)}`,
+              { vision_choice: choice },
+              { headers: getAuthHeader(), timeout: 10000 }).catch(() => {})}
           onBack={startOver}
           onGenerate={onGenerate}
           busy={genBusy}

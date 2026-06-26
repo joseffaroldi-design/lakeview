@@ -120,13 +120,17 @@ class GenerateRequest(BaseModel):
     item_name: constr(min_length=1, max_length=120)
     features: List[constr(max_length=80)] = Field(default_factory=list)
     price: Optional[constr(max_length=40)] = None
-    theme: constr(min_length=2, max_length=20) = "modern"
+    theme: constr(min_length=2, max_length=40) = "modern"
     auto_copy: bool = False
     # Sprint 15B.3: rembg/background removal is now OPT-IN. Default is False
     # so normal generation uses a rounded-rect fallback mask — eliminates the
     # ~5-15s synchronous rembg call per job that was wedging the single-worker
     # production pod. Users can enable it via the "Remove background" checkbox.
     remove_background: bool = False
+    # Sprint 17B — Smart Menu Workflow: persist the menu-item slug on every
+    # generated asset so the Library can filter by menu item and the
+    # Creative Director can learn from favorited flyers per dish.
+    item_key: Optional[constr(strip_whitespace=True, max_length=200)] = None
 
 
 class SaveTemplateRequest(BaseModel):
@@ -1208,7 +1212,9 @@ async def _write_designer_copy(item_name: str, features: List[str], price: Optio
 
 # ---------------------------------------------------------------- Asset persistence
 
-async def _save_design_asset(img_bytes: bytes, item_name: str, theme_id: str, variant: str) -> Dict[str, Any]:
+async def _save_design_asset(img_bytes: bytes, item_name: str, theme_id: str, variant: str,
+                             item_key: Optional[str] = None,
+                             source_asset_id: Optional[str] = None) -> Dict[str, Any]:
     aid = str(uuid.uuid4())
     storage_path = objstore.make_path("ai_designs", aid, "png")
     objstore.put_bytes(storage_path, img_bytes, "image/png")
@@ -1225,6 +1231,11 @@ async def _save_design_asset(img_bytes: bytes, item_name: str, theme_id: str, va
         "storage_path": storage_path,
         "is_favorite": False, "status": "active",
         "source": "ai_designer",
+        # Sprint 17B — top-level fields for Library filtering + Remix.
+        "theme": theme_id,
+        "item_name": item_name,
+        "item_key": item_key,
+        "source_asset_id": source_asset_id,
         "uploaded_at": _now(), "updated_at": _now(),
     }
     await db.media_assets.insert_one(doc)
@@ -1287,7 +1298,9 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
             await update(progress=int(100 * (idx + 1) / total), variations=variations)
             continue
 
-        saved = await _save_design_asset(graphic_bytes, body.item_name, body.theme, variant)
+        saved = await _save_design_asset(graphic_bytes, body.item_name, body.theme, variant,
+                                         item_key=body.item_key,
+                                         source_asset_id=body.source_asset_id)
         variations.append({
             "theme": body.theme,
             "theme_label": THEME_STYLES[body.theme]["label"],

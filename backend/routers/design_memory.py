@@ -44,6 +44,9 @@ class DesignMemoryPayload(BaseModel):
     crop: Optional[constr(strip_whitespace=True, max_length=40)] = None
     harmony: Optional[constr(strip_whitespace=True, max_length=40)] = None
     favorite_flyer_id: Optional[constr(strip_whitespace=True, max_length=64)] = None
+    # Sprint 17B — remember the owner's last AI-Vision vs Menu reconciliation
+    # choice for this item, so the banner only nags once per dish.
+    vision_choice: Optional[constr(strip_whitespace=True, max_length=20)] = None
 
 
 _KEY_RE = re.compile(r"^[a-z0-9][a-z0-9\-]*::[a-z0-9][a-z0-9\-]*$")

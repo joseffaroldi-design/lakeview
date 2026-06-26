@@ -22,6 +22,11 @@ async def list_assets(
     folder: Optional[str] = None,
     status: Optional[str] = None,
     is_favorite: Optional[bool] = None,
+    # Sprint 17B — Smart Menu Workflow filters
+    theme: Optional[str] = None,
+    item_key: Optional[str] = None,
+    since: Optional[str] = None,  # ISO date string (uploaded_at >= since)
+    sort: Optional[str] = None,   # "smart" (default) | "uploaded_at"
     limit: int = 200,
     authorization: str = Header(None),
     session_token: str = Cookie(None),
@@ -38,17 +43,49 @@ async def list_assets(
         query["status"] = {"$ne": "archived"}
     if is_favorite is not None:
         query["is_favorite"] = is_favorite
+    if theme:
+        # Match both the new top-level field and legacy tag form for back-compat.
+        query["$or"] = [{"theme": theme}, {"tags": f"theme:{theme}"}]
+    if item_key:
+        query["item_key"] = item_key
+    if since:
+        query["uploaded_at"] = {"$gte": since}
     if q:
-        query["$or"] = [
+        text_or = [
             {"filename": {"$regex": q, "$options": "i"}},
             {"tags": {"$regex": q, "$options": "i"}},
+            {"item_name": {"$regex": q, "$options": "i"}},
         ]
+        if "$or" in query:
+            query = {"$and": [{"$or": query.pop("$or")}, {"$or": text_or}, query]}
+        else:
+            query["$or"] = text_or
     # Sprint 12C: media_assets now also holds legacy ai-ads text rows
     # (source=ai_ads_legacy). Hide them from the Media Studio list — they're
     # only ever read via /api/ai-ads/assets.
     query["source"] = {"$ne": "ai_ads_legacy"}
-    cursor = db.media_assets.find(query, {"_id": 0}).sort("uploaded_at", -1).limit(min(limit, 500))
-    return {"assets": await cursor.to_list(500)}
+
+    # Smart sort: favorites first, then most-recently-used/uploaded, then the rest.
+    # Mongo can't sort by a derived "last_activity" so we do it client-side here.
+    if sort and sort != "smart":
+        cursor = db.media_assets.find(query, {"_id": 0}).sort("uploaded_at", -1).limit(min(limit, 500))
+        return {"assets": await cursor.to_list(500)}
+
+    rows = await db.media_assets.find(query, {"_id": 0}).limit(min(limit, 500)).to_list(500)
+
+    def _activity(a: Dict[str, Any]) -> str:
+        return a.get("last_used_at") or a.get("updated_at") or a.get("uploaded_at") or ""
+
+    rows.sort(key=lambda a: (
+        0 if a.get("is_favorite") else 1,  # favorites first
+        _activity(a),                      # ascending placeholder — we negate via reverse
+    ))
+    # Within the favorites bucket and within the rest, more-recent first.
+    favs = [a for a in rows if a.get("is_favorite")]
+    rest = [a for a in rows if not a.get("is_favorite")]
+    favs.sort(key=_activity, reverse=True)
+    rest.sort(key=_activity, reverse=True)
+    return {"assets": favs + rest}
 
 
 @router.get("/file/{asset_id}")
@@ -100,6 +137,23 @@ async def patch_asset(
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Asset not found")
     return await db.media_assets.find_one({"id": asset_id}, {"_id": 0})
+
+
+@router.post("/assets/{asset_id}/used")
+async def mark_used(asset_id: str,
+                    authorization: str = Header(None),
+                    session_token: str = Cookie(None)):
+    """Sprint 17B — bump last_used_at so the smart sort surfaces the
+    flyers the owner actually downloads / remixes. Idempotent; rate-limit
+    not required because each call just stamps `now()`."""
+    await verify_session(authorization, session_token)
+    res = await db.media_assets.update_one(
+        {"id": asset_id},
+        {"$set": {"last_used_at": _now(), "updated_at": _now()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return {"ok": True, "id": asset_id, "last_used_at": _now()}
 
 
 @router.delete("/assets/{asset_id}")

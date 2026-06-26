@@ -158,7 +158,8 @@ const Dashboard = () => {
           <AiAdsTab getAuthHeader={getAuthHeader} />
         )}
         {activeTab === "library" && (
-          <LibraryTab getAuthHeader={getAuthHeader} />
+          <LibraryTab getAuthHeader={getAuthHeader}
+            onRequestNavigate={(tab) => setActiveTab(tab === "promote" ? "promotions" : tab)} />
         )}
         {activeTab === "customers" && (
           <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
