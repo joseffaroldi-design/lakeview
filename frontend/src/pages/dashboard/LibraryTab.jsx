@@ -47,31 +47,45 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
   const [filterDate, setFilterDate] = useState("any");
   const [showFavOnly, setShowFavOnly] = useState(false);
 
-  const load = useCallback(async () => {
+  // Sprint 17B — Fetch assets whenever any filter changes. Plain pattern:
+  // each filter change kicks off one request; we ignore stale resolutions
+  // by tagging the request id on the closure.
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (q) params.set("q", q);
-      params.set("limit", "200");
-      if (filterMenuKey) params.set("item_key", filterMenuKey);
-      if (filterTheme) params.set("theme", filterTheme);
-      const since = sinceFor(filterDate);
-      if (since) params.set("since", since);
-      if (showFavOnly) params.set("is_favorite", "true");
-      const r = await axios.get(`${API}/media/assets?${params.toString()}`,
-        { headers: getAuthHeader() });
-      setAssets(r.data.assets || []);
-    } catch (e) {
-      toast.error("Couldn't load Library", { description: String(e.message) });
-    } finally {
-      setLoading(false);
-    }
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    params.set("limit", "200");
+    if (filterMenuKey) params.set("item_key", filterMenuKey);
+    if (filterTheme) params.set("theme", filterTheme);
+    const since = sinceFor(filterDate);
+    if (since) params.set("since", since);
+    if (showFavOnly) params.set("is_favorite", "true");
+    axios.get(`${API}/media/assets?${params.toString()}`, { headers: getAuthHeader() })
+      .then((r) => { if (!cancelled) setAssets(r.data.assets || []); })
+      .catch((e) => {
+        if (!cancelled) toast.error("Couldn't load Library", { description: String(e.message) });
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [q, filterMenuKey, filterTheme, filterDate, showFavOnly, getAuthHeader]);
 
-  useEffect(() => {
-    const id = setTimeout(load, 250);
-    return () => clearTimeout(id);
-  }, [load]);
+  // Manual refresh used by toggleFav / onDelete / onUpload to force a refetch.
+  const refresh = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    params.set("limit", "200");
+    if (filterMenuKey) params.set("item_key", filterMenuKey);
+    if (filterTheme) params.set("theme", filterTheme);
+    const since = sinceFor(filterDate);
+    if (since) params.set("since", since);
+    if (showFavOnly) params.set("is_favorite", "true");
+    axios.get(`${API}/media/assets?${params.toString()}`, { headers: getAuthHeader() })
+      .then((r) => setAssets(r.data.assets || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [q, filterMenuKey, filterTheme, filterDate, showFavOnly, getAuthHeader]);
 
   // Derive the filter options from the currently-loaded set so the
   // dropdowns only ever show values that actually exist on disk.
@@ -115,7 +129,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
     setUploading(false);
     if (ok) {
       toast.success(`Uploaded ${ok} file${ok > 1 ? "s" : ""}`);
-      load();
+      refresh();
     }
   };
 
@@ -123,7 +137,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
     try {
       await axios.patch(`${API}/media/assets/${a.id}`,
         { is_favorite: !a.is_favorite }, { headers: getAuthHeader() });
-      load();
+      refresh();
     } catch { /* ignore */ }
   };
 
@@ -132,7 +146,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
     try {
       await axios.delete(`${API}/media/assets/${a.id}`, { headers: getAuthHeader() });
       toast.success("Archived");
-      load();
+      refresh();
     } catch (e) {
       toast.error("Could not archive",
         { description: String(e?.response?.data?.detail || e.message) });

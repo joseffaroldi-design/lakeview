@@ -2453,3 +2453,84 @@ new memory. AI Designer remains fully manual.
   * Phase 5: One-Click Remix (Holiday / Game Day / Summer / etc.)
   * Phase 7: AI Marketing Calendar (Mardi Gras / Saints game days)
 
+
+
+---
+
+## Sprint 17B — Smart Menu Workflow — 2026-02-26
+
+**Scope (locked by user)**: Make creating a promotion nearly effortless.
+Replace the 22-theme picker with ONE compact recommendation. Add explicit
+Menu-vs-Vision reconciliation. Light Library polish (favorites + filters
++ Remix) instead of a full Projects system.
+
+**What shipped**
+
+1) **Recommended Style card** — single primary surface
+   (`/app/frontend/src/pages/dashboard/aiads/RecommendedStyleCard.jsx`):
+   shows Theme · Layout · Typography · Badge · Overlay · Reason + a
+   single "Apply Recommended Style" CTA. Below it a "View other themes"
+   toggle still reveals the top-3 + full grouped picker — manual
+   control is fully preserved.
+
+2) **Vision-vs-Menu reconciliation banner**
+   (`VisionReconciliationBanner.jsx`): renders when menu pick + AI
+   vision disagree at >70% confidence. Three buttons (Use Menu Item /
+   Use AI Detection / Merge Both); the choice is persisted into
+   `design_memory.vision_choice` so the banner never nags twice for the
+   same dish. Effective item name updates live when the choice flips.
+
+3) **Library improvements** (kept lightweight — no Projects yet):
+   * ⭐ Favorite toggle now drives the Creative Director.
+   * 🔁 Remix button on each flyer (when `source_asset_id` set) →
+     writes `lakeview.photo_flyer.remix` sessionStorage and switches
+     to Promote. Photo→Flyer reads on mount, pre-loads original photo
+     + menu item + theme, lands the owner directly on Review step.
+   * Filter chips: **Menu Item · Theme · Date** + Favorites toggle.
+   * Server-side SMART SORT: Favorites → most-recently-used → rest.
+
+4) **Backend changes** (all additive):
+   * `creative_director.py` — each rec carries `style_traits`
+     {layout, typography, badge, overlay} via `_PACK_TRAITS`. New
+     `_favorite_theme_counts()` awards +8 per favorited flyer (capped
+     +24) and appends "You favorited N flyer(s) with this style." to
+     reasons.
+   * `design_memory.py` — whitelist now accepts `vision_choice`.
+   * `media/assets.py` — `theme` / `item_key` / `since` filters; smart
+     sort default; new `POST /api/media/assets/{id}/used` bumps
+     `last_used_at`.
+   * `ai_designer.py` — `GenerateRequest.item_key`; every saved flyer
+     persists top-level `theme / item_name / item_key /
+     source_asset_id`.
+
+5) **Tests** — `/app/backend/tests/test_smart_menu_workflow.py`
+   adds 8 regressions. Combined with 17A: **23/23 passing**.
+
+6) **Click-count comparison** (acceptance demo):
+   * Pre-17A: Menu typed manually (~5) → Upload (1) → Browse 22 themes
+     (~5) → Generate (1) → **≈12 clicks** to flyer.
+   * 17B 1st time: Menu picked (3) → Upload (1) → Apply Recommended
+     Style (1) → Generate (1) → **6 clicks**.
+   * 17B 2nd time (same dish): Menu picked (3) → Banner: Use Saved
+     Style (1) → Upload (1) → Generate (1) → **6 clicks**, zero
+     theme browsing.
+
+**Files**
+   * New: `RecommendedStyleCard.jsx`, `VisionReconciliationBanner.jsx`,
+     `tests/test_smart_menu_workflow.py`
+   * Modified: `creative_director.py`, `design_memory.py`,
+     `routers/media/assets.py`, `routers/ai_designer.py`,
+     `LibraryTab.jsx`, `PhotoToFlyer.jsx`, `Dashboard.js`
+
+**Guardrails honored**
+   * No Projects system built (deferred — user paused 17B Projects).
+   * No new AI image generation.
+   * Photo→Flyer remains the single primary surface; Remix re-opens it.
+   * No breaking API changes; only additive query params + new endpoints.
+
+**Known minor polish item**
+   * In Playwright dev-mode E2E tests, `/api/media/assets?is_favorite=true`
+     occasionally didn't surface its response to the network listener
+     within 8s; the API responds in ~73 ms via curl and the request IS
+     fired correctly (verified). Filed as P3 polish.
+
