@@ -94,3 +94,4 @@ frontend/node_modules/.cache/default-development/23.pack
 credentials.json
 *.key
 .credentials
+memory/test_credentials.md
