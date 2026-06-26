@@ -278,3 +278,54 @@ async def bulk_render_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="job not found")
     return job
+
+
+# ---------------------------------------------------------------- featured
+
+def _today_str() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+@router.get("/featured")
+async def featured(window_days: int = 14):
+    """Today's Special — deterministically rotate through the most recent
+    bulk-rendered flyers. Returns the flyer that should appear on the
+    homepage hero today.
+
+    Selection: take active HTML-bulk assets uploaded in the last
+    `window_days`, sort by `uploaded_at` desc, pick index
+    `hash(today) % count`. Same flyer all day; new flyer tomorrow.
+    Falls back to the most recent asset if none in the window.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = (now - __import__("datetime").timedelta(days=window_days)).isoformat()
+
+    cursor = db.media_assets.find(
+        {"source": "html_bulk", "status": "active", "uploaded_at": {"$gte": cutoff}},
+        {"_id": 0, "id": 1, "filename": 1, "storage_path": 1, "item_name": 1,
+         "theme": 1, "uploaded_at": 1, "width": 1, "height": 1},
+    ).sort("uploaded_at", -1).limit(50)
+    assets = await cursor.to_list(length=50)
+    if not assets:
+        # Fallback: most recent regardless of window
+        latest = await db.media_assets.find_one(
+            {"source": "html_bulk", "status": "active"},
+            {"_id": 0, "id": 1, "filename": 1, "storage_path": 1, "item_name": 1,
+             "theme": 1, "uploaded_at": 1, "width": 1, "height": 1},
+            sort=[("uploaded_at", -1)],
+        )
+        if not latest:
+            raise HTTPException(status_code=404, detail="No bulk-rendered flyers in the library yet")
+        assets = [latest]
+
+    idx = abs(hash(_today_str())) % len(assets)
+    pick = assets[idx]
+    return {
+        "asset_id": pick["id"],
+        "item_name": pick.get("item_name") or pick.get("filename") or "Today's Special",
+        "theme": pick.get("theme"),
+        "uploaded_at": pick.get("uploaded_at"),
+        "image_url": f"/api/media/file/{pick['id']}",
+        "pool_size": len(assets),
+        "rotated_for": _today_str(),
+    }

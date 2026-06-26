@@ -7,6 +7,7 @@ import axios from "axios";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
 import TemplateDesigner from "@/pages/TemplateDesigner";
+import TodaysFeatured from "@/components/TodaysFeatured";
 // Sprint 12D: SpinWheel + InstallPrompt removed
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -1099,6 +1100,7 @@ const Home = () => {
       <Navbar />
       <main>
         <Hero content={content?.hero} />
+        <TodaysFeatured />
         <Specials />
         <About content={content?.about} />
         <Menu categories={menuCategories} />

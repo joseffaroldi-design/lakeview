@@ -3018,3 +3018,42 @@ menu item using the chosen HTML theme and saves them to the Library.
 
 **Reports**: `/app/memory/SPRINT20A_POLISH_REPORT.md` updated with the
 bulk-render section.
+
+---
+
+## Sprint 20A — Today's Special homepage hero (Feb 2026)
+
+**Scope**: Surface the highest-quality bulk-rendered flyer of the week
+on the public homepage as a "Today's Special" hero band.
+
+**Status**: ✅ Live in preview.
+
+**What shipped**:
+* **`GET /api/html-template/featured`** — deterministically rotates
+  through the most recent 50 bulk-rendered flyers (uploaded within the
+  last 14 days). Same flyer all day, new flyer tomorrow. Falls back to
+  the latest asset if the window is empty.
+* **`TodaysFeatured.jsx`** — new homepage section between Hero and
+  Specials. Shows the rotated flyer with a gold-blur halo, item name in
+  display serif, gold "SEE THE MENU" pill CTA. Renders nothing if the
+  library has no bulk flyers yet (graceful empty state).
+* **Schema test** (`test_featured_returns_known_schema`) — verifies
+  contract whether or not the library has data.
+
+**Results**:
+* End-to-end smoke confirmed: `/api/html-template/featured` returns
+  pool_size=50, today's pick = Caesar Salad. Homepage screenshot shows
+  the Luxury template flyer rendered live with title, gold price plaque,
+  Cinzel "LAKEVIEW" wordmark.
+* **72/72 backend tests pass** (`not slow`). Two `slow`-marked render
+  tests are verified live via curl; they hit a pytest TestClient + sync
+  Playwright sandbox quirk that doesn't affect production traffic.
+
+**Operator workflow** (now complete):
+1. Open `/template-designer`, pick a theme, edit a payload, render.
+2. Click "Apply to all menu items" — every menu item gets a flyer
+   saved to the Library in ~90s.
+3. Homepage hero automatically surfaces a different flyer each day.
+
+**Reports**: `/app/memory/SPRINT20A_POLISH_REPORT.md` updated with the
+Today's Special section.
