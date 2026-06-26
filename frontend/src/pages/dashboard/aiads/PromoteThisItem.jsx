@@ -252,6 +252,7 @@ const ProgressStep = ({ getAuthHeader, jobId, onCompleted, onFailed, onCancel })
         }
         setTimeout(tick, POLL_MS);
       } catch (e) {
+        if (process.env.NODE_ENV !== "production") console.warn("[PromoteThisItem] poll tick error (will retry):", e);
         setTimeout(tick, POLL_MS * 2);
       }
     };

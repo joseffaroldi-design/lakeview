@@ -34,7 +34,7 @@ export const trackAIDesignerEvent = async (eventName, metadata, getAuthHeader) =
       },
       { headers: getAuthHeader() }
     );
-    console.log(`[Analytics] ${eventName}`, metadata);
+    if (process.env.NODE_ENV !== "production") console.log(`[Analytics] ${eventName}`, metadata);
   } catch (err) {
     console.error("Analytics tracking failed:", err);
   }

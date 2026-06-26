@@ -138,7 +138,9 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
       await axios.patch(`${API}/media/assets/${a.id}`,
         { is_favorite: !a.is_favorite }, { headers: getAuthHeader() });
       refresh();
-    } catch { /* ignore */ }
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") console.warn("[LibraryTab] toggleFav failed:", e);
+    }
   };
 
   const onDelete = async (a) => {

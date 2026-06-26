@@ -691,7 +691,9 @@ const Progress = ({ getAuthHeader, jobId, onCompleted, onFailed, onCancel, expec
           if (pollRef.current) clearInterval(pollRef.current);
           onFailed({ user_message: "Generation took too long. Try again.", retry_action: "retry" });
         }
-      } catch (e) { /* keep polling */ }
+      } catch (e) {
+        if (process.env.NODE_ENV !== "production") console.warn("[AiDesigner] poll tick error:", e);
+      }
     };
     tick();
     pollRef.current = setInterval(tick, POLL_MS);
@@ -862,7 +864,9 @@ const useCopier = () => {
       await navigator.clipboard.writeText(text || "");
       setCopiedKey(key);
       setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1500);
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") console.warn("[AiDesigner] clipboard.writeText failed:", e);
+    }
   }, []);
   return { copiedKey, copy };
 };
@@ -1001,7 +1005,7 @@ const Review = ({ getAuthHeader, job, onStartOver, onReloadTemplates, fromRecent
       setSavedIdxs((p) => ({ ...p, [idx]: true }));
       if (onReloadTemplates) onReloadTemplates();
     } catch (e) {
-      // swallow — non-fatal
+      if (process.env.NODE_ENV !== "production") console.warn("[AiDesigner] save-template failed (non-fatal):", e);
     } finally {
       setSavingIdx(null);
     }
@@ -1214,8 +1218,9 @@ const RecentDesignsRail = ({
     try {
       await axios.post(`${API}/ai-designer/jobs/${jobId}/pin`, {}, { headers: getAuthHeader() });
       reload();
-    } catch (e) { /* swallow — non-fatal */ }
-    finally { setPinningId(null); }
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") console.warn("[AiDesigner] pin job failed (non-fatal):", e);
+    } finally { setPinningId(null); }
   };
 
   if (loading) {
@@ -1374,7 +1379,6 @@ const AiDesigner = ({ getAuthHeader }) => {
     }
     return undefined;
     // Run once on mount only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sprint 15B.2: de-burst boot. Parent owns all 4 datasets and streams them

@@ -137,7 +137,7 @@ def _color_match_bonus(dominant_colors: List[str], theme_id: str) -> Tuple[int, 
     bg = spec.get("bg_color")
     if not bg:
         return 0, ""
-    r, g, b = bg[0], bg[1], bg[2]
+    r, _g, b = bg[0], bg[1], bg[2]
     # Naive warm/cool classification of the theme bg
     theme_warm = (r - b) > 20
     theme_cool = (b - r) > 20
@@ -146,7 +146,7 @@ def _color_match_bonus(dominant_colors: List[str], theme_id: str) -> Tuple[int, 
     for hx in dominant_colors[:5]:
         try:
             if hx.startswith("#") and len(hx) >= 7:
-                pr, pg, pb = int(hx[1:3], 16), int(hx[3:5], 16), int(hx[5:7], 16)
+                pr, _pg, pb = int(hx[1:3], 16), int(hx[3:5], 16), int(hx[5:7], 16)
                 if (pr - pb) > 20:
                     warm_votes += 1
                 elif (pb - pr) > 20:

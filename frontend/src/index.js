@@ -32,14 +32,14 @@ axios.interceptors.response.use(
     const isAuthEndpoint = path.includes("/auth/login");
     // Public site: log and bail. Diners never see admin-style toasts.
     if (!isAdminRoute()) {
-      if (status >= 500) console.warn(`[axios] ${status} on ${path} (silenced on public route)`);
+      if (status >= 500 && process.env.NODE_ENV !== "production") console.warn(`[axios] ${status} on ${path} (silenced on public route)`);
       return Promise.reject(error);
     }
 
     // Sprint 15B.1: one auto-retry on transient infra/proxy failures.
     if (RETRY_STATUSES.has(status) && !config.__retried) {
       config.__retried = true;
-      console.warn(`[axios] ${status} on ${path} — retrying once after ${RETRY_DELAY_MS}ms`);
+      if (process.env.NODE_ENV !== "production") console.warn(`[axios] ${status} on ${path} — retrying once after ${RETRY_DELAY_MS}ms`);
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       try {
         return await axios.request(config);

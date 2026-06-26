@@ -237,11 +237,14 @@ def main():
             ok = True
             why = []
             if cc < 35:
-                ok = False; why.append("central food coverage low")
+                ok = False
+                why.append("central food coverage low")
             if not bf:
-                ok = False; why.append("badge missing")
+                ok = False
+                why.append("badge missing")
             if rb > 8.0:
-                ok = False; why.append("hard rect border detected")
+                ok = False
+                why.append("hard rect border detected")
             rows.append({
                 "item_key": item_key,
                 "food_dominance_pct": round(fd, 1),

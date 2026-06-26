@@ -366,7 +366,7 @@ const AnalysisReviewStep = ({
 
   const [name, setName] = useState(effectiveName || "");
   // Keep `name` in sync when the user flips vision choice.
-  useEffect(() => { setName(effectiveName || ""); /* eslint-disable-next-line */ }, [visionChoice]);
+  useEffect(() => { setName(effectiveName || ""); }, [visionChoice]);
 
   const [features, setFeatures] = useState(seedFeatures);
   const [price, setPrice] = useState(seedPrice);
@@ -707,7 +707,10 @@ const ReviewStep = ({
           return;
         }
         setTimeout(tick, POLL_MS);
-      } catch { setTimeout(tick, POLL_MS * 2); }
+      } catch (e) {
+        if (process.env.NODE_ENV !== "production") console.warn("[PhotoToFlyer] video poll error (will retry):", e);
+        setTimeout(tick, POLL_MS * 2);
+      }
     };
     tick();
     return () => { cancelled = true; };
@@ -983,7 +986,6 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
     });
     setLastTheme(r.theme || null);
     setStep("review");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sprint 19 — auto-apply the saved style as soon as we know about it.
@@ -994,7 +996,6 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
     if (menuItem && savedMemory && savedMemory.theme && !useSaved) {
       setUseSaved({ theme: savedMemory.theme });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuItem, savedMemory]);
 
   const discardPrefill = () => { clearPrefill(); setPrefill(null); };

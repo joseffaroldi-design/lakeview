@@ -282,7 +282,8 @@ class TestProductionVariationCap:
     production generation."""
 
     def test_cap_function(self):
-        import sys, os
+        import sys
+        import os
         sys.path.insert(0, "/app/backend")
         from routers.ai_image import _variation_cap
 

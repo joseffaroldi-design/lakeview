@@ -261,7 +261,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
               {(health.issues || []).map((iss, idx) => {
                 const text = typeof iss === "string" ? iss : (iss.message || iss.text || JSON.stringify(iss));
                 return (
-                  <li key={idx} className="text-xs text-navy flex items-start gap-2"
+                  <li key={`issue-${text.slice(0, 32)}-${idx}`} className="text-xs text-navy flex items-start gap-2"
                       data-testid={`home-health-issue-${idx}`}>
                     <span className="text-[14px] leading-none mt-0.5">•</span>
                     <span className="flex-1">{text}</span>

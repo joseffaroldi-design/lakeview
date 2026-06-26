@@ -115,7 +115,7 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
       throw new Error("Clipboard API not supported");
       
     } catch (err) {
-      console.warn("Clipboard API failed, falling back to download:", err);
+      if (process.env.NODE_ENV !== "production") console.warn("Clipboard API failed, falling back to download:", err);
       
       // Fallback: Smart download with better filename
       downloadImageWithSmartFilename();
@@ -294,7 +294,7 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
                     <div>
                       <Sparkles className="w-8 h-8 text-navy/30 mx-auto mb-2" />
                       <p className="text-xs text-muted-foreground">Graphic preview unavailable</p>
-                      <p className="text-[11px] text-muted-foreground mt-1">Click "Regenerate" to rebuild.</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">Click &quot;Regenerate&quot; to rebuild.</p>
                     </div>
                   </div>
                 </div>
@@ -384,7 +384,7 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
                 <p className="text-sm text-navy leading-relaxed mb-3">{copy.caption}</p>
                 <div className="flex flex-wrap gap-1">
                   {copy.hashtags.slice(0, 6).map((tag, idx) => (
-                    <span key={idx} className="text-xs text-gold">
+                    <span key={`tag-${tag}-${idx}`} className="text-xs text-gold">
                       #{tag}
                     </span>
                   ))}

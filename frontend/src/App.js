@@ -221,7 +221,7 @@ const Hero = ({ content }) => {
             alt="Lakeview Burgers & Seafood" 
             data-testid="hero-logo"
             className="w-[280px] md:w-[380px] max-w-full mx-auto mb-2 drop-shadow-2xl"
-            fetchpriority="high"
+            fetchPriority="high"
           />
         </div>
 
@@ -357,9 +357,9 @@ const Specials = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <p className="font-accent text-3xl text-gold mb-2">Don't Miss</p>
+          <p className="font-accent text-3xl text-gold mb-2">Don&apos;t Miss</p>
           <h2 className="font-serif text-4xl md:text-5xl text-cream font-bold tracking-tight mb-4">
-            Today's Specials
+            Today&apos;s Specials
           </h2>
           <div className="w-24 h-1 mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #a5935b, transparent)' }}></div>
         </div>
@@ -451,7 +451,7 @@ const Menu = ({ categories }) => {
               )}
               <div className={`grid ${getGridCols(cat.columns)}`}>
                 {(cat.items || []).map((item, idx) => (
-                  <MenuItem key={idx} index={`${cat.slug}-${idx}`} name={item.name} description={item.description} price={item.price} />
+                  <MenuItem key={`${cat.slug}-${item.name || idx}`} index={`${cat.slug}-${idx}`} name={item.name} description={item.description} price={item.price} />
                 ))}
               </div>
             </div>
@@ -756,7 +756,7 @@ const EmailSignup = () => {
         )}
         {status === "already" && (
           <p data-testid="signup-already-msg" className="mt-4 font-sans text-cream/80 text-sm animate-fade-in">
-            You're already on our list — stay tuned for great things!
+            You&apos;re already on our list — stay tuned for great things!
           </p>
         )}
         {status === "error" && (
@@ -789,8 +789,10 @@ const LoyaltyCard = () => {
       const res = await axios.post(`${API}/loyalty/join`, formData);
       setResult(res.data);
       setStep("result");
-    } catch { setResult({ message: "Something went wrong" }); setStep("result"); }
-    finally { setSubmitting(false); }
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") console.warn("[App.LoyaltyJoin] join failed:", e);
+      setResult({ message: "Something went wrong" }); setStep("result");
+    } finally { setSubmitting(false); }
   };
 
   const handleLookup = async (e) => {
@@ -800,8 +802,10 @@ const LoyaltyCard = () => {
       const res = await axios.get(`${API}/loyalty/lookup?phone=${lookupPhone.trim()}`);
       setResult({ ...res.data, already_member: true });
       setStep("result");
-    } catch { setResult({ message: "Phone not found. Join below!" }); setStep("join"); }
-    finally { setSubmitting(false); }
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") console.warn("[App.LoyaltyLookup] lookup failed:", e);
+      setResult({ message: "Phone not found. Join below!" }); setStep("join");
+    } finally { setSubmitting(false); }
   };
 
   const visits = result?.visits || 0;
@@ -930,7 +934,7 @@ const CateringForm = () => {
                   <Users className="w-5 h-5 text-gold mt-1 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-navy">Groups of Any Size</p>
-                    <p className="text-sm">From intimate gatherings to large events — we've got you covered.</p>
+                    <p className="text-sm">From intimate gatherings to large events — we&apos;ve got you covered.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -944,7 +948,7 @@ const CateringForm = () => {
                   <MessageSquare className="w-5 h-5 text-gold mt-1 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-navy">Custom Menus</p>
-                    <p className="text-sm">We'll tailor a menu to your event, budget, and dietary preferences.</p>
+                    <p className="text-sm">We&apos;ll tailor a menu to your event, budget, and dietary preferences.</p>
                   </div>
                 </div>
               </div>
@@ -960,7 +964,7 @@ const CateringForm = () => {
                   <span className="text-gold text-2xl">⚜</span>
                 </div>
                 <h4 className="font-serif text-xl text-navy font-bold mb-2">Thank You!</h4>
-                <p className="font-sans text-muted-foreground">We'll be in touch within 24 hours to discuss your event.</p>
+                <p className="font-sans text-muted-foreground">We&apos;ll be in touch within 24 hours to discuss your event.</p>
                 <Button
                   onClick={() => setStatus(null)}
                   className="mt-6 bg-gold text-navy hover:bg-gold/90 rounded-full"

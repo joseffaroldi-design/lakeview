@@ -197,7 +197,7 @@ export const MenuEditor = ({ getAuthHeader, onSaved, onPromoteDeepLink }) => {
       };
       sessionStorage.setItem(PHOTO_FLYER_PREFILL_KEY, JSON.stringify(payload));
     } catch (e) {
-      console.warn("[menu-editor] prefill sessionStorage write failed", e);
+      if (process.env.NODE_ENV !== "production") console.warn("[menu-editor] prefill sessionStorage write failed", e);
     }
     if (typeof onPromoteDeepLink === "function") {
       onPromoteDeepLink();

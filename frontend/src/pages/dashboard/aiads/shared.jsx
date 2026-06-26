@@ -46,7 +46,9 @@ export const CopyableItem = ({ text, testId }) => {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch (_) { /* ignore */ }
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") console.warn("[shared.CopyableItem] clipboard.writeText failed:", e);
+    }
   };
   return (
     <div
