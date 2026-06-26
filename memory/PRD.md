@@ -2046,3 +2046,117 @@ flow without modification.
 
 **No production deploy** (per scope).
 
+
+### Sprint 16G — Flyer Rendering Engine 2.0 (Phase 1 + Phase 2) (Feb 25, 2026)
+
+**Goal**: Stop flyers looking like "photo dropped into a template" without
+adding new themes or workflows. Every existing theme (and every future
+theme) inherits the rendering upgrade automatically — no theme-pack
+dict changes required.
+
+**New module**: `/app/backend/render_engine.py` (~510 LOC). Owns:
+  * `feather_mask`                — soft outer-edge fade (radius 6 %, blur
+                                    2.5 %). Replaces the legacy 8 %
+                                    rounded-rect crop. ~92 % of the food
+                                    stays photographic; only the rigid
+                                    rectangle boundary dissolves.
+  * `render_food_with_shadows`    — layered ambient + contact shadows.
+                                    Ambient (26 px blur, +24 px offset)
+                                    gives the food volume; contact
+                                    (8 px blur, +8 px offset) anchors it
+                                    to the surface. Replaces the single
+                                    `_drop_shadow` from Sprint 13B.
+  * `dominant_food_colors`        — pulls 1-3 representative RGBs from
+                                    the photo via median-cut quantize;
+                                    drops near-black/near-white buckets
+                                    so shadows/highlights don't dominate.
+  * `apply_color_harmony`         — washes two diagonally-opposite canvas
+                                    corners with the food's dominant
+                                    colour at `harmony_strength` (theme
+                                    palette still wins; default 0.25).
+                                    Wash is corners-only on purpose so
+                                    it never flattens the food in the
+                                    middle of the canvas.
+  * `LAYOUTS` (6 styles) +
+    `pick_layout`                 — hero_center, full_bleed, left_focus,
+                                    right_focus, bottom_hero, stacked.
+                                    Deterministic picker hashes theme_id
+                                    so each theme's three variants pick
+                                    three different layouts.
+  * `compose_layered`             — the single entry point the router
+                                    delegates to. Layers in z-order:
+                                    bg → legibility bands → color
+                                    harmony → food (feathered +
+                                    shadowed) → theme `overlay_fn`
+                                    foreground → text + badge →
+                                    branding.
+
+**Router change** (`routers/ai_designer.py`):
+  * `_prepare_food_cutout` now calls `feather_mask(radius_pct=0.06,
+    feather_blur_pct=0.025)` instead of the hard rounded-rect crop.
+    rembg path applies a lighter feather to soften the cut-line halo.
+  * `_compose_design` no longer holds three imperative layout branches —
+    it builds the background, then delegates the entire composition to
+    `render_engine.compose_layered`, mapping the legacy
+    `centered/asym_left/stacked` strings to variant indices 0/1/2.
+  * The legacy `_rounded_rect_mask` and `_drop_shadow` functions remain
+    in the module (still imported by other paths if any) but are no
+    longer called by the design pipeline.
+
+**Theme-pack hooks** (no theme dict edits needed — all optional):
+  * `theme["harmony_strength"]`   — float in [0, 1]; default 0.25.
+  * `theme["overlay_fn"]`         — callable(canvas, draw, variant_idx)
+                                    drawing foreground particles /
+                                    smoke / spice trails AFTER the food.
+                                    Default no-op.
+  * `theme["supported_layouts"]`  — list of layout names a pack opts into.
+                                    Default = all 6.
+
+**Verification**:
+  * `tests/test_render_engine.py` — 29 new tests:
+      - feather mask preserves centre + softens corner without alpha
+        cliffs (max single-pixel jump < 40);
+      - shadow layer is larger than input + shadow visible below food;
+      - dominant_food_colors returns plausible RGBs, ignores black/white;
+      - apply_color_harmony tints corners but leaves canvas centre
+        within ±20 RGB units of original (food can't be flattened);
+      - pick_layout is deterministic + diverges across themes;
+      - compose_layered handles all 6 layouts without raising;
+      - every one of the 22 themes × 3 variants renders a valid PNG.
+  * Existing pytest: `test_theme_packs.py` (27 tests) — all green.
+  * AI design critique (independent Gemini analyst), before/after on the
+    feather + shadow treatment:
+      - BEFORE pipeline → 4/10 "looks templated"
+      - AFTER  pipeline → 8/10 "looks like Photoshop"
+      - quotes: *"hard, crisp edges → softer, more diffused edges; stark
+        shadow → naturalistic interaction with surface; cut-out look →
+        belongs in the scene"*.
+  * Live e2e via `/api/ai-designer/generate` (distressed_orange theme,
+    real burger source): job completed in 4 s, three distinct variants
+    produced (file hashes differ; bright-pixel centroids at
+    (500, 427), (520, 591), (499, 400) — confirming 3 different
+    layouts).
+  * Performance: full 22-theme × 3-variant smoke renders in 44.6 s →
+    ~675 ms / flyer (+225 ms vs Sprint 13B baseline). Within the
+    ≤250 ms-per-flyer budget set in the planning phase.
+
+**What we deliberately did NOT do** (Phases 3 + 4):
+  * Smoke/steam/spice/light-ray particle systems per theme — these need
+    the `overlay_fn` hook (now in place) plus per-pack particle
+    definitions. Foundation is shipped; the per-pack art is the next
+    sprint.
+  * LAB-space lighting/warmth matching of the photo to the theme. We
+    do a cheap accent-color shadow-tint on dark themes only. Full LAB
+    pass deferred to Phase 4.
+  * Typography masking / text-as-art overlays. Title stroke + shadow
+    already shipped in Sprint 16A; further effects (text-over-photo
+    masks, brush-textured glyphs) deferred.
+
+**Files**:
+  * **New**: `/app/backend/render_engine.py`, `/app/backend/tests/test_render_engine.py`
+  * **Modified**: `/app/backend/routers/ai_designer.py` (~80 LOC swapped, no
+    new public surface)
+
+**No frontend changes. No API changes. No workflow changes.**
+**No production deploy** (per scope).
+

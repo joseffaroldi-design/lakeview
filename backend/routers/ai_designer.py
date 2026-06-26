@@ -635,20 +635,30 @@ def _prepare_food_cutout(food_bytes: bytes, target_max: int, use_rembg: bool = F
     so the longest side equals `target_max`.
 
     Sprint 15B.3: rembg is now OPT-IN via `use_rembg`. When False (default), we
-    skip the expensive rembg call entirely and apply a rounded-rect alpha mask.
-    This keeps generation fast and unblocks the single-worker production pod.
+    skip the expensive rembg call entirely.
+    Sprint 16G: the hard rounded-rect mask is replaced with `feather_mask`, a
+    soft elliptical alpha mask that fades the photo edges into the canvas
+    instead of clipping them. The rembg path still benefits — rembg produces
+    a hard cutout silhouette which we then feather slightly to soften the
+    cut-line halo.
     """
+    from render_engine import feather_mask
+
     src = Image.open(io.BytesIO(food_bytes)).convert("RGBA")
     if use_rembg:
         try:
             from rembg import remove  # lazy import — only paid when explicitly opted in
             out = remove(food_bytes)
             cut = Image.open(io.BytesIO(out)).convert("RGBA")
+            # Light feather to soften any rembg edge halo (keeps the cutout shape).
+            cut = feather_mask(cut, radius_pct=0.04, feather_blur_pct=0.015)
         except Exception as e:  # noqa: BLE001
-            logger.warning("[ai-designer] rembg failed (%s); falling back to rounded-rect mask", e)
-            cut = _rounded_rect_mask(src, radius_pct=0.08)
+            logger.warning("[ai-designer] rembg failed (%s); falling back to feather mask", e)
+            cut = feather_mask(src, radius_pct=0.18, feather_blur_pct=0.07)
     else:
-        cut = _rounded_rect_mask(src, radius_pct=0.08)
+        # Sprint 16G — soft edge fade only on outermost ~25 px so the rectangle
+        # disappears but the food stays photographic.
+        cut = feather_mask(src, radius_pct=0.06, feather_blur_pct=0.025)
 
     # Crop to the actual visible (non-transparent) bounding box so we scale to the
     # food, not the surrounding empty pixels.
@@ -1031,80 +1041,49 @@ def _draw_branding(canvas: Image.Image, theme: Dict[str, Any]) -> None:
 def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                     item_name: str, features: List[str], price: Optional[str],
                     theme_id: str, layout: str) -> bytes:
-    """Composite the final marketing graphic. PIL is the source of truth — never AI."""
+    """Composite the final marketing graphic.
+
+    Sprint 16G: the imperative if/elif layout branches were replaced by a
+    delegation to `render_engine.compose_layered`. The new compositor adds:
+       * feathered photo edges (no more "photo in a box"),
+       * layered ambient + contact shadows (food sits IN the design),
+       * color-harmony wash (theme palette + 25% of the dish's tones),
+       * theme overlay hook (foreground particles per theme),
+       * six layout variants picked deterministically per (theme, variant).
+    The `layout` parameter still drives variant selection — variant_idx is
+    derived from the legacy string so all existing callers stay correct.
+    """
+    from render_engine import compose_layered, LEGACY_LAYOUT_ALIAS
+
     theme = THEME_STYLES[theme_id]
-    # Background
     bg = Image.open(io.BytesIO(bg_bytes)).convert("RGB")
     if bg.size != (CANVAS, CANVAS):
         bg = bg.resize((CANVAS, CANVAS), Image.LANCZOS)
-    canvas = bg.convert("RGBA")
 
-    # Subtle vignette overlay to make title/branding more readable
-    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    od.rectangle((0, 0, CANVAS, 140), fill=(0, 0, 0, 60))   # top band for title legibility
-    od.rectangle((0, CANVAS - 140, CANVAS, CANVAS), fill=(0, 0, 0, 50))  # bottom band
-    canvas = Image.alpha_composite(canvas, overlay)
+    # Map the historical (centered/asym_left/stacked) variant_idx so the new
+    # engine picks 3 distinct layouts per theme (one per legacy variant).
+    legacy_to_variant = {"centered": 0, "asym_left": 1, "stacked": 2}
+    variant_idx = legacy_to_variant.get(layout, 0)
+    # Allow callers to bypass the picker by passing a 16G layout name directly.
+    layout_override = None
+    if layout in LEGACY_LAYOUT_ALIAS:
+        layout_override = LEGACY_LAYOUT_ALIAS[layout]
 
-    # Layout-specific placement
-    safe_pad = 60
-    if layout == "centered":
-        # Title centered top, food center, bullets right column, price bottom-right
-        title_y_end = _draw_title(canvas, theme, item_name, safe_pad, safe_pad, CANVAS - 2 * safe_pad, "center")
-        # Food
-        food_max = int(CANVAS * 0.55)
-        food = food_rgba
-        # Fit food into a square of food_max
-        scale = food_max / max(food.width, food.height)
-        food_r = food.resize((max(1, int(food.width * scale)), max(1, int(food.height * scale))), Image.LANCZOS)
-        food_shadowed = _drop_shadow(food_r)
-        fx = (CANVAS - food_shadowed.width) // 2
-        fy = title_y_end + 20
-        canvas.alpha_composite(food_shadowed, (fx, fy))
-        # Bullets bottom-left band
-        _draw_bullets(canvas, theme, features, safe_pad, CANVAS - 240, CANVAS - 2 * safe_pad - 220)
-        # Price badge bottom-right
-        _draw_price_badge(canvas, theme, (price or "").strip() or "—",
-                          CANVAS - 130, CANVAS - 200, 90)
-
-    elif layout == "asym_left":
-        # Food big on the left, text column on the right
-        food_max = int(CANVAS * 0.52)
-        food = food_rgba
-        scale = food_max / max(food.width, food.height)
-        food_r = food.resize((max(1, int(food.width * scale)), max(1, int(food.height * scale))), Image.LANCZOS)
-        food_shadowed = _drop_shadow(food_r)
-        fx = safe_pad - 30
-        fy = (CANVAS - food_shadowed.height) // 2
-        canvas.alpha_composite(food_shadowed, (fx, fy))
-        # Title top-right
-        text_x = int(CANVAS * 0.55)
-        text_w = CANVAS - text_x - safe_pad
-        title_y_end = _draw_title(canvas, theme, item_name, text_x, safe_pad + 20, text_w, "left")
-        _draw_bullets(canvas, theme, features, text_x, title_y_end + 20, text_w)
-        _draw_price_badge(canvas, theme, (price or "").strip() or "—",
-                          CANVAS - 130, CANVAS - 180, 80)
-
-    else:  # "stacked"
-        # Title large at top, food in upper-center, bullets+price band at bottom
-        title_y_end = _draw_title(canvas, theme, item_name, safe_pad, safe_pad - 10, CANVAS - 2 * safe_pad, "center")
-        food_max = int(CANVAS * 0.50)
-        food = food_rgba
-        scale = food_max / max(food.width, food.height)
-        food_r = food.resize((max(1, int(food.width * scale)), max(1, int(food.height * scale))), Image.LANCZOS)
-        food_shadowed = _drop_shadow(food_r)
-        fx = (CANVAS - food_shadowed.width) // 2
-        fy = title_y_end + 10
-        canvas.alpha_composite(food_shadowed, (fx, fy))
-        # Bullets left bottom
-        _draw_bullets(canvas, theme, features, safe_pad, CANVAS - 230, int(CANVAS * 0.55))
-        # Price right bottom
-        _draw_price_badge(canvas, theme, (price or "").strip() or "—",
-                          CANVAS - 150, CANVAS - 180, 95)
-
-    # Footer branding
-    _draw_branding(canvas, theme)
-
+    canvas = compose_layered(
+        bg_image=bg,
+        food_rgba=food_rgba,
+        theme=theme,
+        theme_id=theme_id,
+        variant_idx=variant_idx,
+        draw_title=_draw_title,
+        draw_bullets=_draw_bullets,
+        draw_price_badge=_draw_price_badge,
+        draw_branding=_draw_branding,
+        item_name=item_name,
+        features=features,
+        price=price,
+        layout_override=layout_override,
+    )
     out = io.BytesIO()
     canvas.convert("RGB").save(out, "PNG", optimize=True)
     return out.getvalue()
