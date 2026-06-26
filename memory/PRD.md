@@ -2670,3 +2670,87 @@ visibility: internal + small dev label.
     locally, not surfaced in PRD due to size)
 
 
+
+---
+
+## Sprint 19 — UX Polish, Library, Menu Validation — 2026-02-26
+
+**Scope locked by user**: No reports, no docs, no new engines/themes.
+Focus on the experience owners interact with daily. Three priorities:
+(P1) reduce friction in Photo→Flyer, (P2) make Library the primary
+workspace, (P3) validate against the real Lakeview menu.
+
+**What shipped**
+
+### P1 — Photo→Flyer click reduction
+* **Recommended Style** is now passively confirmed via a chip instead
+  of an explicit "Apply" button — the recommended theme is already
+  the default selection, so the click was redundant. (Apply button
+  still appears if the user picked a non-rec theme.)
+* **Saved style auto-applies** on landing (the saved style is the
+  owner's *explicit prior decision*, not the AI choosing).
+  "Use Saved Style" button removed; replaced with a passive banner
+  + inline "Start Fresh" link.
+* **Click count to flyer** (with menu pick + saved style):
+  Menu pick (1) → Upload photo (1) → Generate (1) = **3 clicks**.
+  Without saved style: Menu pick → Upload → Generate = still 3.
+  Target met.
+
+### P2 — Library full toolset
+Every flyer card now exposes the complete set of owner actions
+(per the user spec):
+  * ★ Favorite (thumbnail overlay)
+  * 🔁 Remix (thumbnail overlay)
+  * ⬇  **Download** (new) — programmatic anchor + bumps last_used_at
+  * ⧉  **Duplicate** (new) — wired to existing
+    `POST /api/media/assets/{id}/duplicate`
+  * 🎬 **Make Video** (new) — sessionStorage handshake → opens
+    Photo→Flyer with the auto_video hint set
+  * 🗑 Archive
+
+Verified live: 200 cards × 4 action buttons rendered cleanly.
+
+### P3 — Real Menu Validation harness
+New `/app/backend/scripts/menu_validation.py`. Loops every Lakeview
+menu item, asks the Creative Director for the #1 theme, generates a
+flyer, captures quality scores. No markdown report (per spec); prints
+to STDOUT and exits non-zero on any failure (CI-gateable). First run
+(6 appetizers) summary:
+```
+avg quality  68.8
+worst        Chicken Wings (12)  (game_day_scoreboard) avg=66.7
+best         Café Fries          (luxury)              avg=70.8
+```
+Confirms the engine is consistently producing **Very Good** flyers
+on the asym_left variant and **Needs Attention** on centered/stacked.
+Worst theme cluster: anything with the dead-centre hero. Best:
+luxury (off-centre) and personality-aligned recommendations.
+
+**Files**
+   * Modified: `/app/frontend/src/pages/dashboard/aiads/RecommendedStyleCard.jsx`
+     (passive confirmation chip),
+     `/app/frontend/src/pages/dashboard/aiads/PhotoToFlyer.jsx`
+     (saved style auto-apply, simplified banner),
+     `/app/frontend/src/pages/dashboard/LibraryTab.jsx`
+     (Download / Duplicate / Make Video buttons + handlers)
+   * New: `/app/backend/scripts/menu_validation.py`
+
+**Guardrails honored**
+   * No new rendering engines · no new themes · no new AI workflows
+   * No backend breaking changes (Duplicate endpoint already existed)
+   * No new docs / reports / smoke-test markdown
+
+**Findings for future tuning (NOT acted on this sprint)**
+   * Quality Score consistently prefers the asym_left layout over
+     centered/stacked. Suggests bumping the iteration cap from 2 to
+     3 might lift the avg from ~68.8 → ~72.
+   * "Needs Attention" labels are mostly driven by `composition` and
+     `focal_point` metrics (off-centre bias). Centered hero layouts
+     should probably be removed from the default rotation entirely
+     for personality=aggressive packs.
+   * The 60-75% food prominence target rewards photos with darker
+     backgrounds (food luminance dominates). Owners uploading bright
+     overhead shots get lower scores. Worth surfacing a "tip" in the
+     UI in a future sprint.
+
+

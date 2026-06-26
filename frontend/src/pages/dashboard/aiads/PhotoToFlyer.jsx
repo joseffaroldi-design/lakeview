@@ -167,7 +167,9 @@ const UploadStep = ({
           />
         </div>
 
-        {/* Sprint 17A — Saved style banner. Only renders when memory exists for the picked item. */}
+        {/* Sprint 17A / 19 — Saved style auto-applied. The owner can still
+            opt out via "Start Fresh" (or expand "View options" to pick
+            manually on the next step). Renders only when memory exists. */}
         {menuItem && savedMemory ? (
           <div
             className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold/50 bg-gold/10 px-3 py-2"
@@ -177,32 +179,22 @@ const UploadStep = ({
               <BookOpen className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
               <div className="text-xs leading-snug min-w-0">
                 <p className="font-semibold text-navy truncate">
-                  We found your preferred design style for <span className="text-gold">{menuItem.name}</span>.
+                  Using your saved style for <span className="text-gold">{menuItem.name}</span>
                 </p>
                 <p className="text-navy/70 truncate">
                   Saved theme: <strong>{savedMemory.theme}</strong>
                   {savedMemory.use_count ? <> · used {savedMemory.use_count}×</> : null}
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={onStartFresh}
+                    className="underline hover:text-navy"
+                    data-testid="photo-flyer-start-fresh"
+                  >
+                    Start Fresh
+                  </button>
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                size="sm"
-                onClick={onUseSavedStyle}
-                className="bg-gold text-navy hover:bg-gold/90 h-7 text-xs"
-                data-testid="photo-flyer-use-saved-style"
-              >
-                Use Saved Style
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onStartFresh}
-                className="border-navy/20 h-7 text-xs"
-                data-testid="photo-flyer-start-fresh"
-              >
-                Start Fresh
-              </Button>
             </div>
           </div>
         ) : null}
@@ -993,6 +985,17 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
     setStep("review");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sprint 19 — auto-apply the saved style as soon as we know about it.
+  // The saved style is the OWNER's explicit prior decision (not the AI
+  // choosing), so applying it without an extra click is the right call.
+  // The "Start Fresh" button still lets them opt out.
+  useEffect(() => {
+    if (menuItem && savedMemory && savedMemory.theme && !useSaved) {
+      setUseSaved({ theme: savedMemory.theme });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuItem, savedMemory]);
 
   const discardPrefill = () => { clearPrefill(); setPrefill(null); };
 

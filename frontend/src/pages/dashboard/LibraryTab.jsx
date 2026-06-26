@@ -10,7 +10,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
   Search, Upload, Video, Loader2, Trash2, Star,
-  RotateCcw, Filter, X,
+  RotateCcw, Filter, X, Download, Copy as CopyIcon,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -151,6 +151,61 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
       toast.error("Could not archive",
         { description: String(e?.response?.data?.detail || e.message) });
     }
+  };
+
+  // Sprint 19 — Library actions
+  const onDownload = (a) => {
+    const url = `${API}/media/file/${a.id}`;
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = a.filename || `asset-${a.id}.png`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    // Bump last_used_at so the smart sort surfaces this asset next.
+    axios.post(`${API}/media/assets/${a.id}/used`, null,
+      { headers: getAuthHeader(), timeout: 10000 }).catch(() => {});
+  };
+
+  const onDuplicate = async (a) => {
+    try {
+      await axios.post(`${API}/media/assets/${a.id}/duplicate`, null,
+        { headers: getAuthHeader(), timeout: 15000 });
+      toast.success(`"${a.item_name || a.filename}" duplicated`);
+      refresh();
+    } catch (e) {
+      toast.error("Couldn't duplicate",
+        { description: String(e?.response?.data?.detail || e.message) });
+    }
+  };
+
+  const onMakeVideo = (a) => {
+    // Reuse the Remix sessionStorage handshake so PhotoToFlyer can land
+    // pre-loaded; the user then triggers Make Video from the Done step.
+    if (!a.source_asset_id) {
+      toast.error("Can't make a video for this asset",
+        { description: "Original photo wasn't tracked. Use Photo→Flyer to regenerate first." });
+      return;
+    }
+    const payload = {
+      source_asset_id: a.source_asset_id,
+      theme: a.theme || null,
+      menu_item: a.item_key && a.item_name ? {
+        item_key: a.item_key, name: a.item_name, price: "", features: [], category: "",
+      } : null,
+      food_type: a.item_name || "",
+      auto_video: true,   // hint PhotoToFlyer to kick off the video on landing
+    };
+    try { sessionStorage.setItem(REMIX_KEY, JSON.stringify(payload)); } catch { /* ignore */ }
+    axios.post(`${API}/media/assets/${a.id}/used`, null,
+      { headers: getAuthHeader(), timeout: 10000 }).catch(() => {});
+    if (typeof onRequestNavigate === "function") {
+      onRequestNavigate("promote");
+    } else {
+      window.dispatchEvent(new CustomEvent("lakeview.tab.navigate",
+        { detail: { tab: "promote" } }));
+    }
+    toast.success(`Opening "${a.item_name || a.filename}" for video…`);
   };
 
   // Sprint 17B — Remix: stash original-photo + menu item + theme into
@@ -336,7 +391,29 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
                   <span className="text-muted-foreground capitalize truncate">
                     {a.theme || a.kind}
                   </span>
-                  <div className="flex gap-1">
+                  {/* Sprint 19 — full action toolset: Download, Duplicate,
+                      Make Video, Archive. Favorite + Remix are on the
+                      thumbnail overlay above. */}
+                  <div className="flex gap-1" data-testid={`library-actions-${a.id}`}>
+                    {a.kind === "image" ? (
+                      <button onClick={() => onDownload(a)}
+                        className="p-1 rounded hover:bg-stone-100"
+                        data-testid={`library-download-${a.id}`} title="Download">
+                        <Download className="h-3.5 w-3.5 text-stone-500" />
+                      </button>
+                    ) : null}
+                    <button onClick={() => onDuplicate(a)}
+                      className="p-1 rounded hover:bg-stone-100"
+                      data-testid={`library-duplicate-${a.id}`} title="Duplicate">
+                      <CopyIcon className="h-3.5 w-3.5 text-stone-500" />
+                    </button>
+                    {a.source_asset_id ? (
+                      <button onClick={() => onMakeVideo(a)}
+                        className="p-1 rounded hover:bg-stone-100"
+                        data-testid={`library-video-${a.id}`} title="Make Video">
+                        <Video className="h-3.5 w-3.5 text-stone-500" />
+                      </button>
+                    ) : null}
                     <button onClick={() => onDelete(a)}
                       className="p-1 rounded hover:bg-stone-100"
                       data-testid={`library-del-${a.id}`} title="Archive">

@@ -106,21 +106,30 @@ const RecommendedStyleCard = ({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onApply}
-          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-            isSelected
-              ? "bg-gold/30 text-navy cursor-default"
-              : "bg-gold text-navy hover:bg-gold/90"
-          }`}
-          disabled={isSelected}
-          data-testid="rec-style-apply"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          {isSelected ? "Recommended style applied" : "Apply Recommended Style"}
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {isSelected ? (
+          /* Sprint 19 — passive confirmation. The recommended theme is
+             already the default selection on the Review step, so the
+             owner doesn't have to click anything to use it. Click
+             "Generate" below to ship it as-is. */
+          <span
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold bg-gold/15 text-navy border border-gold/40"
+            data-testid="rec-style-applied-chip"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-gold" />
+            Using this style — click Generate when ready
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onApply}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors bg-gold text-navy hover:bg-gold/90"
+            data-testid="rec-style-apply"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Apply Recommended Style
+          </button>
+        )}
         <button
           type="button"
           onClick={onShowOther}
