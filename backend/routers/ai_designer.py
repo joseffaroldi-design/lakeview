@@ -965,8 +965,12 @@ def _draw_bullets(canvas: Image.Image, theme: Dict[str, Any], features: List[str
     use_icons = bool(theme.get("icons"))
     icon_size = max(28, min(40, body["size"] + 4))
     icon_color = body.get("marker_color", (255, 255, 255))
-    for i, feat in enumerate(features[:5]):
-        ty = y + i * line_h
+    cur_y = y
+    drawn_lines = 0
+    for feat in features[:5]:
+        if drawn_lines >= 6:  # Cap total wrapped lines at 6 — keeps the block from running off-canvas
+            break
+        ty = cur_y
         icon_drawn = False
         if use_icons:
             kind = _icon_for_feature(feat)
@@ -979,9 +983,19 @@ def _draw_bullets(canvas: Image.Image, theme: Dict[str, Any], features: List[str
             draw.text((x, ty), marker, fill=body["marker_color"], font=f)
             mb = draw.textbbox((0, 0), marker + " ", font=f)
             text_x = x + (mb[2] - mb[0])
-        # truncate single line if too wide
+        # Sprint 19 polish: draw ALL wrapped lines for this feature, not just
+        # the first one. Previously long features like "Sour Cream & Jalapeños"
+        # were truncated to "Sour Cream &" because only wrapped[0] was drawn.
         wrapped = _wrap_text(draw, feat, f, max_w - (text_x - x))
-        draw.text((text_x, ty), wrapped[0], fill=body["color"], font=f)
+        for line_idx, line in enumerate(wrapped):
+            if drawn_lines >= 6:
+                break
+            # First wrapped line uses the bullet/icon row; continuation lines
+            # are indented under the text column with no marker.
+            line_y = cur_y + line_idx * line_h
+            draw.text((text_x, line_y), line, fill=body["color"], font=f)
+            drawn_lines += 1
+        cur_y += line_h * max(1, len(wrapped))
 
 
 def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
