@@ -19,7 +19,7 @@ from routers import (
     cms, specials, analytics, loyalty, messaging,
     catering, newsletter, misc, ai_ads, media, home,
     marketing_pack, billing, ai_designer, todays_pick, ai_image,
-    photo_flyer,
+    photo_flyer, design_memory, creative_director,
 )
 
 logging.basicConfig(
@@ -54,6 +54,8 @@ api_router.include_router(ai_designer.router)
 api_router.include_router(ai_image.router)
 api_router.include_router(photo_flyer.router)
 api_router.include_router(todays_pick.router)
+api_router.include_router(design_memory.router)
+api_router.include_router(creative_director.router)
 app.include_router(api_router)
 
 # CORS
@@ -100,6 +102,9 @@ async def on_startup():
         await db.marketing_packs.create_index([("status", 1), ("created_at", -1)], name="mpk_status_created")
         await db.marketing_packs.create_index("id", name="mpk_id", unique=True, sparse=True)
         await db.menu_promotions.create_index("item_key", name="mp_item_key", unique=True)
+        # Sprint 17A: per-menu-item Design Memory (visual prefs only).
+        await db.design_memory.create_index("item_key", name="dm_item_key", unique=True)
+        await db.design_memory.create_index([("updated_at", -1)], name="dm_updated_at")
         # Sprint 12C — Task 3: TTL indexes prevent unbounded growth on append-only
         # audit / log / analytics collections. Mongo's TTL monitor deletes any doc
         # whose `expires_at` (BSON Date) is in the past, checked roughly every 60s.

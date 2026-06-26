@@ -1,0 +1,46 @@
+{
+  "summary": "Sprint 17A — Creative Director + Design Memory testing. Backend: 14/14 pytests in test_design_memory.py PASS (auth, CRUD, whitelist drop of captions/video_id, key validation, recommend always-3 with ranks Best/Good/Alternative + stars 5/4/3, category inference burger/seafood/sports, memory bias elevates saved theme to Best Match, general fallback). Frontend: menu-item-picker + search + ArrowDown/Enter selection + clear ALL work. Saved-style banner correctly hidden without memory and correctly shown after PUT (with Use Saved Style / Start Fresh). Upload → analyze (14s) → Review step renders cd-recs with exactly 3 cards + cd-recs-toggle-all reveals cd-recs-all-themes. Generate → Done step (38s) renders photo-flyer-step-review-done + photo-flyer-flyer-img. TWO frontend integration bugs found: (1) clicking 'Use Saved Style' does NOT elevate the saved theme to Best Match in the top-3 cards (it stays in all-themes only); (2) clicking Download on Done step does NOT open the save-style-modal (learning loop is broken).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Use Saved Style → Best Match elevation",
+        "issue": "When user clicks data-testid='photo-flyer-use-saved-style' and proceeds to Review, the saved theme (burger_neon_diner) is NOT elevated to the Best Match position in cd-recs. Reason: chicken-wings-12 → category='sports' (50 pts) outweighs memory bias (+35 pts) in the backend scorer; cross-category memory cannot beat in-category baseline. The 'FROM SAVED STYLE' pill IS shown in the header (cd-recs-memory-pill) and the saved theme is highlighted in the all-themes picker, but the top-3 cards still show game_day_scoreboard / game_day_tailgate / game_day_locker. Spec says 'should pre-select the saved theme as Best Match position'. Either: (a) bump memory bias from +35 to >50 in /app/backend/routers/creative_director.py _score_themes, or (b) when useSaved is set on the frontend, surgically swap the saved theme to position 0 in the recs array after fetching from /api/creative-director/recommend.",
+        "affected_selectors": ["cd-rec-game_day_scoreboard", "cd-rec-burger_neon_diner", "cd-recs-memory-pill"]
+      },
+      {
+        "flow": "Learning loop — Download triggers save-style-modal",
+        "issue": "On the Done step, clicking data-testid='photo-flyer-download-flyer' (an <a href=flyerUrl download onClick={onDownloadClick}> element at PhotoToFlyer.jsx:652-657) does NOT open data-testid='save-style-modal'. Confirmed: menuItem (chicken-wings-12), themeUsed (lastTheme=game_day_scoreboard, different from savedMemory.theme so the early-return at line 955 does NOT fire), askedToSave=false — all preconditions met — yet the modal never appears after the click. Likely cause: the browser begins handling the download navigation in the same tick the React state setter is queued, and the inert <a download> never yields focus back for the modal to paint; OR onDownloadClick is being called but setSaveModal is racing with the download. Recommend: change the <a> to a <button> that programmatically navigator-downloads via fetch+blob OR call e.preventDefault() in onDownloadClick, open the modal, and only trigger window.location = flyerUrl after the modal interaction completes (or in parallel). Either way the modal must paint on click in the same session.",
+        "affected_selectors": ["photo-flyer-download-flyer", "save-style-modal", "save-style-confirm", "save-style-skip", "save-style-dismiss"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_design_memory.py",
+    "/app/test_reports/pytest/pytest_sprint17a.xml"
+  ],
+  "action_items": [
+    "Fix learning-loop modal: in PhotoToFlyer.jsx around line 569-579, prevent default on the <a download> click, open the save-style-modal, then trigger the download (e.g., via window.location = flyerUrl or a programmatic anchor click) AFTER setSaveModal fires. As-is the modal never paints.",
+    "Fix Use-Saved-Style → Best Match: either raise memory-bias score in _score_themes() from +35 to a value that beats +50 category match, OR in PhotoToFlyer/CreativeDirectorRecs.jsx detect useSaved.theme and reorder the recs so the saved theme is rendered at index 0 with rank='Best Match' / stars=5.",
+    "Optional: add a unit/e2e test for the 'Use Saved Style → Best Match' contract once the fix lands."
+  ],
+  "critical_code_review_comments": [
+    "PhotoToFlyer.jsx:569 onDownloadClick — uses a setter on an <a download> which is unreliable; switch to button + programmatic download or e.preventDefault().",
+    "creative_director.py:_score_themes — category match (+50) outranks memory bias (+35), which contradicts the Sprint 17A spec that the saved style should win. Consider bumping memory to +55 or making category match additive on top of memory.",
+    "PhotoToFlyer.jsx:1056-1061 SavePreferredStyleModal — confirm button has no busy-state visual difference when savingStyle=true other than Loader2; OK but consider disabling overlay to prevent double-submit.",
+    "design_memory.py upsert_memory correctly returns the merged doc (good); confirm 200 (PUT typically 200 is fine but PATCH/PUT semantics could be 200 vs 201 — current 200 is consistent)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "85% — menu picker, banner, recs, all-themes toggle, generation flow all work; 2 integration bugs (saved-style not Best Match, download doesn't open modal)"},
+  "test_credentials": "Admin password from /app/memory/test_credentials.md (83CeLOZJQbOcopK0yYmNtdRQg4VPii8o) — works.",
+  "seed_data_creation": "Created and self-cleaned design_memory doc for 'appetizers::chicken-wings-12' (theme=burger_neon_diner). DELETEd at end of run.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sprint 17A backend (test_design_memory.py) is rock solid — 14/14 pass. Frontend menu-picker + banner + cd-recs + toggle-all + generate-to-done flow all WORK. Remaining bugs are precisely two: (1) frontend doesn't force the saved theme to Best Match in the cd-recs cards when Use Saved Style is clicked, and (2) the <a download> click on Done step doesn't open the save-style-modal — likely because the download navigation races with React's state setter. After fixing, re-test by: PUT memory via curl for any item_key, login, pick that item, click Use Saved Style, upload /tmp/test_food.png, verify the FIRST cd-rec card matches savedMemory.theme. Then generate, click Download, expect save-style-modal to appear. Token still valid for ~24h: hUrt6o_vboCNdMx-oh5_t2vsAZ0X5IPGwLtOGxPCJhk.",
+  "rca of the issue": "Bug 1 RCA: In /app/backend/routers/creative_director.py _score_themes(), category match adds +50 while memory bias adds only +35. For cross-category memory (saved burger theme + sports-category item), 50 > 35+4=39, so the saved theme can never reach Best Match for cross-category requests. Reproduction: PUT design_memory for 'appetizers::chicken-wings-12' with theme=burger_neon_diner, then POST /api/creative-director/recommend with the same item_key — the response shows game_day_scoreboard at rank=Best Match, not burger_neon_diner. Mitigation: either raise memory bias above the category bonus, or have the frontend swap-to-front when useSaved is active. Bug 2 RCA: PhotoToFlyer.jsx line 652-657 renders Download as <a href=flyerUrl download onClick={onDownloadClick}>. onDownloadClick calls setSaveModal which IS state-setter, but the browser handles the download synchronously (navigation/file save) which likely preempts the React paint of the modal. The state update IS likely queued but the modal never renders visibly. Repro: complete the upload→review→generate flow, click the Download link on Done step — modal does not appear. Mitigation: rewrite Download as <button> + programmatic fetch+blob download OR preventDefault and open the modal first, then trigger the download from inside the modal's onConfirm/onDismiss."
+}

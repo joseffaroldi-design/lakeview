@@ -19,17 +19,19 @@
  *   POST /api/ai-designer/generate   (flyer + auto_copy) — existing
  *   POST /api/marketing-pack/generate (15-s video, opt-in) — existing
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import axios from "axios";
 import {
   Sparkles, Upload, Loader2, Download, RefreshCw, CheckCircle,
   ArrowLeft, Wand2, Image as ImageIcon, Video, ChevronRight, Copy,
-  AlertTriangle,
+  AlertTriangle, BookOpen, Save, X,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { API, Section } from "./shared";
 import StructuredErrorCard, { parseAxiosError } from "./StructuredErrorCard";
+import MenuItemPicker from "./MenuItemPicker";
+import CreativeDirectorRecs from "./CreativeDirectorRecs";
 
 const POLL_MS = 3000;
 const POLL_TIMEOUT_MS = 4 * 60 * 1000;
@@ -66,7 +68,18 @@ const clearPrefill = () => {
 
 // ============================== Step 1 — Upload ==========================
 
-const UploadStep = ({ onAnalyzed, getAuthHeader, prefill, onDiscardPrefill }) => {
+const UploadStep = ({
+  onAnalyzed,
+  getAuthHeader,
+  prefill,
+  onDiscardPrefill,
+  menuItem,
+  onPickMenuItem,
+  onClearMenuItem,
+  savedMemory,
+  onUseSavedStyle,
+  onStartFresh,
+}) => {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState(null);
@@ -122,12 +135,63 @@ const UploadStep = ({ onAnalyzed, getAuthHeader, prefill, onDiscardPrefill }) =>
           </button>
         </div>
       ) : null}
+
       <Section title="Start with a food photo" icon={Wand2} testId="photo-upload">
+        {/* Sprint 17A — Menu item dropdown. Reuses /api/menu (no new endpoint). */}
+        <div className="mb-4">
+          <MenuItemPicker
+            getAuthHeader={getAuthHeader}
+            value={menuItem?.item_key || ""}
+            onSelect={onPickMenuItem}
+            onClear={onClearMenuItem}
+          />
+        </div>
+
+        {/* Sprint 17A — Saved style banner. Only renders when memory exists for the picked item. */}
+        {menuItem && savedMemory ? (
+          <div
+            className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold/50 bg-gold/10 px-3 py-2"
+            data-testid="photo-flyer-saved-style-banner"
+          >
+            <div className="flex items-start gap-2 min-w-0">
+              <BookOpen className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+              <div className="text-xs leading-snug min-w-0">
+                <p className="font-semibold text-navy truncate">
+                  We found your preferred design style for <span className="text-gold">{menuItem.name}</span>.
+                </p>
+                <p className="text-navy/70 truncate">
+                  Saved theme: <strong>{savedMemory.theme}</strong>
+                  {savedMemory.use_count ? <> · used {savedMemory.use_count}×</> : null}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                onClick={onUseSavedStyle}
+                className="bg-gold text-navy hover:bg-gold/90 h-7 text-xs"
+                data-testid="photo-flyer-use-saved-style"
+              >
+                Use Saved Style
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onStartFresh}
+                className="border-navy/20 h-7 text-xs"
+                data-testid="photo-flyer-start-fresh"
+              >
+                Start Fresh
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         <p className="text-sm text-navy/70 mb-3">
           Upload a photo of any dish. We&apos;ll detect the food, enhance the
           lighting, auto-fill the design fields, and you&apos;ll have a
-          shareable flyer + captions in under 60 seconds. No manual entry
-          needed.
+          shareable flyer + captions in under 60 seconds.
+          {menuItem ? <> Name, price and features have been pre-filled from <strong>{menuItem.name}</strong>.</> : null}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -249,15 +313,31 @@ const InlineThemePicker = ({ themes, packs, value, onChange }) => {
   );
 };
 
-const AnalysisReviewStep = ({ analysis, prefill, themes, packs, onBack, onGenerate, busy }) => {
-  // Sprint 16F.2 — when MenuEditor deep-linked us, prefer the menu item's
-  // values over the AI vision's guesses (the owner explicitly picked it).
-  const seedName = (prefill && prefill.name) || analysis.food_type || "";
-  const seedFeatures = (prefill && prefill.features && prefill.features.length
-    ? prefill.features
-    : analysis.features || []).join(", ");
+const AnalysisReviewStep = ({
+  analysis, prefill, themes, packs,
+  menuItem, recs, recsContext, useSaved,
+  onBack, onGenerate, busy,
+}) => {
+  // Sprint 17A — Menu picker > prefill > vision (most specific wins).
+  // If the owner explicitly picked a menu item, we trust those values.
+  // Otherwise fall back to the older MenuEditor sparkle prefill, then to
+  // whatever the AI vision returned.
+  const seedName = (menuItem && menuItem.name)
+    || (prefill && prefill.name)
+    || analysis.food_type
+    || "";
+  const seedFeatures = (
+    (menuItem && menuItem.features && menuItem.features.length)
+      ? menuItem.features
+      : (prefill && prefill.features && prefill.features.length)
+        ? prefill.features
+        : (analysis.features || [])
+  ).join(", ");
   const seedPrice = (() => {
-    const raw = (prefill && prefill.price) || analysis.menu_match?.price || "";
+    const raw = (menuItem && menuItem.price)
+      || (prefill && prefill.price)
+      || analysis.menu_match?.price
+      || "";
     if (!raw) return "";
     return raw.toString().startsWith("$") ? raw : `$${raw}`;
   })();
@@ -266,7 +346,13 @@ const AnalysisReviewStep = ({ analysis, prefill, themes, packs, onBack, onGenera
   const [features, setFeatures] = useState(seedFeatures);
   const [price, setPrice] = useState(seedPrice);
   const [headline, setHeadline] = useState((prefill && prefill.headline) || "");
-  const [theme, setTheme] = useState(analysis.suggested_theme || "comic_pop");
+  // Sprint 17A — when "Use Saved Style" was clicked, prefer the saved theme.
+  const [theme, setTheme] = useState(
+    (useSaved && useSaved.theme)
+    || (recs && recs[0]?.id)
+    || analysis.suggested_theme
+    || "comic_pop"
+  );
 
   const submit = () => {
     const feats = features.split(",").map(s => s.trim()).filter(Boolean);
@@ -320,7 +406,12 @@ const AnalysisReviewStep = ({ analysis, prefill, themes, packs, onBack, onGenera
               <div className="text-[11px] text-muted-foreground space-y-0.5 mt-1">
                 <p>Detected: <span className="font-semibold text-navy">{analysis.food_type}</span>
                   {" "}({Math.round((analysis.confidence || 0) * 100)}% confidence)</p>
-                {analysis.menu_match?.matched ? (
+                {menuItem ? (
+                  <p data-testid="photo-flyer-menu-pick">
+                    Menu pick: <span className="text-gold font-semibold">{menuItem.name}</span>
+                    {" "}— name, price, features pre-filled.
+                  </p>
+                ) : analysis.menu_match?.matched ? (
                   <p data-testid="photo-flyer-menu-match">
                     Menu match: <span className="text-gold font-semibold">{analysis.menu_match.name}</span>
                     {" "}— price autofilled.
@@ -357,13 +448,22 @@ const AnalysisReviewStep = ({ analysis, prefill, themes, packs, onBack, onGenera
                   className="border-navy/20" data-testid="photo-flyer-headline" />
               </div>
             </div>
-            <div>
-              <label className="text-xs font-semibold text-navy">Theme</label>
-              <InlineThemePicker themes={themes} packs={packs}
-                value={theme} onChange={setTheme} />
-            </div>
           </div>
         </div>
+      </Section>
+
+      {/* Sprint 17A — Creative Director recommendations + collapsible full picker */}
+      <Section title="Choose a theme" icon={Sparkles} testId="photo-flyer-theme-section">
+        <CreativeDirectorRecs
+          recs={recs}
+          context={recsContext}
+          value={theme}
+          onPick={setTheme}
+          renderAll={() => (
+            <InlineThemePicker themes={themes} packs={packs}
+              value={theme} onChange={setTheme} />
+          )}
+        />
       </Section>
 
       <div className="flex gap-2">
@@ -450,13 +550,33 @@ const GeneratingStep = ({ getAuthHeader, designerJobId, onCompleted, onFailed })
 
 // ============================== Step 4 — Review (flyer + copy + opt-in video)
 
-const ReviewStep = ({ job, analysis, getAuthHeader, onRegenerate, onStartOver }) => {
+const ReviewStep = ({
+  job, analysis, getAuthHeader,
+  menuItem, themeUsed, onSavePreferredStyle,
+  onRegenerate, onStartOver,
+}) => {
   const vars = job.variations || [];
   const flyer = vars[0] || {};
   const flyerUrl = flyer.asset_id ? `${API}/media/file/${flyer.asset_id}` : null;
   const copy = job.copy_pack || {};
   const fb = copy.fb_post || "";
   const ig = copy.ig_post || "";
+
+  // Sprint 17A — Learning loop: fire the save-style prompt the first time
+  // the owner hits Download. Skipped if no menuItem (we'd have no item_key
+  // to save against) or if the current theme already matches what's saved.
+  const [askedToSave, setAskedToSave] = useState(false);
+  const onDownloadClick = () => {
+    if (!askedToSave && menuItem && themeUsed && onSavePreferredStyle) {
+      setAskedToSave(true);
+      onSavePreferredStyle({
+        item_key: menuItem.item_key,
+        item_name: menuItem.name,
+        theme: themeUsed,
+        favorite_flyer_id: flyer.asset_id || null,
+      });
+    }
+  };
 
   // Opt-in video state
   const [videoState, setVideoState] = useState("idle"); // idle|running|done|failed
@@ -530,6 +650,7 @@ const ReviewStep = ({ job, analysis, getAuthHeader, onRegenerate, onStartOver })
               data-testid="photo-flyer-flyer-img" />
             <div className="flex flex-wrap gap-2">
               <a href={flyerUrl} download
+                onClick={onDownloadClick}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:underline"
                 data-testid="photo-flyer-download-flyer">
                 <Download className="w-4 h-4" /> Download flyer
@@ -647,6 +768,53 @@ const ReviewStep = ({ job, analysis, getAuthHeader, onRegenerate, onStartOver })
 };
 
 
+// ============================== Save-Style Modal (Sprint 17A) ==========
+
+const SavePreferredStyleModal = ({ open, item_name, theme, onConfirm, onDismiss, busy }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 backdrop-blur-sm"
+         data-testid="save-style-modal">
+      <div className="bg-white rounded-lg border-2 border-gold/40 shadow-xl max-w-sm w-[92%] p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Save className="w-5 h-5 text-gold" />
+            <h3 className="font-serif text-navy text-base font-semibold">
+              Save as preferred style?
+            </h3>
+          </div>
+          <button onClick={onDismiss} className="text-navy/50 hover:text-navy"
+                  aria-label="Dismiss" data-testid="save-style-dismiss">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-sm text-navy/80 leading-snug mb-4">
+          Save <strong>{theme}</strong> as your preferred design style for{" "}
+          <strong>{item_name}</strong>? Next time you promote this item, we&apos;ll
+          suggest it first. You can always pick a different theme manually.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onDismiss}
+            disabled={busy}
+            className="flex-1 border-navy/20"
+            data-testid="save-style-skip">
+            Not now
+          </Button>
+          <Button onClick={onConfirm}
+            disabled={busy}
+            className="flex-1 bg-gold text-navy hover:bg-gold/90"
+            data-testid="save-style-confirm">
+            {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  : <Save className="w-4 h-4 mr-1.5" />}
+            Save preferred style
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 // ============================== Top-level ==============================
 
 const PhotoToFlyer = ({ getAuthHeader }) => {
@@ -659,8 +827,19 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
   // Sprint 16F.2 — menu-item prefill from MenuEditor sparkle ✨ deep-link.
   const [prefill, setPrefill] = useState(() => readPrefill());
   // Sprint 16F.2 — themes + packs[] payload used by the grouped picker.
-  // Loaded once per mount; falls back to FALLBACK_THEMES on error.
   const [themesData, setThemesData] = useState({ themes: null, packs: null });
+
+  // Sprint 17A — Menu item picker state + design memory + recommendations.
+  const [menuItem, setMenuItem] = useState(null);              // {item_key, name, price, features, category}
+  const [savedMemory, setSavedMemory] = useState(null);        // design_memory doc | null
+  const [useSaved, setUseSaved] = useState(null);              // {theme} when "Use Saved Style" clicked
+  const [recs, setRecs] = useState([]);                        // top-3 recommendations
+  const [recsContext, setRecsContext] = useState(null);
+  // Learning-loop save modal state
+  const [saveModal, setSaveModal] = useState(null);            // {item_key, item_name, theme, favorite_flyer_id} | null
+  const [savingStyle, setSavingStyle] = useState(false);
+  // Last generated theme (so the save modal knows what to save).
+  const [lastTheme, setLastTheme] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -678,8 +857,56 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
 
   const discardPrefill = () => { clearPrefill(); setPrefill(null); };
 
-  const onAnalyzed = (data) => {
+  // Sprint 17A — Load design memory + recommendations whenever the menu
+  // selection (or analysis) changes. Recommendations always run; memory
+  // is optional (404 == "no saved style yet").
+  const refreshRecs = useCallback(async ({ item, an }) => {
+    const item_key = item?.item_key || null;
+    // Memory: only when we have an item_key.
+    let memory = null;
+    if (item_key) {
+      try {
+        const rm = await axios.get(`${API}/design-memory/${encodeURIComponent(item_key)}`,
+          { headers: getAuthHeader(), timeout: 10000 });
+        memory = rm.data;
+      } catch (e) {
+        memory = null; // 404 is expected
+      }
+    }
+    setSavedMemory(memory);
+
+    // Recommendations: ask the Creative Director.
+    try {
+      const rr = await axios.post(`${API}/creative-director/recommend`, {
+        item_key,
+        food_type: (an && an.food_type) || (item && item.name) || "",
+        features: (an && an.features) || (item && item.features) || [],
+        dominant_colors: (an && an.dominant_colors) || [],
+      }, { headers: getAuthHeader(), timeout: 15000 });
+      setRecs(rr.data.recommendations || []);
+      setRecsContext(rr.data.context || null);
+    } catch (e) {
+      setRecs([]); setRecsContext(null);
+    }
+  }, [getAuthHeader]);
+
+  // Refresh recs on menu pick (pre-photo).
+  useEffect(() => {
+    if (step !== "upload") return;
+    refreshRecs({ item: menuItem, an: analysis });
+  }, [menuItem, step, analysis, refreshRecs]);
+
+  const onPickMenuItem = (item) => { setMenuItem(item); setUseSaved(null); };
+  const onClearMenuItem = () => { setMenuItem(null); setSavedMemory(null); setUseSaved(null); };
+  const onUseSavedStyle = () => {
+    if (savedMemory) setUseSaved({ theme: savedMemory.theme });
+  };
+  const onStartFresh = () => setUseSaved(null);
+
+  const onAnalyzed = async (data) => {
     setAnalysis(data); setStep("review"); setTopError(null);
+    // Recompute recommendations now that we have vision signals.
+    await refreshRecs({ item: menuItem, an: data });
   };
 
   const onGenerate = async (params) => {
@@ -697,8 +924,8 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
         remove_background: false,
       }, { headers: getAuthHeader(), timeout: 30000 });
       setDesignerJobId(r.data.job_id);
-      // Keep the chosen price on the job for the video step downstream
       setDesignerJob({ price: params.price });
+      setLastTheme(params.theme);
       setStep("generating");
     } catch (e) {
       setTopError(parseAxiosError(e));
@@ -717,8 +944,38 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
     setStep("upload"); setAnalysis(null);
     setDesignerJobId(null); setDesignerJob(null);
     setTopError(null);
+    setUseSaved(null);
+    setLastTheme(null);
   };
   const regenerate = () => { setStep("review"); };
+
+  // Learning loop — fired when the owner clicks Download (first time only).
+  const promptSavePreferredStyle = (payload) => {
+    // Skip if the saved theme already equals what they just used (no change).
+    if (savedMemory && savedMemory.theme && savedMemory.theme === payload.theme) return;
+    setSaveModal(payload);
+  };
+
+  const confirmSaveStyle = async () => {
+    if (!saveModal) return;
+    setSavingStyle(true);
+    try {
+      const body = { theme: saveModal.theme };
+      if (saveModal.favorite_flyer_id) body.favorite_flyer_id = saveModal.favorite_flyer_id;
+      const r = await axios.put(
+        `${API}/design-memory/${encodeURIComponent(saveModal.item_key)}`,
+        body,
+        { headers: getAuthHeader(), timeout: 10000 },
+      );
+      setSavedMemory(r.data);
+      setSaveModal(null);
+    } catch (e) {
+      // Silent on failure — owner can retry; we don't want to block download.
+      setSaveModal(null);
+    } finally {
+      setSavingStyle(false);
+    }
+  };
 
   return (
     <div className="space-y-6" data-testid="photo-flyer">
@@ -748,17 +1005,35 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
       ) : null}
 
       {step === "upload" && (
-        <UploadStep onAnalyzed={onAnalyzed} getAuthHeader={getAuthHeader}
-          prefill={prefill} onDiscardPrefill={discardPrefill} />
+        <UploadStep
+          onAnalyzed={onAnalyzed}
+          getAuthHeader={getAuthHeader}
+          prefill={prefill}
+          onDiscardPrefill={discardPrefill}
+          menuItem={menuItem}
+          onPickMenuItem={onPickMenuItem}
+          onClearMenuItem={onClearMenuItem}
+          savedMemory={savedMemory}
+          onUseSavedStyle={onUseSavedStyle}
+          onStartFresh={onStartFresh}
+        />
       )}
       {step === "review" && analysis && (
-        <AnalysisReviewStep analysis={analysis}
+        <AnalysisReviewStep
+          analysis={analysis}
           prefill={prefill}
           themes={themesData.themes || FALLBACK_THEMES.map(t => ({
             id: t.value, label: t.label, pack: "",
           }))}
           packs={themesData.packs}
-          onBack={startOver} onGenerate={onGenerate} busy={genBusy} />
+          menuItem={menuItem}
+          recs={recs}
+          recsContext={recsContext}
+          useSaved={useSaved}
+          onBack={startOver}
+          onGenerate={onGenerate}
+          busy={genBusy}
+        />
       )}
       {step === "generating" && designerJobId && (
         <GeneratingStep getAuthHeader={getAuthHeader}
@@ -766,10 +1041,26 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
           onCompleted={onCompleted} onFailed={onFailed} />
       )}
       {step === "done" && designerJob && (
-        <ReviewStep job={designerJob} analysis={analysis}
+        <ReviewStep
+          job={designerJob}
+          analysis={analysis}
           getAuthHeader={getAuthHeader}
-          onRegenerate={regenerate} onStartOver={startOver} />
+          menuItem={menuItem}
+          themeUsed={lastTheme}
+          onSavePreferredStyle={promptSavePreferredStyle}
+          onRegenerate={regenerate}
+          onStartOver={startOver}
+        />
       )}
+
+      <SavePreferredStyleModal
+        open={!!saveModal}
+        item_name={saveModal?.item_name || ""}
+        theme={saveModal?.theme || ""}
+        onConfirm={confirmSaveStyle}
+        onDismiss={() => setSaveModal(null)}
+        busy={savingStyle}
+      />
     </div>
   );
 };
