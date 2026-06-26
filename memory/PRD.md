@@ -2910,3 +2910,44 @@ a synthetic scorer.
 * `/app/memory/SPRINT20_PHASE0_5_FINAL_REPORT.md` — full audit
 * `/tmp/sprint20p05_renders/*.jpg` — 25 polished renders
 * `/tmp/sprint20p05_results.json` — full metrics dump
+
+---
+
+## Sprint 20A — Engine V3: HTML/CSS Flyer Rendering (Feb 2026)
+
+**Scope**: Replace the PIL procedural compositor with a headless-browser
+HTML/CSS rendering pipeline for **Cajun + Luxury** themes. Print-ready
+2048×2048 internally, downscaled to 1024×1024 PNG. PIL/agency renderer
+stays as the fallback for all other themes.
+
+**Status**: ✅ Live in preview, awaiting user redeploy to production.
+
+**What shipped**:
+* `html_renderer/` package — Playwright singleton + Jinja2 templates
+  (`cajun.html`, `luxury.html`) + locally-bundled Google Fonts
+  (Playfair Display, Cinzel, Oswald, Inter, Bebas Neue).
+* `_compose_design` now dispatches HTML → agency → procedural in order;
+  silent fallback on any failure preserves the safety net.
+* 14 new tests in `tests/test_html_renderer.py`. 57/57 backend tests pass.
+* `scripts/sprint20a_html_smoke.py` smoke runner.
+
+**Results**:
+* **Gemini Vision avg: 7.92 / 10** (PIL Phase 0.5: 7.5 → +0.42).
+* Top single score: **Cajun Shrimp Po-Boy 8.3** — highest in any sprint.
+* `typography` +1.9, `background_quality` +1.2, `color_harmony` +1.1,
+  `print_friendliness` +1.1.
+* Render time: 2.4s avg (acceptable; flyer generation is already async).
+* Resolution: 2048² render → 1024² LANCZOS = retina-quality downscale.
+* Zero regressions; public API contracts unchanged.
+
+**Remaining themes** (still on PIL/agency): `burger_classic`,
+`seafood_coastal`, `game_day_scoreboard`, `modern`, `distressed_orange`,
+`seafood_lagoon`, `vintage`. ~half a day each to port to HTML.
+
+**Recommended next polish (CSS-only, ~2 hours)**:
+1. Replace generic price badges with foil-stamp / gold-ribbon SVGs.
+2. Add `crop_style` CSS class toggle for the food (torn / clean / circle).
+3. Promote CTA in footer to a small gold pill.
+
+**Reports**:
+* `/app/memory/SPRINT20A_HTML_RENDERER_REPORT.md` — full audit & comparison

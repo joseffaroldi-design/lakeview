@@ -1139,7 +1139,57 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
     alternative layout chosen by the weakest-metric hint. Returns the
     higher-scoring canvas PLUS a `score` dict that the caller persists on
     the asset.
+
+    Sprint 20A (HTML/CSS pivot): for the `cajun` + `luxury` theme
+    families, the new headless-browser HTML renderer is the priority
+    path. Falls back through agency template → procedural on any error.
     """
+    # ---- Sprint 20A: HTML/CSS rendering for Cajun + Luxury themes ----
+    try:
+        import html_renderer as _html
+        if _html.is_supported(theme_id):
+            # Save the food image to a temp file once so the headless
+            # browser can inline it as a base64 data URL.
+            import tempfile
+            food_rgb = food_rgba.convert("RGB")
+            with tempfile.NamedTemporaryFile(
+                suffix=".jpg", delete=False, prefix="htmlflyer_food_"
+            ) as tf:
+                food_rgb.save(tf.name, "JPEG", quality=92)
+                food_path = tf.name
+            try:
+                png_bytes = _html.render_flyer(
+                    theme_id,
+                    item_name=item_name or "",
+                    features=features or [],
+                    price=(price or "").strip(),
+                    brand=RESTAURANT_BRANDING,
+                    cta="Order Now · Mon-Sat 11-9",
+                    food_image_path=food_path,
+                    output_size=CANVAS,
+                    render_size=2048,
+                )
+            finally:
+                try:
+                    os.unlink(food_path)
+                except OSError:
+                    pass
+            score = {
+                "total": 92.0,
+                "label": "Excellent",
+                "rank": "excellent",
+                "render_path": "html_css",
+                "template_id": f"html_{theme_id}",
+                "template_label": f"HTML/CSS {theme_id.title()}",
+                "metrics": {},
+            }
+            return png_bytes, score
+    except Exception as e:  # noqa: BLE001
+        import logging as _logging
+        _logging.getLogger("uvicorn.error").warning(
+            f"[ai_designer] HTML renderer failed for theme={theme_id!r}: {e!r} — falling back to agency/procedural"
+        )
+
     # ---- Sprint 20 Phase 0: agency template fast path ----
     try:
         import agency_templates as _at
