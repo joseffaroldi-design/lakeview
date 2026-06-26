@@ -273,13 +273,30 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
             {hasGraphics ? (
               <div>
                 {/* Main Graphic */}
-                <div className="aspect-square bg-navy/5 rounded-lg overflow-hidden border-2 border-navy/10 mb-3">
+                <div className="aspect-square bg-navy/5 rounded-lg overflow-hidden border-2 border-navy/10 mb-3 relative" data-testid="todays-pick-main-image">
                   <img
                     src={`${process.env.REACT_APP_BACKEND_URL}${graphics[selectedGraphic].url}`}
                     alt={`${item.name} - Variation ${graphics[selectedGraphic].variation}`}
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    onError={(e) => {
+                      // Sprint 16J — gracefully fall back when the thumb 404s.
+                      e.currentTarget.style.display = "none";
+                      const fb = e.currentTarget.nextElementSibling;
+                      if (fb) fb.style.display = "flex";
+                    }}
                   />
+                  <div
+                    className="absolute inset-0 hidden items-center justify-center bg-navy/5 text-center p-4"
+                    style={{ display: "none" }}
+                    data-testid="todays-pick-image-fallback"
+                  >
+                    <div>
+                      <Sparkles className="w-8 h-8 text-navy/30 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">Graphic preview unavailable</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">Click "Regenerate" to rebuild.</p>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Thumbnail Selector */}
@@ -299,6 +316,19 @@ const TodaysPick = ({ pick, onRefresh, getAuthHeader }) => {
                           src={`${process.env.REACT_APP_BACKEND_URL}${g.thumb_url}`}
                           alt={`Variation ${g.variation}`}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) {
+                              parent.classList.add("bg-navy/10");
+                              if (!parent.querySelector(".thumb-fallback")) {
+                                const span = document.createElement("span");
+                                span.className = "thumb-fallback text-[9px] text-navy/40";
+                                span.textContent = "?";
+                                parent.appendChild(span);
+                              }
+                            }
+                          }}
                         />
                       </button>
                     ))}

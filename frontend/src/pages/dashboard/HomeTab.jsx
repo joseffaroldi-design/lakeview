@@ -18,8 +18,10 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-// Sprint 16J — TodaysPick + BillingCard removed from Home per user request.
-// The components themselves still exist on disk for potential reuse.
+// Sprint 16J reverted — Today's Pick + BillingCard kept; image error
+// handling fixed + Minor-issues pill made clickable.
+import BillingCard from "./BillingCard";
+import TodaysPick from "./home/TodaysPick";
 import PickDifferentModal from "./home/PickDifferentModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -72,7 +74,9 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
   const [health, setHealth] = useState({ level: "green", issues: [] });
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [topItems, setTopItems] = useState([]);
+  const [todaysPick, setTodaysPick] = useState(null);
   const [pickDifferentOpen, setPickDifferentOpen] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,13 +86,14 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const ymd = todayYMD();
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-        const [summaryRes, healthRes, suggestRes, specialsRes, inqRes, statsRes] = await Promise.allSettled([
+        const [summaryRes, healthRes, suggestRes, specialsRes, inqRes, statsRes, todaysPickRes] = await Promise.allSettled([
           axios.get(`${API}/home/summary`, { headers }),
           axios.get(`${API}/home/health`, { headers }),
           axios.get(`${API}/home/promote-suggestions?limit=3`, { headers }),
           axios.get(`${API}/specials`, { headers }),
           axios.get(`${API}/catering/inquiries`, { headers }),
           axios.get(`${API}/ai-ads/stats`, { headers }).catch(() => ({ data: {} })),
+          axios.get(`${API}/todays-pick/today`, { headers }).catch(() => ({ data: null })),
         ]);
 
         if (cancelled) return;
@@ -99,6 +104,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const specials = specialsRes.status === "fulfilled" ? specialsRes.value.data || [] : [];
         const inquiries = inqRes.status === "fulfilled" ? (inqRes.value.data && inqRes.value.data.inquiries) || [] : [];
         const stats = statsRes.status === "fulfilled" ? statsRes.value.data || {} : {};
+        const pick = todaysPickRes.status === "fulfilled" ? todaysPickRes.value.data : null;
 
         setToday({
           scheduledToday: summary.scheduled || 0,
@@ -110,6 +116,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         setHealth(healthData);
         setTopItems(top3);
         setMenuItems([]);  // no longer needed — using top3 instead
+        setTodaysPick(pick);
 
         setWeek({
           mostPromotedItem: stats.most_used_goal || "—",
@@ -182,6 +189,16 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
     return () => { cancelled = true; };
   }, [getAuthHeader, onNavigate, onPromote]);
 
+  const refreshTodaysPick = async () => {
+    try {
+      const headers = getAuthHeader();
+      const res = await axios.get(`${API}/todays-pick/today`, { headers });
+      setTodaysPick(res.data);
+    } catch (err) {
+      console.error("Failed to refresh Today's Pick:", err);
+    }
+  };
+
   // Featured = first top-3 item (fallback null)
   const featuredItem = topItems[0] || null;
   void menuItems; // legacy state, no longer rendered
@@ -204,14 +221,67 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         </div>
         <div className="flex items-center gap-3">
           {loading ? <Loader2 className="w-4 h-4 animate-spin text-navy/40" /> : null}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${health.level === "red" ? "border-red-300 bg-red-50" : health.level === "yellow" ? "border-gold/40 bg-gold/10" : "border-forest/30 bg-forest/5"}`}
-            title={(health.issues || []).join(", ") || "All systems healthy"}
-            data-testid="home-health-pill" data-health-level={health.level}>
+          <button type="button"
+            onClick={() => setIssuesOpen((o) => !o)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-colors hover:opacity-80 ${health.level === "red" ? "border-red-300 bg-red-50" : health.level === "yellow" ? "border-gold/40 bg-gold/10" : "border-forest/30 bg-forest/5"}`}
+            title={(health.issues || []).length ? "Click to see details" : "All systems healthy"}
+            data-testid="home-health-pill" data-health-level={health.level}
+            aria-expanded={issuesOpen}>
             <span className={`w-2 h-2 rounded-full ${healthTone.dot}`} />
             <span className="text-xs font-semibold text-navy">{healthTone.text}</span>
-          </div>
+            {(health.issues || []).length > 0 ? (
+              <span className="text-[10px] font-bold text-navy/60 bg-white/60 rounded-full px-1.5 py-0.5">
+                {(health.issues || []).length}
+              </span>
+            ) : null}
+          </button>
         </div>
       </div>
+
+      {/* Sprint 16J — clickable issues panel; collapsed by default */}
+      {issuesOpen ? (
+        <div
+          className={`mb-6 rounded-lg border p-4 ${health.level === "red" ? "border-red-300 bg-red-50/50" : health.level === "yellow" ? "border-gold/40 bg-gold/10" : "border-forest/30 bg-forest/5"}`}
+          data-testid="home-health-issues-panel"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-navy">
+              {(health.issues || []).length === 0 ? "All systems healthy" : `${health.issues.length} issue${health.issues.length === 1 ? "" : "s"} detected`}
+            </p>
+            <button type="button" onClick={() => setIssuesOpen(false)}
+              className="text-[11px] font-semibold text-navy/60 hover:text-navy underline"
+              data-testid="home-health-issues-close">
+              Hide
+            </button>
+          </div>
+          {(health.issues || []).length === 0 ? (
+            <p className="text-xs text-navy/70">Nothing needs your attention right now.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {(health.issues || []).map((iss, idx) => {
+                const text = typeof iss === "string" ? iss : (iss.message || iss.text || JSON.stringify(iss));
+                return (
+                  <li key={idx} className="text-xs text-navy flex items-start gap-2"
+                      data-testid={`home-health-issue-${idx}`}>
+                    <span className="text-[14px] leading-none mt-0.5">•</span>
+                    <span className="flex-1">{text}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
+      {/* TODAY'S PICK — Full-width hero at top */}
+      <TodaysPick
+        pick={todaysPick}
+        onRefresh={refreshTodaysPick}
+        getAuthHeader={getAuthHeader}
+      />
+
+      {/* BILLING CARD */}
+      <BillingCard getAuthHeader={getAuthHeader} />
 
       {/* TODAY — KPIs (REDUCED FROM 7 TO 4) */}
       <div className="mb-6">
