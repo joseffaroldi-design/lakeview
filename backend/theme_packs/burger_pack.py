@@ -152,5 +152,11 @@ THEMES = {
     },
 }
 
+# Sprint 16H — attach foreground overlay (smoke / grease splatter / seasoning).
+from ._overlays import make_burger_overlay  # noqa: E402
+
+for _tid in THEMES:
+    THEMES[_tid]["overlay_fn"] = make_burger_overlay(_tid)
+
 # Silence unused-import warnings — referenced via theme dicts.
 _ = (FONT_BUNGEE, FONT_PERMANENT_MARKER, FONT_SANS_BOLD)

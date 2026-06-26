@@ -208,3 +208,9 @@ THEMES = {
         "background_fn": _bg_holiday_cheer,
     },
 }
+
+# Sprint 16H — attach per-theme foreground overlay (glitter / sun rays / snow).
+from ._overlays import make_seasonal_overlay  # noqa: E402
+
+for _tid in THEMES:
+    THEMES[_tid]["overlay_fn"] = make_seasonal_overlay(_tid)

@@ -86,3 +86,9 @@ THEMES = {
         "icons": True,
     },
 }
+
+# Sprint 16H — attach per-theme foreground overlay (halftone, splatter, confetti).
+from ._overlays import make_flyer_overlay  # noqa: E402
+
+for _tid in THEMES:
+    THEMES[_tid]["overlay_fn"] = make_flyer_overlay(_tid)

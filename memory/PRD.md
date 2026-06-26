@@ -2160,3 +2160,99 @@ dict changes required.
 **No frontend changes. No API changes. No workflow changes.**
 **No production deploy** (per scope).
 
+
+### Sprint 16H — Art Direction Engine (Phase 1 + 2 + 6) (Feb 25, 2026)
+
+**Goal**: Give every existing theme its own visual personality through
+foreground particle / atmosphere overlays, with variant-seeded
+randomization so each of the three renders feels intentionally
+different. No new themes, no workflow changes, no API changes.
+
+**What shipped**:
+
+* **New module** `/app/backend/theme_packs/_overlays.py` (~280 LOC)
+  with reusable foreground primitives + per-pack composers:
+    - `grill_smoke`, `grease_splatter`, `seasoning_flakes` (burger)
+    - `water_droplets`, `bubbles`, `sea_salt_dust` (seafood)
+    - `stadium_light_rays`, `confetti_burst`, `chalk_dust` (game day)
+    - `mardi_gras_glitter`, `snow_particles`, `summer_sun_rays` (seasonal)
+    - `halftone_corner_dust` (default for classic + flyer)
+* **Pack files** — each of the 6 pack modules now attaches a
+  pack-specific `overlay_fn` to every theme it ships via a small
+  factory (`make_burger_overlay`, `make_seafood_overlay`, …).
+  Result: all 22 themes have `theme["overlay_fn"]` populated and
+  Sprint 16G's pipeline picks them up automatically.
+* **Variant randomization (Phase 6)** — every primitive seeds a
+  reproducible `random.Random(hash((theme_id, variant_idx)))`, so the
+  three variants of the same theme always pick three different particle
+  layouts, smoke positions, light-ray angles, etc., while regeneration
+  of the same flyer remains pixel-deterministic.
+* **Per-theme personality** — `make_*_overlay` functions branch on
+  `variant_idx` to layer different effects across the three variants
+  (e.g. burger v0 = smoke + splatter + flakes, v1 = smoke + flakes,
+  v2 = smoke + splatter), and on `theme_id` for seasonal pack
+  (mardi_gras → glitter, summer_splash → sun rays + droplets,
+  holiday_cheer → snow).
+
+**Phase coverage status**:
+  * Phase 1 (overlay system per pack) — ✅ Done
+  * Phase 2 (foreground particles layer) — ✅ Done (same module)
+  * Phase 3 (depth ordering) — ✅ Already in place from 16G's
+    `compose_layered` (bg → harmony → food → overlay → text → branding)
+  * Phase 4 (typography art direction — brush strokes, text masking) —
+    **deferred** to its own sprint
+  * Phase 5 (theme personality params: lighting_style / shadow_style /
+    badge_style / decoration_density knobs) — partially done implicitly
+    via per-pack `make_*_overlay` factories. Explicit knobs in dict
+    deferred.
+  * Phase 6 (randomization) — ✅ Done via per-(theme, variant) RNG seed
+
+**Tests** (`tests/test_overlays.py`, 30 cases, all green):
+  * `test_every_theme_has_callable_overlay_fn` — 22/22 themes.
+  * `test_overlay_runs_for_all_three_variants` — 16 representative
+    themes × 3 variants = 48 invocations, no raises.
+  * `test_variants_produce_different_overlay_output` — 8 themes
+    parametrised, each must yield ≥ 2 distinct PNG hashes across
+    variants 0/1/2. All pass.
+  * `test_dish_has_three_distinct_variations` — 5 acceptance dishes
+    (Smash Burger, Café Fries, Wings, Shrimp Po-Boy, Oyster Plate),
+    each must produce 3 distinct PNG hashes. All pass.
+
+**Performance**:
+  * Full 22-theme × 3-variant smoke renders in 39.4 s
+    → **597 ms / flyer** (faster than Sprint 16G's 675 ms — the
+    lighter color-harmony pass already shipped in 16G outweighs the
+    added overlay cost).
+  * Overlay overhead alone: ~50-90 ms / flyer, depending on theme
+    (stadium_light_rays + confetti is the heaviest;
+    halftone_corner_dust is the lightest).
+
+**Acceptance evidence**:
+  * 5 dishes × 3 variants = 15 PNG hashes, all 15 distinct per dish.
+  * File-size variance per dish (e.g. Wings: 229/156/190 KB) confirms
+    overlays are physically painting different pixels.
+  * AI design critic on a Sprint 16H render explicitly noted the new
+    elements: *"scattered colored rectangles and dots (red, blue,
+    yellow, white) positioned randomly across the background"* — that
+    is the `confetti_burst` overlay for `game_day_scoreboard`. The
+    overlay system is verifiably reaching the canvas.
+
+**What deliberately did NOT change**:
+  * Workflow — Menu sparkle, Photo→Flyer, Template Designer, video
+    rendering, marketing-pack endpoint: untouched.
+  * Theme dicts' visual fields (bg_color, title font, body, price,
+    background_fn) — untouched. Only the optional `overlay_fn` slot
+    is now populated.
+  * Public API surface — `/api/ai-designer/generate` accepts the same
+    payload and returns the same shape.
+  * No new themes, no new packs, no new routes.
+
+**Files**:
+  * **New**: `/app/backend/theme_packs/_overlays.py`,
+    `/app/backend/tests/test_overlays.py`
+  * **Modified** (small footer block in each — one ~5-line block per
+    file): `classic_pack.py`, `flyer_pack.py`, `burger_pack.py`,
+    `seafood_pack.py`, `game_day_pack.py`, `seasonal_pack.py`
+
+**No frontend changes. No production deploy** (per scope).
+

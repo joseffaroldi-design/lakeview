@@ -155,3 +155,9 @@ THEMES = {
 }
 
 _ = FONT_SANS_BOLD  # reserved for future variants
+
+# Sprint 16H — attach foreground overlay (stadium lights / confetti / chalk).
+from ._overlays import make_game_day_overlay  # noqa: E402
+
+for _tid in THEMES:
+    THEMES[_tid]["overlay_fn"] = make_game_day_overlay(_tid)

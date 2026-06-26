@@ -75,3 +75,9 @@ THEMES = {
         "branding_color": (200, 170, 100),
     },
 }
+
+# Sprint 16H — attach subtle default foreground overlay (halftone corner dust).
+from ._overlays import make_classic_overlay  # noqa: E402
+
+for _tid in THEMES:
+    THEMES[_tid]["overlay_fn"] = make_classic_overlay(_tid)

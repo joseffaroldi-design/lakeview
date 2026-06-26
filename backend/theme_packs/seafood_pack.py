@@ -179,3 +179,9 @@ THEMES = {
         "background_fn": _bg_dockside,
     },
 }
+
+# Sprint 16H — attach foreground overlay (water droplets / bubbles / sea salt).
+from ._overlays import make_seafood_overlay  # noqa: E402
+
+for _tid in THEMES:
+    THEMES[_tid]["overlay_fn"] = make_seafood_overlay(_tid)
