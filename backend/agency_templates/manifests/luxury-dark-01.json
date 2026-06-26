@@ -1,0 +1,56 @@
+{
+  "id": "luxury-dark-01",
+  "label": "Luxury Dark",
+  "category": "general",
+  "best_use": "Steakhouse, upscale features, weekend tasting menus",
+  "canvas": [1024, 1024],
+  "background": "luxury-dark-01.png",
+  "overlays": [],
+  "slots": {
+    "photo": {
+      "x": 80, "y": 240, "w": 580, "h": 680,
+      "fit": "cover", "feather": 48, "shadow": true, "shadow_offset": [0, 24], "shadow_blur": 36
+    },
+    "title": {
+      "x": 60, "y": 70, "w": 904, "h": 150,
+      "align": "left",
+      "font": "FONT_SERIF_BOLD", "size": 108,
+      "color": [212, 175, 55],
+      "stroke_width": 0,
+      "uppercase": true,
+      "letter_spacing": 8,
+      "max_lines": 2
+    },
+    "features": {
+      "x": 700, "y": 260, "w": 280, "h": 480,
+      "style": "stacked_chips",
+      "font": "FONT_BEBAS_NEUE", "size": 26,
+      "bg": [212, 175, 55, 235], "fg": [16, 16, 16],
+      "max_items": 4, "line_h": 62, "padding": 14, "border_radius": 6,
+      "uppercase": true, "letter_spacing": 3
+    },
+    "price": {
+      "cx": 838, "cy": 860, "radius": 112,
+      "bg": [212, 175, 55], "ring": [16, 16, 16], "fg": [16, 16, 16],
+      "font": "FONT_SERIF_BOLD", "size": 60,
+      "style": "filled_disc_double_ring"
+    },
+    "brand": {
+      "cx": 512, "y": 992, "anchor": "center",
+      "color": [212, 175, 55, 200],
+      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "uppercase": true, "letter_spacing": 8
+    },
+    "cta": {
+      "x": 60, "y": 956, "w": 460, "h": 24,
+      "color": [212, 175, 55, 220],
+      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "uppercase": true, "letter_spacing": 4
+    }
+  },
+  "safe_zones": [
+    {"x": 0, "y": 0, "w": 1024, "h": 60},
+    {"x": 0, "y": 980, "w": 1024, "h": 44}
+  ],
+  "fallback_theme": "luxury"
+}

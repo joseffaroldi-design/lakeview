@@ -1,0 +1,56 @@
+{
+  "id": "bold-social-01",
+  "label": "Bold Social",
+  "category": "general",
+  "best_use": "Instagram-ready posts, Friday night specials, drink + apps",
+  "canvas": [1024, 1024],
+  "background": "bold-social-01.png",
+  "overlays": [],
+  "slots": {
+    "photo": {
+      "x": 80, "y": 200, "w": 880, "h": 620,
+      "fit": "cover", "feather": 42, "shadow": true, "shadow_offset": [0, 20], "shadow_blur": 30
+    },
+    "title": {
+      "x": 60, "y": 60, "w": 904, "h": 130,
+      "align": "left",
+      "font": "FONT_SERIF_BOLD", "size": 108,
+      "color": [248, 245, 240],
+      "stroke_width": 0,
+      "uppercase": true,
+      "letter_spacing": 4,
+      "max_lines": 2
+    },
+    "features": {
+      "x": 80, "y": 856, "w": 670, "h": 90,
+      "style": "inline_pills",
+      "font": "FONT_BEBAS_NEUE", "size": 22,
+      "bg": [248, 245, 240, 235], "fg": [38, 18, 60],
+      "max_items": 4, "padding": 12, "border_radius": 20,
+      "uppercase": true, "letter_spacing": 2
+    },
+    "price": {
+      "cx": 880, "cy": 880, "radius": 104,
+      "bg": [255, 90, 110], "ring": [248, 245, 240], "fg": [248, 245, 240],
+      "font": "FONT_SERIF_BOLD", "size": 56,
+      "style": "filled_disc_double_ring"
+    },
+    "brand": {
+      "cx": 512, "y": 992, "anchor": "center",
+      "color": [248, 245, 240, 200],
+      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "uppercase": true, "letter_spacing": 6
+    },
+    "cta": {
+      "x": 60, "y": 956, "w": 460, "h": 24,
+      "color": [248, 245, 240, 220],
+      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "uppercase": true, "letter_spacing": 4
+    }
+  },
+  "safe_zones": [
+    {"x": 0, "y": 0, "w": 1024, "h": 60},
+    {"x": 0, "y": 980, "w": 1024, "h": 44}
+  ],
+  "fallback_theme": "modern"
+}

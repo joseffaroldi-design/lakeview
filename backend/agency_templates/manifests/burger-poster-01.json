@@ -1,0 +1,56 @@
+{
+  "id": "burger-poster-01",
+  "label": "Burger Poster",
+  "category": "burger",
+  "best_use": "Smash burgers, classic burgers, double-stacks",
+  "canvas": [1024, 1024],
+  "background": "burger-poster-01.png",
+  "overlays": [],
+  "slots": {
+    "photo": {
+      "x": 60, "y": 220, "w": 580, "h": 720,
+      "fit": "cover", "feather": 36, "shadow": true, "shadow_offset": [0, 18], "shadow_blur": 28
+    },
+    "title": {
+      "x": 60, "y": 60, "w": 904, "h": 150,
+      "align": "left",
+      "font": "FONT_SERIF_BOLD", "size": 110,
+      "color": [245, 235, 210],
+      "stroke_width": 0,
+      "uppercase": true,
+      "letter_spacing": 4,
+      "max_lines": 2
+    },
+    "features": {
+      "x": 680, "y": 240, "w": 304, "h": 480,
+      "style": "stacked_chips",
+      "font": "FONT_BEBAS_NEUE", "size": 28,
+      "bg": [200, 30, 40, 230], "fg": [245, 235, 210],
+      "max_items": 4, "line_h": 64, "padding": 16, "border_radius": 12,
+      "uppercase": true, "letter_spacing": 2
+    },
+    "price": {
+      "cx": 832, "cy": 850, "radius": 110,
+      "bg": [200, 30, 40], "ring": [245, 235, 210], "fg": [245, 235, 210],
+      "font": "FONT_SERIF_BOLD", "size": 60,
+      "style": "filled_disc_double_ring"
+    },
+    "brand": {
+      "cx": 512, "y": 990, "anchor": "center",
+      "color": [245, 235, 210, 200],
+      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "uppercase": true, "letter_spacing": 6
+    },
+    "cta": {
+      "x": 60, "y": 956, "w": 460, "h": 24,
+      "color": [245, 235, 210, 220],
+      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "uppercase": true, "letter_spacing": 4
+    }
+  },
+  "safe_zones": [
+    {"x": 0, "y": 0, "w": 1024, "h": 60},
+    {"x": 0, "y": 980, "w": 1024, "h": 44}
+  ],
+  "fallback_theme": "burger_classic"
+}

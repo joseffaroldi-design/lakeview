@@ -1,0 +1,56 @@
+{
+  "id": "seafood-special-01",
+  "label": "Seafood Special",
+  "category": "seafood",
+  "best_use": "Po-boys, shrimp baskets, oyster nights, fish fry",
+  "canvas": [1024, 1024],
+  "background": "seafood-special-01.png",
+  "overlays": [],
+  "slots": {
+    "photo": {
+      "x": 380, "y": 60, "w": 600, "h": 720,
+      "fit": "cover", "feather": 40, "shadow": true, "shadow_offset": [0, 22], "shadow_blur": 32
+    },
+    "title": {
+      "x": 60, "y": 80, "w": 320, "h": 420,
+      "align": "left",
+      "font": "FONT_SERIF_BOLD", "size": 78,
+      "color": [245, 235, 210],
+      "stroke_width": 2, "stroke_fill": [12, 30, 60],
+      "uppercase": true,
+      "letter_spacing": 3,
+      "max_lines": 4
+    },
+    "features": {
+      "x": 60, "y": 540, "w": 320, "h": 260,
+      "style": "stacked_chips",
+      "font": "FONT_BEBAS_NEUE", "size": 24,
+      "bg": [12, 30, 60, 220], "fg": [245, 235, 210],
+      "max_items": 4, "line_h": 56, "padding": 14, "border_radius": 28,
+      "uppercase": true, "letter_spacing": 2
+    },
+    "price": {
+      "cx": 200, "cy": 880, "radius": 100,
+      "bg": [200, 60, 50], "ring": [245, 235, 210], "fg": [245, 235, 210],
+      "font": "FONT_SERIF_BOLD", "size": 56,
+      "style": "filled_disc_double_ring"
+    },
+    "brand": {
+      "cx": 512, "y": 990, "anchor": "center",
+      "color": [245, 235, 210, 200],
+      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "uppercase": true, "letter_spacing": 6
+    },
+    "cta": {
+      "x": 60, "y": 956, "w": 460, "h": 24,
+      "color": [245, 235, 210, 220],
+      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "uppercase": true, "letter_spacing": 4
+    }
+  },
+  "safe_zones": [
+    {"x": 0, "y": 0, "w": 1024, "h": 60},
+    {"x": 0, "y": 980, "w": 1024, "h": 44}
+  ],
+  "fallback_theme": "seafood_coastal"
+}

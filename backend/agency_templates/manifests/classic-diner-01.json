@@ -1,0 +1,56 @@
+{
+  "id": "classic-diner-01",
+  "label": "Classic Diner",
+  "category": "general",
+  "best_use": "Café sides, breakfast, daily specials, sandwiches",
+  "canvas": [1024, 1024],
+  "background": "classic-diner-01.png",
+  "overlays": [],
+  "slots": {
+    "photo": {
+      "x": 80, "y": 220, "w": 880, "h": 600,
+      "fit": "cover", "feather": 44, "shadow": true, "shadow_offset": [0, 16], "shadow_blur": 28
+    },
+    "title": {
+      "x": 60, "y": 60, "w": 904, "h": 140,
+      "align": "center",
+      "font": "FONT_SERIF_BOLD", "size": 96,
+      "color": [40, 25, 5],
+      "stroke_width": 0,
+      "uppercase": false,
+      "letter_spacing": 2,
+      "max_lines": 2
+    },
+    "features": {
+      "x": 110, "y": 850, "w": 600, "h": 100,
+      "style": "inline_pills",
+      "font": "FONT_BEBAS_NEUE", "size": 22,
+      "bg": [40, 25, 5, 230], "fg": [248, 245, 240],
+      "max_items": 4, "padding": 14, "border_radius": 18,
+      "uppercase": true, "letter_spacing": 2
+    },
+    "price": {
+      "cx": 850, "cy": 900, "radius": 100,
+      "bg": [40, 25, 5], "ring": [255, 200, 60], "fg": [255, 200, 60],
+      "font": "FONT_SERIF_BOLD", "size": 52,
+      "style": "filled_disc_double_ring"
+    },
+    "brand": {
+      "cx": 512, "y": 992, "anchor": "center",
+      "color": [40, 25, 5, 200],
+      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "uppercase": true, "letter_spacing": 6
+    },
+    "cta": {
+      "x": 60, "y": 956, "w": 460, "h": 24,
+      "color": [40, 25, 5, 200],
+      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "uppercase": true, "letter_spacing": 4
+    }
+  },
+  "safe_zones": [
+    {"x": 0, "y": 0, "w": 1024, "h": 60},
+    {"x": 0, "y": 980, "w": 1024, "h": 44}
+  ],
+  "fallback_theme": "modern"
+}

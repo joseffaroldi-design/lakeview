@@ -1,0 +1,56 @@
+{
+  "id": "game-day-promo-01",
+  "label": "Game Day Promo",
+  "category": "sports",
+  "best_use": "Wings, nachos, tailgate baskets, pitcher nights",
+  "canvas": [1024, 1024],
+  "background": "game-day-promo-01.png",
+  "overlays": [],
+  "slots": {
+    "photo": {
+      "x": 60, "y": 240, "w": 600, "h": 700,
+      "fit": "cover", "feather": 30, "shadow": true, "shadow_offset": [0, 18], "shadow_blur": 24
+    },
+    "title": {
+      "x": 60, "y": 60, "w": 904, "h": 150,
+      "align": "left",
+      "font": "FONT_SERIF_BOLD", "size": 124,
+      "color": [255, 200, 60],
+      "stroke_width": 3, "stroke_fill": [12, 12, 16],
+      "uppercase": true,
+      "letter_spacing": 6,
+      "max_lines": 2
+    },
+    "features": {
+      "x": 700, "y": 260, "w": 280, "h": 460,
+      "style": "stacked_chips",
+      "font": "FONT_BEBAS_NEUE", "size": 26,
+      "bg": [12, 12, 16, 230], "fg": [255, 200, 60],
+      "max_items": 4, "line_h": 62, "padding": 14, "border_radius": 8,
+      "uppercase": true, "letter_spacing": 3
+    },
+    "price": {
+      "cx": 836, "cy": 870, "radius": 110,
+      "bg": [200, 30, 40], "ring": [255, 200, 60], "fg": [255, 200, 60],
+      "font": "FONT_SERIF_BOLD", "size": 58,
+      "style": "filled_disc_double_ring"
+    },
+    "brand": {
+      "cx": 512, "y": 990, "anchor": "center",
+      "color": [255, 200, 60, 200],
+      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "uppercase": true, "letter_spacing": 6
+    },
+    "cta": {
+      "x": 60, "y": 956, "w": 460, "h": 24,
+      "color": [255, 200, 60, 220],
+      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "uppercase": true, "letter_spacing": 4
+    }
+  },
+  "safe_zones": [
+    {"x": 0, "y": 0, "w": 1024, "h": 60},
+    {"x": 0, "y": 980, "w": 1024, "h": 44}
+  ],
+  "fallback_theme": "game_day_scoreboard"
+}
