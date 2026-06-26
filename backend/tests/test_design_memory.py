@@ -233,6 +233,30 @@ def test_recommend_memory_bias_elevates_saved_theme(auth):
     requests.delete(f"{API}/design-memory/{key}", headers=auth, timeout=TIMEOUT)
 
 
+def test_recommend_memory_wins_across_categories(auth):
+    """Sprint 17A spec: when the owner explicitly saves a style, it MUST
+    win even if the menu item belongs to a different category. This
+    protects against +50 category bonus drowning out memory bias.
+    """
+    key = f"apps::xcat-{uuid.uuid4().hex[:6]}"  # 'apps' → sports category
+    # Save a burger theme as memory for this sports-category item.
+    rp = requests.put(f"{API}/design-memory/{key}", headers=auth,
+                      json={"theme": "burger_neon_diner"}, timeout=TIMEOUT)
+    assert rp.status_code == 200
+
+    r1 = requests.post(f"{API}/creative-director/recommend", headers=auth,
+                       json={"item_key": key, "food_type": "buffalo wings"},
+                       timeout=TIMEOUT)
+    assert r1.status_code == 200
+    body = r1.json()
+    # Even though the item is sports-category, the saved burger theme wins.
+    assert body["recommendations"][0]["id"] == "burger_neon_diner", \
+        f"cross-category memory failed; top3={[r['id'] for r in body['recommendations']]}"
+    assert body["recommendations"][0]["rank"] == "Best Match"
+
+    requests.delete(f"{API}/design-memory/{key}", headers=auth, timeout=TIMEOUT)
+
+
 def test_recommend_general_fallback(auth):
     """No item_key + ambiguous food → category=general, general/poster themes preferred."""
     r = requests.post(f"{API}/creative-director/recommend", headers=auth,

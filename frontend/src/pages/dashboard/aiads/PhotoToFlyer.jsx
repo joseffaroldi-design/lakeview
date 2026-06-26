@@ -563,18 +563,36 @@ const ReviewStep = ({
   const ig = copy.ig_post || "";
 
   // Sprint 17A — Learning loop: fire the save-style prompt the first time
-  // the owner hits Download. Skipped if no menuItem (we'd have no item_key
-  // to save against) or if the current theme already matches what's saved.
+  // the owner hits Download. We trigger the download programmatically
+  // (via a synthetic <a download>) so the modal paint isn't racing against
+  // the browser's file-save handling. Skipped if no menuItem (we'd have no
+  // item_key to save against) or if the current theme already matches what's
+  // saved.
   const [askedToSave, setAskedToSave] = useState(false);
+  const triggerDownload = () => {
+    if (!flyerUrl) return;
+    const a = document.createElement("a");
+    a.href = flyerUrl;
+    a.download = "";  // hint the browser to download instead of navigate
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
   const onDownloadClick = () => {
-    if (!askedToSave && menuItem && themeUsed && onSavePreferredStyle) {
+    const eligible = !askedToSave && menuItem && themeUsed && onSavePreferredStyle;
+    triggerDownload();
+    if (eligible) {
       setAskedToSave(true);
-      onSavePreferredStyle({
-        item_key: menuItem.item_key,
-        item_name: menuItem.name,
-        theme: themeUsed,
-        favorite_flyer_id: flyer.asset_id || null,
-      });
+      // Defer one tick so React commits the modal's state before we
+      // surrender focus to the file-save dialog.
+      setTimeout(() => {
+        onSavePreferredStyle({
+          item_key: menuItem.item_key,
+          item_name: menuItem.name,
+          theme: themeUsed,
+          favorite_flyer_id: flyer.asset_id || null,
+        });
+      }, 0);
     }
   };
 
@@ -649,12 +667,13 @@ const ReviewStep = ({
               className="w-full max-w-md mx-auto rounded-md border-2 border-navy/10"
               data-testid="photo-flyer-flyer-img" />
             <div className="flex flex-wrap gap-2">
-              <a href={flyerUrl} download
+              <button
+                type="button"
                 onClick={onDownloadClick}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:underline"
                 data-testid="photo-flyer-download-flyer">
                 <Download className="w-4 h-4" /> Download flyer
-              </a>
+              </button>
               <button onClick={onRegenerate}
                 className="inline-flex items-center gap-1.5 text-sm text-navy hover:underline"
                 data-testid="photo-flyer-regenerate">

@@ -223,8 +223,10 @@ def _score_themes(*, category: str,
             score += 4
 
         # 2) Memory bias — owner's previous successful theme for this item.
+        # Sprint 17A: memory must outrank category match (+50) so that an
+        # explicit "Use Saved Style" wins even on cross-category memory.
         if memory_theme and tid == memory_theme:
-            score += 35
+            score += 60
             reasons.append("Matches your saved style.")
 
         # 3) Seasonal/holiday nudge
