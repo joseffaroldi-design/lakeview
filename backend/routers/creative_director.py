@@ -332,6 +332,14 @@ def _score_themes(*, category: str,
             score += fav_bonus
             reasons.append(f"You favorited {fav_n} flyer{'s' if fav_n > 1 else ''} with this style.")
 
+        # 7) Quality tier — boost validated agency-grade themes and penalise
+        # known-cluttered ones so auto-recommendations land on professional
+        # output by default.
+        q_bonus, q_reason = _quality_tier_bonus(tid)
+        score += q_bonus
+        if q_reason:
+            reasons.append(q_reason)
+
         rows.append({
             "id": tid,
             "label": spec.get("label", tid),
@@ -354,6 +362,44 @@ def _label_rank(idx: int) -> Tuple[str, int]:
     if idx == 1:
         return "Good Match", 4
     return "Alternative", 3
+
+
+# Sprint 19 polish (taco escalation): themes validated to render at
+# "agency-grade" quality after the Sprint 19 hotfix + palette fixes get a
+# strong recommendation boost. Themes whose decorative overlays consistently
+# read as cluttered / DIY get a penalty so they don't appear as "Best Match"
+# by default. Owners can still pick them manually — this just steers the
+# Creative Director's auto-recommendation toward the clean, dramatic looks
+# they actually want.
+_AGENCY_GRADE = {
+    "luxury",
+    "game_day_scoreboard",
+    "game_day_locker",
+    "burger_classic",
+    "burger_neon_diner",
+    "burger_grill_smoke",
+    "seafood_coastal",
+    "seafood_dockside",
+    "cajun",
+    "modern",
+}
+_NEEDS_REDESIGN = {
+    "social",          # confetti + tiny title (AI vision rated 2/10)
+    "comic_pop",       # halftone overlays compete with food
+    "bold_purple_pop", # same issue, just purple
+    "distressed_orange",
+    "summer_splash",
+    "vintage_diner",   # busy mid-century pattern
+}
+
+
+def _quality_tier_bonus(theme_id: str) -> Tuple[int, str]:
+    """+30 for validated professional themes, -25 for known-cluttered ones."""
+    if theme_id in _AGENCY_GRADE:
+        return 30, "Agency-grade output."
+    if theme_id in _NEEDS_REDESIGN:
+        return -25, ""
+    return 0, ""
 
 
 # ---------------------------------------------------------------- route
