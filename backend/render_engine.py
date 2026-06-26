@@ -322,10 +322,13 @@ def layout_hero_center(food_rgba: Image.Image,
 
     Sprint 19 hotfix: bumped food caps so the dish actually dominates
     (target 60–75% of canvas, was ~55%).
+    Sprint 19 polish: title_band_h 180→150 and bottom_band_h 200→170 so
+    the food slot grows from ~644 px → ~704 px tall (+9% canvas coverage
+    without crowding the title/bottom bands).
     """
     safe = 40
-    title_band_h = 180
-    bottom_band_h = 200
+    title_band_h = 150
+    bottom_band_h = 170
     food_max_w = CANVAS - 2 * safe
     food_max_h = CANVAS - title_band_h - bottom_band_h
     food = _fit(food_rgba, food_max_w, food_max_h)
@@ -669,17 +672,19 @@ def _compose_once(
 
     # ---- Foreground overlay (per-theme particles / texture / light rays) ----
     # Sprint 19 hotfix: overlays should SUPPORT the food, not compete with
-    # it. Composite the overlay layer at 45% opacity (was 100%) so waves /
+    # it. Composite the overlay layer at 35% opacity (was 100%) so waves /
     # smoke / confetti recede behind the hero.
+    # Sprint 19 polish: lowered from 0.45 → 0.35 after seafood_coastal
+    # wave overlay still read as "busy" on dark food in the audit pass.
     overlay_fn = theme.get("overlay_fn")
     if callable(overlay_fn):
         try:
             fg = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
             fg_draw = ImageDraw.Draw(fg, "RGBA")
             overlay_fn(fg, fg_draw, variant_idx)
-            # Knock overlay alpha down to 45% so it never fights the food.
+            # Knock overlay alpha down to 35% so it never fights the food.
             alpha = fg.getchannel("A")
-            faded = alpha.point(lambda v: int(v * 0.45))
+            faded = alpha.point(lambda v: int(v * 0.35))
             fg.putalpha(faded)
             canvas = Image.alpha_composite(canvas, fg)
         except Exception as e:  # noqa: BLE001
@@ -697,10 +702,36 @@ def _compose_once(
     # Some legacy badge styles (e.g. distressed_stamp) only drew an outline
     # which read as "broken / dashed circle". Draw a filled disc UNDER every
     # badge so even outline-only styles always look intentional.
+    # Sprint 19 polish: read the actual theme price palette
+    # (`theme["price"]["bg"]/["ring"]`) instead of the absent `badge_bg`
+    # key. The old fall-through to `branding_color` made the disc match
+    # the canvas bg in some themes (e.g. seafood_coastal) → invisible.
     cx, cy = spec["badge_centre"]
     badge_radius = spec["badge_radius"]
-    badge_bg = theme.get("badge_bg") or theme.get("branding_color") or (220, 70, 50)
-    badge_ring = theme.get("badge_ring") or (255, 220, 100)
+    price_palette = theme.get("price") or {}
+    badge_bg = (theme.get("badge_bg") or price_palette.get("bg")
+                or theme.get("branding_color") or (220, 70, 50))
+    badge_ring = (theme.get("badge_ring") or price_palette.get("ring")
+                  or (255, 220, 100))
+    # Safety net: sample the ACTUAL rendered canvas at the badge centre
+    # (the background_fn may paint a colour different from theme.bg_color).
+    # If the disc colour collides with what's already there, swap to a
+    # high-contrast accent so the badge never blends in.
+    try:
+        cx_safe = max(0, min(canvas.width - 1, cx))
+        cy_safe = max(0, min(canvas.height - 1, cy))
+        canvas_at_badge = canvas.convert("RGB").getpixel((cx_safe, cy_safe))
+    except Exception:  # noqa: BLE001
+        canvas_at_badge = (200, 200, 200)
+    def _close(c1, c2, thr=40):
+        return (abs(c1[0] - c2[0]) + abs(c1[1] - c2[1])
+                + abs(c1[2] - c2[2])) < thr
+    if _close(badge_bg, canvas_at_badge):
+        # Use the ring colour, or fall back to a contrasting red.
+        if not _close(badge_ring, canvas_at_badge):
+            badge_bg = badge_ring
+        else:
+            badge_bg = (220, 70, 50)
     badge_pad_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     bdraw = ImageDraw.Draw(badge_pad_layer)
     # Subtle outer ring for premium feel

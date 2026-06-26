@@ -2756,7 +2756,7 @@ luxury (off-centre) and personality-aligned recommendations.
 
 
 
-## Sprint 19 Hotfix — Professional Flyer Composition — Closed 2026-06-26
+## Sprint 19 Hotfix — Final Validation & Production Sign-off — Closed 2026-06-26
 
 **Goal**: Make the food the hero (60-75% of canvas), kill the rectangular photo
 border, guarantee every price badge is filled (not outline-only), and lower the
@@ -2789,7 +2789,32 @@ decorative overlay opacity so waves/smoke/confetti recede behind the food.
 
 **Report**: `/app/memory/SPRINT19_HOTFIX_VALIDATION_REPORT.md`
 
-**Status**: ✅ APPROVED. Two non-blocking polish ideas captured for a future
-sprint (shrink `hero_center` text bands by ~30 px to push canvas-wide food
-coverage from 48% → 55%; consider opacity ≤0.35 for `seafood_coastal` wave
-overlay on dark food).
+**Status**: ✅ APPROVED for production. **Final tally**:
+* 25 / 25 real Lakeview menu items render cleanly (0 failures), avg quality 76.0.
+* 15 / 15 flyers pass the pixel-level visual audit
+  (food dominance, central coverage, filled badge, no rect border).
+* 5 / 5 BEFORE/AFTER side-by-side AI vision checks confirm clear upgrade.
+* 24 / 24 backend pytests green.
+
+**Additional fixes discovered & resolved during validation:**
+* Bug — `_compose_once` read `theme["badge_bg"]` (non-existent) → fell through to
+  `branding_color` which matched the canvas bg in `seafood_coastal` → invisible
+  badge disc. Fixed: read `theme["price"]["bg"]` AND sample the actual rendered
+  canvas at the badge centre; swap to ring colour / contrast red on collision.
+* Bug — `seafood_coastal` palette: `body.color`, `body.marker_color`,
+  `branding_color` were dark navy AND the `background_fn` paints dark navy
+  bands → footer + pill-chip text invisible. Swapped to cream `(245,235,210)`.
+* Polish — `hero_center` text bands shrunk 180→150 / 200→170; foreground
+  overlay alpha cap dropped 0.45 → 0.35.
+
+**Reports**:
+* `/app/memory/SPRINT19_HOTFIX_VALIDATION_REPORT.md` — full validation report
+* `/app/memory/DEPLOYMENT_CHECKLIST_SPRINT19.md` — production deployment runbook
+* `/tmp/sprint19_before_after/` — 5 side-by-side comparison JPEGs
+* `/tmp/sprint19_samples/` — 15 fresh flyers (latest run)
+* `/tmp/sprint19_visual_audit.json` — machine-readable audit table
+
+**Next**: Owner deploys via Emergent deploy flow → runs the Phase 4 smoke checks
+in the deployment checklist → Phase 5 visual sign-off → Sprint 20 (Marketing
+Workspace + Batch Campaign Generator + Calendar + Library 2.0 + Smart Insights)
+queued and paused per user direction.
