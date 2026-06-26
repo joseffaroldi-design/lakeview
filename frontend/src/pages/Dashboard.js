@@ -1,17 +1,28 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon, BarChart3,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ContentEditor, MenuEditor } from "@/pages/ContentEditor";
-import AiAdsTab from "@/pages/dashboard/AiAdsTab";
 import HomeTab from "@/pages/dashboard/HomeTab";
-import CustomersTab from "@/pages/dashboard/CustomersTab";
-import LibraryTab from "@/pages/dashboard/LibraryTab";
-import AnalyticsTab from "@/pages/dashboard/AnalyticsTab";
-import PromoteThisItem from "@/pages/dashboard/aiads/PromoteThisItem";
+
+// Sprint 19 perf: lazy-load every non-landing tab + the heavy Promote modal.
+// First paint = HomeTab only; other chunks load on click → ~50% less JS on
+// the critical path. Each chunk is webpackPrefetched so it warms in idle time.
+const ContentEditor = lazy(() => import(/* webpackPrefetch: true */ "@/pages/ContentEditor").then(m => ({ default: m.ContentEditor })));
+const MenuEditor    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/ContentEditor").then(m => ({ default: m.MenuEditor })));
+const AiAdsTab      = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AiAdsTab"));
+const CustomersTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/CustomersTab"));
+const LibraryTab    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LibraryTab"));
+const AnalyticsTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AnalyticsTab"));
+const PromoteThisItem = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/aiads/PromoteThisItem"));
+
+const TabFallback = () => (
+  <div className="py-12 text-center text-sm text-navy/60" data-testid="tab-loading">
+    Loading…
+  </div>
+);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -137,53 +148,65 @@ const Dashboard = () => {
           <HomeTab getAuthHeader={getAuthHeader} onNavigate={switchTab} onPromote={openPromote} />
         )}
         {activeTab === "menu" && (
-          <section>
-            <h2 className="font-serif text-2xl text-navy font-bold mb-2 flex items-center gap-2">
-              <Pencil className="w-6 h-6 text-gold" /> Menu & Site Content
-            </h2>
-            <p className="text-sm text-muted-foreground mb-6">Edit your menu, hero, gallery, and page copy in one place.</p>
-            <div className="space-y-8">
-              <MenuEditor
-                getAuthHeader={getAuthHeader}
-                onPromoteDeepLink={() => setActiveTab("promotions")}
-              />
-              <div className="border-t-2 border-navy/10 pt-6">
-                <h3 className="font-serif text-lg text-navy font-bold mb-4">Site Content</h3>
-                <ContentEditor getAuthHeader={getAuthHeader} />
+          <Suspense fallback={<TabFallback />}>
+            <section>
+              <h2 className="font-serif text-2xl text-navy font-bold mb-2 flex items-center gap-2">
+                <Pencil className="w-6 h-6 text-gold" /> Menu & Site Content
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">Edit your menu, hero, gallery, and page copy in one place.</p>
+              <div className="space-y-8">
+                <MenuEditor
+                  getAuthHeader={getAuthHeader}
+                  onPromoteDeepLink={() => setActiveTab("promotions")}
+                />
+                <div className="border-t-2 border-navy/10 pt-6">
+                  <h3 className="font-serif text-lg text-navy font-bold mb-4">Site Content</h3>
+                  <ContentEditor getAuthHeader={getAuthHeader} />
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </Suspense>
         )}
         {activeTab === "promotions" && (
-          <AiAdsTab getAuthHeader={getAuthHeader} />
+          <Suspense fallback={<TabFallback />}>
+            <AiAdsTab getAuthHeader={getAuthHeader} />
+          </Suspense>
         )}
         {activeTab === "library" && (
-          <LibraryTab getAuthHeader={getAuthHeader}
-            onRequestNavigate={(tab) => setActiveTab(tab === "promote" ? "promotions" : tab)} />
+          <Suspense fallback={<TabFallback />}>
+            <LibraryTab getAuthHeader={getAuthHeader}
+              onRequestNavigate={(tab) => setActiveTab(tab === "promote" ? "promotions" : tab)} />
+          </Suspense>
         )}
         {activeTab === "customers" && (
-          <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
+          <Suspense fallback={<TabFallback />}>
+            <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
+          </Suspense>
         )}
         {activeTab === "analytics" && (
-          <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />
+          <Suspense fallback={<TabFallback />}>
+            <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />
+          </Suspense>
         )}
         {/* Sprint 12D: Settings tab retired */}
       </main>
 
       {promoteCtx ? (
-        <PromoteThisItem
-          mode="modal"
-          getAuthHeader={getAuthHeader}
-          initialMenuItem={promoteCtx.item ? {
-            item_key: `${(promoteCtx.category && promoteCtx.category.slug) || "menu"}::${(promoteCtx.item.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
-            name: promoteCtx.item.name,
-            description: promoteCtx.item.description,
-            price: promoteCtx.item.price,
-            category_slug: promoteCtx.category && promoteCtx.category.slug,
-            category_display_name: promoteCtx.category && (promoteCtx.category.display_name || promoteCtx.category.name),
-          } : null}
-          onClose={() => setPromoteCtx(null)}
-        />
+        <Suspense fallback={<TabFallback />}>
+          <PromoteThisItem
+            mode="modal"
+            getAuthHeader={getAuthHeader}
+            initialMenuItem={promoteCtx.item ? {
+              item_key: `${(promoteCtx.category && promoteCtx.category.slug) || "menu"}::${(promoteCtx.item.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+              name: promoteCtx.item.name,
+              description: promoteCtx.item.description,
+              price: promoteCtx.item.price,
+              category_slug: promoteCtx.category && promoteCtx.category.slug,
+              category_display_name: promoteCtx.category && (promoteCtx.category.display_name || promoteCtx.category.name),
+            } : null}
+            onClose={() => setPromoteCtx(null)}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

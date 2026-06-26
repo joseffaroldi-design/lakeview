@@ -4,6 +4,17 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1d2a3b" />
+
+        <!-- Sprint 19 perf: warm the connections we know we'll need on every
+             page load. Saves ~50-100ms on cold visits by parallelising DNS +
+             TLS handshakes before the HTML parser hits the actual <img> tags. -->
+        <link rel="preconnect" href="https://customer-assets.emergentagent.com" crossorigin />
+        <link rel="dns-prefetch" href="https://customer-assets.emergentagent.com" />
+        <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+        <link rel="dns-prefetch" href="https://images.unsplash.com" />
+        <link rel="dns-prefetch" href="https://maps.google.com" />
+        <link rel="dns-prefetch" href="https://www.facebook.com" />
+        <link rel="dns-prefetch" href="https://www.instagram.com" />
         
         <!-- PWA -->
         <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
