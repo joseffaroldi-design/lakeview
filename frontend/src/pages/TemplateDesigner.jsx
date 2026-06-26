@@ -31,6 +31,8 @@ export default function TemplateDesigner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [renderMs, setRenderMs] = useState(null);
+  const [bulkJob, setBulkJob] = useState(null);
+  const [bulkPolling, setBulkPolling] = useState(false);
   const lastBlobUrl = useRef(null);
 
   // Fetch supported themes on mount
@@ -92,6 +94,36 @@ export default function TemplateDesigner() {
       setLoading(false);
     }
   }, [theme, itemName, price, cta, features]);
+
+  // Bulk render: kick off a background job for all menu items.
+  const bulkRender = useCallback(async () => {
+    setBulkJob({ status: "starting" });
+    setBulkPolling(true);
+    try {
+      const create = await axios.post(`${API}/html-template/bulk-render`, {
+        theme,
+        limit: 50,
+        output_size: 1024,
+        render_size: 2048,
+      });
+      const jobId = create.data?.job_id;
+      if (!jobId) throw new Error("no job_id returned");
+      // Poll every 2s
+      const poll = async () => {
+        const r = await axios.get(`${API}/html-template/bulk-render/${jobId}`);
+        setBulkJob(r.data);
+        if (r.data?.status === "done" || r.data?.status === "failed") {
+          setBulkPolling(false);
+          return;
+        }
+        setTimeout(poll, 2000);
+      };
+      poll();
+    } catch (e) {
+      setBulkJob({ status: "failed", error: e?.message || "unknown" });
+      setBulkPolling(false);
+    }
+  }, [theme]);
 
   // Render once on first mount.
   useEffect(() => { render(); /* eslint-disable-next-line */ }, []);
@@ -207,6 +239,49 @@ export default function TemplateDesigner() {
               {error}
             </div>
           )}
+
+          {/* Bulk-render — apply this theme to the whole menu */}
+          <div className="pt-4 mt-4 border-t border-slate-800 space-y-3">
+            <button
+              onClick={bulkRender}
+              disabled={bulkPolling}
+              data-testid="bulk-render-button"
+              className="w-full py-3 rounded-full bg-slate-100 text-slate-950 font-bold uppercase tracking-widest text-sm hover:bg-white disabled:opacity-50 disabled:cursor-wait transition"
+            >
+              {bulkPolling ? "Rendering menu…" : `Apply ${theme} to all menu items`}
+            </button>
+            {bulkJob && (
+              <div className="text-xs text-slate-400 space-y-1" data-testid="bulk-status">
+                <div>
+                  Status: <span className="text-amber-400">{bulkJob.status}</span>
+                  {typeof bulkJob.total === "number" && bulkJob.total > 0 && (
+                    <span className="ml-2 text-slate-500">
+                      {bulkJob.completed ?? 0} / {bulkJob.total}
+                    </span>
+                  )}
+                </div>
+                {bulkJob.total > 0 && (
+                  <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-amber-400 transition-all"
+                      style={{
+                        width: `${Math.round(100 * (bulkJob.completed ?? 0) / Math.max(1, bulkJob.total))}%`,
+                      }}
+                    />
+                  </div>
+                )}
+                {bulkJob.status === "done" && (
+                  <div className="text-emerald-400 pt-1">
+                    ✓ Saved {bulkJob.completed} flyers to the Library
+                    (folder: <code className="text-amber-400">Bulk · HTML Template</code>).
+                  </div>
+                )}
+                {bulkJob.error && (
+                  <div className="text-rose-400 pt-1">{bulkJob.error}</div>
+                )}
+              </div>
+            )}
+          </div>
 
           <p className="text-xs text-slate-500 leading-relaxed pt-4 border-t border-slate-800">
             Live previews use the HTML/CSS engine

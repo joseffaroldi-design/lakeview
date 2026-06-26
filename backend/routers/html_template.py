@@ -14,20 +14,37 @@ POST /api/html-template/preview
             { theme, item_name, features[], price, brand, cta,
               food_image_id? }
           Returns: PNG bytes (image/png)
+
+POST /api/html-template/bulk-render
+        → kick off a background job that renders every menu item with
+          the chosen theme. Returns a job_id.
+
+GET  /api/html-template/bulk-render/{job_id}
+        → poll the bulk-render job status (queued | running | done | failed)
 """
 from __future__ import annotations
 
 import asyncio
+import io
 import os
-from typing import List, Optional
+import time
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 from pydantic import BaseModel, Field
 
 import html_renderer as _html
+from config import db
+import storage as objstore
 
 
 router = APIRouter(prefix="/html-template", tags=["html-template"])
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class PreviewBody(BaseModel):
@@ -115,3 +132,149 @@ async def preview(body: PreviewBody):
 
     return Response(content=png, media_type="image/png",
                     headers={"Cache-Control": "no-store"})
+
+
+# ---------------------------------------------------------------- bulk render
+
+class BulkRenderBody(BaseModel):
+    theme: str = Field(..., description="HTML theme to apply across the whole menu")
+    limit: int = Field(default=50, ge=1, le=100)
+    output_size: int = Field(default=1024)
+    render_size: int = Field(default=2048)
+
+
+def _flatten_menu_items(categories: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for cat in categories or []:
+        for it in cat.get("items", []) or []:
+            name = (it.get("name") or "").strip()
+            if not name:
+                continue
+            price = it.get("price")
+            price_str = (
+                f"${price:.2f}" if isinstance(price, (int, float))
+                else (price or "")
+            )
+            # Build feature chips out of the description — split on common
+            # delimiters and keep the first 3 short phrases.
+            desc = (it.get("description") or "").strip()
+            chunks: List[str] = []
+            for sep in ["·", "•", "|", "/", ","]:
+                if sep in desc:
+                    chunks = [c.strip().strip(".") for c in desc.split(sep)]
+                    break
+            if not chunks and desc:
+                # No delimiter — split on ' and ' / first 2 sentences
+                chunks = [s.strip() for s in desc.replace(" and ", ", ").split(",")]
+            features = [c for c in (chunks or [desc])[:3] if c]
+            out.append({
+                "name": name,
+                "category": cat.get("display_name") or cat.get("name") or "",
+                "price": price_str,
+                "features": features,
+            })
+            if len(out) >= limit:
+                return out
+    return out
+
+
+async def _run_bulk_render(job_id: str, body: BulkRenderBody) -> None:
+    async def update(**fields: Any) -> None:
+        fields["updated_at"] = _now_iso()
+        await db.html_bulk_jobs.update_one({"id": job_id}, {"$set": fields})
+
+    categories = await db.menu_categories.find({}).sort("sort_order", 1).to_list(length=None)
+    items = _flatten_menu_items(categories, body.limit)
+
+    if not items:
+        await update(status="failed", error="no menu items found")
+        return
+
+    food_path = _resolve_food_path(None)
+    await update(status="running", total=len(items), completed=0, results=[])
+
+    results: List[Dict[str, Any]] = []
+    for idx, it in enumerate(items):
+        t0 = time.perf_counter()
+        try:
+            png = await asyncio.to_thread(
+                _html.render_flyer,
+                body.theme,
+                item_name=it["name"],
+                features=it["features"],
+                price=it["price"],
+                brand="Lakeview Burgers & Seafood",
+                cta="Order Now · Mon-Sat 11-9",
+                food_image_path=food_path,
+                output_size=body.output_size,
+                render_size=body.render_size,
+            )
+            asset_id = str(uuid.uuid4())
+            storage_path = objstore.make_path("html_bulk", asset_id, "png")
+            await asyncio.to_thread(objstore.put_bytes, storage_path, png, "image/png")
+            now = _now_iso()
+            await db.media_assets.insert_one({
+                "id": asset_id,
+                "filename": f"{it['name']}.png",
+                "kind": "image", "mime": "image/png",
+                "size_bytes": len(png),
+                "width": body.output_size, "height": body.output_size,
+                "duration_seconds": None,
+                "folder": "Bulk · HTML Template",
+                "tags": ["bulk-render", f"theme:{body.theme}", f"job:{job_id}"],
+                "storage_path": storage_path,
+                "is_favorite": False, "status": "active",
+                "source": "html_bulk",
+                "theme": body.theme,
+                "item_name": it["name"],
+                "uploaded_at": now, "updated_at": now,
+            })
+            ms = round((time.perf_counter() - t0) * 1000, 1)
+            results.append({
+                "item_name": it["name"],
+                "category": it["category"],
+                "asset_id": asset_id,
+                "render_ms": ms,
+                "ok": True,
+            })
+        except Exception as e:  # noqa: BLE001
+            results.append({
+                "item_name": it["name"],
+                "category": it["category"],
+                "ok": False,
+                "error": str(e),
+            })
+        await update(completed=idx + 1, results=results)
+
+    await update(status="done", finished_at=_now_iso())
+
+
+@router.post("/bulk-render")
+async def bulk_render(body: BulkRenderBody, background: BackgroundTasks):
+    """Render every menu item with the chosen HTML theme. Runs as a
+    background asyncio task; poll `/bulk-render/{job_id}` for progress."""
+    if not _html.is_supported(body.theme):
+        raise HTTPException(
+            status_code=400,
+            detail=f"theme={body.theme!r} not supported by the HTML renderer."
+        )
+    job_id = str(uuid.uuid4())
+    now = _now_iso()
+    await db.html_bulk_jobs.insert_one({
+        "id": job_id,
+        "theme": body.theme,
+        "status": "queued",
+        "total": 0, "completed": 0,
+        "results": [],
+        "created_at": now, "updated_at": now,
+    })
+    background.add_task(_run_bulk_render, job_id, body)
+    return {"job_id": job_id, "status": "queued"}
+
+
+@router.get("/bulk-render/{job_id}")
+async def bulk_render_status(job_id: str):
+    job = await db.html_bulk_jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    return job

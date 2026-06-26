@@ -2986,3 +2986,35 @@ port via the new Template Designer iteration loop.
 
 **Reports**:
 * `/app/memory/SPRINT20A_POLISH_REPORT.md` — full audit & visuals
+
+---
+
+## Sprint 20A — Bulk Apply-to-Menu (Feb 2026)
+
+**Scope**: Wire the Template Designer's selected theme into a one-click
+"Apply to all menu items" action that bulk-renders flyers for every
+menu item using the chosen HTML theme and saves them to the Library.
+
+**Status**: ✅ Live in preview.
+
+**What shipped**:
+* **`POST /api/html-template/bulk-render`** — kicks off a background job
+  that iterates `menu_categories`, renders each item via the HTML
+  engine, saves PNGs to object storage + `media_assets` (folder
+  "Bulk · HTML Template", tags `bulk-render` + `theme:<id>` +
+  `job:<id>`). Returns a job_id.
+* **`GET /api/html-template/bulk-render/{job_id}`** — poll endpoint
+  for status/progress/results.
+* **Template Designer UI** — new "Apply <theme> to all menu items"
+  button + progress bar + status messages with completion summary.
+* **`html_bulk_jobs` collection** — new mongo doc per job tracking
+  status, total, completed, results, timestamps.
+* **5 new endpoint tests** in `test_html_template_routes.py`.
+
+**Results**:
+* **50/50 menu items rendered** in ~90s end-to-end (~1.8s per item).
+* 55 bulk-rendered assets persisted to the Library across multiple jobs.
+* 64/64 backend tests pass; zero regressions.
+
+**Reports**: `/app/memory/SPRINT20A_POLISH_REPORT.md` updated with the
+bulk-render section.
