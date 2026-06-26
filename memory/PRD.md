@@ -2256,3 +2256,96 @@ different. No new themes, no workflow changes, no API changes.
 
 **No frontend changes. No production deploy** (per scope).
 
+
+### Sprint 16I — Premium Typography & Composition Engine (Phase 1 + 2 + 3 + 4) (Feb 25, 2026)
+
+**Goal**: Stop flyers looking algorithmically typeset. Headlines stack
+(SMASH \n BURGER), title gets a designer backdrop (ribbon / swash /
+distressed rect), price badge picks one of six shapes per variant,
+ingredients render as pill chips. No new themes, no workflow changes,
+no API changes.
+
+**New module**: `/app/backend/typography_engine.py` (~250 LOC):
+  * `split_title_lines(name)` — 2-word titles become two lines, 3-word
+    splits 1+2. 4+ words left alone.
+  * `draw_title_backdrop(...)` — paints `ribbon` / `swash` /
+    `distressed_rect` behind the title text. Variant-randomized
+    (deterministic per `(theme_id, variant_idx)`), `none` 25% of the time.
+  * `BADGE_STYLES` = `("burst", "sticker", "chalk_circle", "ribbon",
+    "ticket", "distressed_stamp")` + `pick_badge_style(theme, variant)`
+    + `draw_premium_badge(...)` dispatcher.
+  * `draw_pill_chips(...)` — horizontally-wrapping rounded pill chips
+    for ingredients.
+
+**Router changes** (`routers/ai_designer.py`):
+  * `_compose_design` shallow-copies the theme dict and threads
+    `_theme_id`, `_variant_idx`, and `_badge_style` so the draw
+    callbacks can resolve their per-variant treatments.
+  * `_draw_title` now calls `split_title_lines` first — 2-word names
+    render stacked at 1.12× the configured size — then paints the
+    chosen backdrop behind each line before the glyph pass.
+  * `_draw_price_badge` delegates to `typography_engine.draw_premium_badge`
+    with the picked style.
+  * `_draw_bullets` switches to `draw_pill_chips` when `theme["icons"]`
+    is set (i.e. all flyer + burger + seafood + game_day + seasonal
+    packs — 17 of 22 themes). Classic themes keep the legacy bullet
+    list for typography contrast.
+
+**Phase coverage status**:
+  * Phase 1 (hero typography — stacked / oversized) — ✅ Done
+  * Phase 2 (title backdrops — ribbon / swash / distressed rect) — ✅ Done
+  * Phase 3 (premium price badges — 6 styles) — ✅ Done
+  * Phase 4 (ingredient pill chips) — ✅ Done
+  * Phase 5 (compositional analysis / balance feedback loop) — **deferred**
+    (needs post-render canvas analysis pass; separate sprint)
+  * Phase 6 (food dominates 60-75 % visual weight) — **deferred**
+    (covered partially by 16G's `full_bleed` + `bottom_hero` layouts;
+    explicit weight measurement is a Phase 5 dependency)
+  * Phase 7 (designer rule engine — badge opposite food weight, title
+    balances negative space) — **deferred**
+
+**Tests** (`tests/test_typography_engine.py`, 15 cases, all green):
+  * Split-line: 1 / 2 / 3 / 4-word titles handled correctly.
+  * Badge picker returns a known style; deterministic; variants diverge.
+  * All 6 badge styles render without raising.
+  * Pill chips advance Y by the chip block height; empty list returns
+    Y unchanged.
+  * 5-dish acceptance (Smash Burger, Café Fries, Wings, Shrimp Po-Boy,
+    Oyster Plate) — each produces 3 distinct PNG hashes.
+
+**AI design critic (independent Gemini analyst) verbatim observations**:
+
+For `smash-burger_stacked.png`:
+  * *"Headline is split into two bold, stacked lines, intentionally
+    oversized, serving as the dominant visual anchor."*
+  * *"Title is set against a dark brown, ribbon-like geometric banner
+    backdrop."*
+
+For `wings_asym_left.png`:
+  * *"Price badge is a sunburst-shaped element... yellow shape with
+    radiating lines, characteristic of a sunburst design... the price
+    badge is a star burst."*
+
+For `smash-burger_centered.png`:
+  * *"Each ingredient name is enclosed in a rounded, pill-shaped tag
+    with a yellow background and dark red/brown text. These tags are
+    arranged horizontally."*
+
+All four 16I deliverables (stacked title, title backdrop, badge
+variety, pill chips) verified by the independent AI in different
+flyers from the acceptance set.
+
+**Performance**: 22 themes × 3 variants in 39.2 s → **594 ms / flyer**
+(no regression vs Sprint 16H's 597 ms). Typography overhead adds
+~5-15 ms / flyer.
+
+**Files**:
+  * **New**: `/app/backend/typography_engine.py`,
+    `/app/backend/tests/test_typography_engine.py`
+  * **Modified**: `/app/backend/routers/ai_designer.py`
+    (`_draw_title`, `_draw_price_badge`, `_draw_bullets`,
+    `_compose_design`)
+
+**No frontend changes. No API changes. No new themes. No new workflows.**
+**No production deploy** (per scope).
+

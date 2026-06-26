@@ -902,35 +902,61 @@ def _draw_ingredient_icon(canvas: Image.Image, kind: str, x: int, y: int,
 # ---------------------------------------------------------------- Composition
 
 def _draw_price_badge(canvas: Image.Image, theme: Dict[str, Any], price_text: str, cx: int, cy: int, radius: int) -> None:
-    """Draw a circular price badge centered at (cx, cy)."""
-    draw = ImageDraw.Draw(canvas, "RGBA")
+    """Sprint 16I — Premium badge dispatcher.
+
+    Themes can pin `theme["badge_style"]` to one of `BADGE_STYLES`; otherwise
+    a style is picked deterministically per (theme_id, variant_idx) by the
+    caller via the optional `theme["_badge_style"]` context key set in
+    `_compose_design`. Falls back to the legacy circular sticker when no
+    style is selected.
+    """
+    from typography_engine import draw_premium_badge
+    import random
+
     p = theme["price"]
-    # Outer ring
-    draw.ellipse((cx - radius - 6, cy - radius - 6, cx + radius + 6, cy + radius + 6),
-                 fill=p["ring"] + (255,) if isinstance(p["ring"], tuple) and len(p["ring"]) == 3 else p["ring"])
-    # Inner badge
-    draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), fill=p["bg"])
-    # Price text
+    style = theme.get("_badge_style") or theme.get("badge_style") or "sticker"
     font_size = max(28, radius // 2)
     f = _font(p["font"], font_size)
-    bbox = draw.textbbox((0, 0), price_text, font=f)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    draw.text((cx - tw // 2, cy - th // 2 - bbox[1]), price_text, fill=p["fg"], font=f)
+    bg = p["bg"] if (isinstance(p["bg"], tuple) and len(p["bg"]) == 4) else (p["bg"] + (255,) if isinstance(p["bg"], tuple) else p["bg"])
+    fg = p["fg"]
+    ring = p["ring"] if (isinstance(p["ring"], tuple) and len(p["ring"]) == 4) else (p["ring"] + (255,) if isinstance(p["ring"], tuple) else p["ring"])
+    rng = random.Random(hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0))) & 0xFFFFFFFF)
+    draw_premium_badge(canvas, cx=cx, cy=cy, radius=radius,
+                       price_text=price_text, bg=bg, fg=fg, ring=ring,
+                       font=f, style=style, rng=rng)
 
 
 def _draw_bullets(canvas: Image.Image, theme: Dict[str, Any], features: List[str],
                   x: int, y: int, max_w: int) -> None:
-    """Draw up to 5 feature bullets stacked vertically.
+    """Draw up to 5 feature bullets.
 
-    Sprint 16A.2 — when `theme["icons"]` is True (flyer themes only), each
-    feature line gets a small PIL-drawn ingredient icon in place of the
-    text marker. Falls back to the text marker when no keyword matches.
+    Sprint 16A.2 — flyer themes get PIL-drawn ingredient icons.
+    Sprint 16I — themes with `icons=True` (i.e. flyer + burger + seafood +
+    game_day + seasonal packs) render as horizontally-wrapping pill chips
+    instead of vertical bullet lines. Looks more like a magazine spread.
+    Classic themes keep the legacy bullet list for typography contrast.
     """
     if not features:
         return
     draw = ImageDraw.Draw(canvas, "RGBA")
     body = theme["body"]
     f = _font(body["font"], body["size"])
+
+    if theme.get("icons"):
+        # Sprint 16I — pill chips path.
+        from typography_engine import draw_pill_chips
+        chip_bg = theme.get("price", {}).get("bg", (40, 40, 40))
+        chip_fg = theme.get("price", {}).get("fg", (255, 255, 255))
+        if isinstance(chip_bg, tuple) and len(chip_bg) == 3:
+            chip_bg = chip_bg + (220,)
+        # Smaller font inside chips so they don't dominate.
+        chip_font = _font(body["font"], max(20, body["size"] - 4))
+        draw_pill_chips(canvas, features[:6], x=x, y=y, max_w=max_w,
+                        bg=chip_bg, fg=chip_fg, font=chip_font,
+                        border=body.get("marker_color"))
+        return
+
+    # Legacy bullet list (classic themes).
     line_h = body["size"] + 14
     use_icons = bool(theme.get("icons"))
     icon_size = max(28, min(40, body["size"] + 4))
@@ -958,25 +984,46 @@ def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
                 x: int, y: int, max_w: int, align: str = "center") -> int:
     """Draw the item title; returns the y after the title block.
 
-    Sprint 16A.1 — for flyer themes the title spec may carry:
-      * `stroke_width` / `stroke_fill` — outlines the headline for legibility
-      * `shadow` — RGBA tuple drops a soft shadow behind each line
-      * `letter_spacing` — extra px between glyphs for that poster look
-    None of these are required; legacy themes that don't set them render
-    identically to their pre-16A.1 form.
+    Sprint 16A.1 — stroke / shadow / letter_spacing support.
+    Sprint 16I — split-line headlines for 2- or 3-word titles ("Smash
+    Burger" → SMASH \n BURGER) and a deterministic per-variant title
+    backdrop (ribbon / swash / distressed_rect / none).
     """
+    from typography_engine import split_title_lines, draw_title_backdrop, pick_title_backdrop_style
+    import random
+
     draw = ImageDraw.Draw(canvas, "RGBA")
     t = theme["title"]
-    f = _font(t["font"], t["size"])
-    lines = _wrap_text(draw, item_name, f, max_w)
+
+    # Sprint 16I — decide whether to stack the title.
+    forced_lines = split_title_lines(item_name)
+    if len(forced_lines) > 1:
+        # Bump the per-line size since each line is much shorter.
+        f = _font(t["font"], int(t["size"] * 1.12))
+        lines = forced_lines
+    else:
+        f = _font(t["font"], t["size"])
+        lines = _wrap_text(draw, item_name, f, max_w)
+
     stroke_w = t.get("stroke_width", 0)
     stroke_fill = t.get("stroke_fill")
     shadow = t.get("shadow")
     letter_spacing = t.get("letter_spacing", 0)
+
+    # Sprint 16I — backdrop behind each title line (optional, theme-locked
+    # variant). Drawn BEFORE the text so it sits behind glyphs.
+    backdrop_style = theme.get("_title_backdrop") or pick_title_backdrop_style(
+        theme.get("_theme_id", "x"), theme.get("_variant_idx", 0),
+    )
+    # Disable backdrop entirely if the theme opts out.
+    if theme.get("disable_title_backdrop"):
+        backdrop_style = "none"
+
     cur_y = y
+    line_height_px = (f.size if hasattr(f, "size") else t["size"]) + 8
+    rng = random.Random(hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0))) & 0xFFFFFFFF)
+
     for line in lines:
-        # Measure with letter-spacing applied (PIL doesn't do this natively;
-        # we render each glyph individually when letter_spacing > 0).
         if letter_spacing:
             glyph_widths = [draw.textbbox((0, 0), ch, font=f)[2] for ch in line]
             lw = sum(glyph_widths) + letter_spacing * max(0, len(line) - 1)
@@ -989,6 +1036,19 @@ def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
             lx = x + (max_w - lw)
         else:
             lx = x
+
+        # Sprint 16I — Draw backdrop behind the line. Slightly wider than the
+        # text bounds so it reads as an intentional banner.
+        if backdrop_style != "none":
+            pad_x = max(18, line_height_px // 3)
+            pad_y = max(8, line_height_px // 6)
+            backdrop_color = stroke_fill if stroke_fill else theme.get("price", {}).get("bg", (40, 40, 40))
+            draw_title_backdrop(
+                canvas,
+                x=lx - pad_x, y=cur_y - pad_y // 2,
+                w=lw + pad_x * 2, h=line_height_px,
+                style=backdrop_style, color=backdrop_color, rng=rng,
+            )
 
         # Shadow (offset down-right, behind the stroke).
         if shadow:
@@ -1009,7 +1069,7 @@ def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
                 kwargs["stroke_width"] = stroke_w
                 kwargs["stroke_fill"] = stroke_fill
             draw.text((lx, cur_y), line, **kwargs)
-        cur_y += t["size"] + 8
+        cur_y += line_height_px
     return cur_y
 
 
@@ -1068,6 +1128,17 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
     layout_override = None
     if layout in LEGACY_LAYOUT_ALIAS:
         layout_override = LEGACY_LAYOUT_ALIAS[layout]
+
+    # Sprint 16I — thread `theme_id` + `variant_idx` + per-variant badge style
+    # through the theme dict so _draw_title / _draw_price_badge can pick the
+    # right backdrop / badge variant deterministically.
+    from typography_engine import pick_badge_style
+    theme = dict(theme)
+    theme["_theme_id"] = theme_id
+    theme["_variant_idx"] = variant_idx
+    if not theme.get("badge_style"):
+        theme["_badge_style"] = pick_badge_style(theme_id, variant_idx)
+    THEME_STYLES_SHALLOW = THEME_STYLES  # noqa: F841 — kept for reference
 
     canvas = compose_layered(
         bg_image=bg,
