@@ -2754,3 +2754,42 @@ luxury (off-centre) and personality-aligned recommendations.
      UI in a future sprint.
 
 
+
+
+## Sprint 19 Hotfix — Professional Flyer Composition — Closed 2026-06-26
+
+**Goal**: Make the food the hero (60-75% of canvas), kill the rectangular photo
+border, guarantee every price badge is filled (not outline-only), and lower the
+decorative overlay opacity so waves/smoke/confetti recede behind the food.
+
+**Code changes (already done in previous session, locked-in this session)**
+* `/app/backend/render_engine.py`
+  * `_scale_up_to_target(...)` — new helper that upscales `_fit`-shrunk food
+    to ~92% of its slot's smaller axis. Applied in `hero_center`, `full_bleed`,
+    `left_focus`, `right_focus` and `stacked` layouts.
+  * `layout_hero_center` — bumped food slot caps from 0.78×0.65 → full safe area.
+  * `_compose_once`:
+    * Composites a filled disc UNDER every badge regardless of badge style
+      so outline-only badges (distressed_stamp) always read as solid.
+    * Caps the foreground overlay layer alpha at 45% of original.
+
+**Validation (this session)**
+* Seeded a real 1024×851 burger photo as a `source=upload` asset
+  (`ddfa3085-3bb6-40e6-b422-5f6124d0a973`) so `menu_validation.py` can pick a
+  non-AI source.
+* Ran `python scripts/menu_validation.py --limit 15` → **15 / 15 OK in 116.9 s,
+  avg quality 76.8**, no failed jobs.
+* New `/app/backend/scripts/sprint19_visual_audit.py` runs four objective pixel
+  checks per flyer (food dominance, central coverage, badge fill, Sobel rect
+  border) — **15 / 15 pass**.
+* AI vision spot-checks: 6 / 6, 6 / 6, 5 / 6 — every flyer reads as food-first
+  with feathered edges and a filled badge.
+* Backend `pytest` test_sprint19_hotfix.py + test_sprint18_design.py — **24 / 24
+  pass**.
+
+**Report**: `/app/memory/SPRINT19_HOTFIX_VALIDATION_REPORT.md`
+
+**Status**: ✅ APPROVED. Two non-blocking polish ideas captured for a future
+sprint (shrink `hero_center` text bands by ~30 px to push canvas-wide food
+coverage from 48% → 55%; consider opacity ≤0.35 for `seafood_coastal` wave
+overlay on dark food).

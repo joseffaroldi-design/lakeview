@@ -283,6 +283,28 @@ def warm_to_theme(food_rgba: Image.Image, accent_rgb: Tuple[int, int, int],
 LayoutSpec = Dict[str, Any]
 
 
+def _scale_up_to_target(food: Image.Image, max_w: int, max_h: int,
+                        target_frac: float = 0.92) -> Image.Image:
+    """Sprint 19 hotfix — boost the food image to actually fill its slot.
+
+    `_fit` shrinks until the food fits within (max_w, max_h) preserving
+    aspect, which often leaves 30-50% of the slot empty for portrait
+    dishes. This function then scales the result UP so the LARGER of
+    width/height equals `target_frac * min(max_w, max_h)`. The food
+    becomes the hero per spec (60-75% canvas prominence).
+    """
+    if food.width == 0 or food.height == 0:
+        return food
+    target = int(min(max_w, max_h) * target_frac)
+    cur = max(food.width, food.height)
+    if cur >= target:
+        return food
+    scale = target / cur
+    nw = min(max_w, int(food.width * scale))
+    nh = min(max_h, int(food.height * scale))
+    return food.resize((nw, nh), Image.LANCZOS)
+
+
 def _fit(food: Image.Image, max_w: int, max_h: int) -> Image.Image:
     """Scale `food` so it fits inside (max_w, max_h) while preserving aspect."""
     if food.width == 0 or food.height == 0:
@@ -296,15 +318,21 @@ def _fit(food: Image.Image, max_w: int, max_h: int) -> Image.Image:
 def layout_hero_center(food_rgba: Image.Image,
                        title_size_hint: int = 110) -> LayoutSpec:
     """Title top, food big in the middle, bullets + price band at the bottom.
-    The "safe default" — works for every kind of dish."""
-    safe = 60
-    title_band_h = 200
-    bottom_band_h = 230
+    The "safe default" — works for every kind of dish.
+
+    Sprint 19 hotfix: bumped food caps so the dish actually dominates
+    (target 60–75% of canvas, was ~55%).
+    """
+    safe = 40
+    title_band_h = 180
+    bottom_band_h = 200
     food_max_w = CANVAS - 2 * safe
-    food_max_h = CANVAS - title_band_h - bottom_band_h - 40
+    food_max_h = CANVAS - title_band_h - bottom_band_h
     food = _fit(food_rgba, food_max_w, food_max_h)
+    # Sprint 19: scale up 1.35× so a tall portrait dish actually fills the slot.
+    food = _scale_up_to_target(food, food_max_w, food_max_h, target_frac=0.92)
     fx = (CANVAS - food.width) // 2
-    fy = title_band_h + 20 + (food_max_h - food.height) // 2
+    fy = title_band_h + 10 + (food_max_h - food.height) // 2
     return {
         "food": food,
         "food_pos": (fx, fy),
@@ -318,13 +346,14 @@ def layout_hero_center(food_rgba: Image.Image,
 
 def layout_full_bleed(food_rgba: Image.Image,
                       title_size_hint: int = 110) -> LayoutSpec:
-    """Food fills 75% of the canvas, bleeding off the right edge. Title and
+    """Food fills 90%+ of the canvas, bleeding off the right edge. Title and
     price overlay the left third. Editorial / poster feel."""
     safe = 50
-    food_max_w = int(CANVAS * 0.85)
-    food_max_h = int(CANVAS * 0.85)
+    food_max_w = int(CANVAS * 0.98)
+    food_max_h = int(CANVAS * 0.98)
     food = _fit(food_rgba, food_max_w, food_max_h)
-    fx = CANVAS - food.width + int(food.width * 0.06)   # bleed off the right
+    food = _scale_up_to_target(food, food_max_w, food_max_h, target_frac=0.95)
+    fx = CANVAS - food.width + int(food.width * 0.08)   # bleed off the right
     fy = (CANVAS - food.height) // 2
     return {
         "food": food,
@@ -340,13 +369,14 @@ def layout_full_bleed(food_rgba: Image.Image,
 def layout_left_focus(food_rgba: Image.Image,
                       title_size_hint: int = 100) -> LayoutSpec:
     """Food large on the left, text column on the right."""
-    safe = 50
-    food_max_w = int(CANVAS * 0.55)
-    food_max_h = int(CANVAS * 0.78)
+    safe = 40
+    food_max_w = int(CANVAS * 0.70)   # was 0.55
+    food_max_h = int(CANVAS * 0.90)   # was 0.78
     food = _fit(food_rgba, food_max_w, food_max_h)
-    fx = safe - 20
+    food = _scale_up_to_target(food, food_max_w, food_max_h, target_frac=0.92)
+    fx = safe - 30
     fy = (CANVAS - food.height) // 2
-    text_x = int(CANVAS * 0.55)
+    text_x = int(CANVAS * 0.62)
     text_w = CANVAS - text_x - safe
     return {
         "food": food,
@@ -362,11 +392,12 @@ def layout_left_focus(food_rgba: Image.Image,
 def layout_right_focus(food_rgba: Image.Image,
                        title_size_hint: int = 100) -> LayoutSpec:
     """Mirror of left_focus — food right, text column left."""
-    safe = 50
-    food_max_w = int(CANVAS * 0.55)
-    food_max_h = int(CANVAS * 0.78)
+    safe = 40
+    food_max_w = int(CANVAS * 0.70)
+    food_max_h = int(CANVAS * 0.90)
     food = _fit(food_rgba, food_max_w, food_max_h)
-    fx = CANVAS - food.width - safe + 20
+    food = _scale_up_to_target(food, food_max_w, food_max_h, target_frac=0.92)
+    fx = CANVAS - food.width - safe + 30
     fy = (CANVAS - food.height) // 2
     return {
         "food": food,
@@ -405,12 +436,13 @@ def layout_bottom_hero(food_rgba: Image.Image,
 def layout_stacked(food_rgba: Image.Image,
                    title_size_hint: int = 110) -> LayoutSpec:
     """Title large at the top, food upper-center, bullets+price band bottom."""
-    safe = 60
-    food_max_w = int(CANVAS * 0.50)
-    food_max_h = int(CANVAS * 0.50)
+    safe = 50
+    food_max_w = int(CANVAS * 0.78)
+    food_max_h = int(CANVAS * 0.68)
     food = _fit(food_rgba, food_max_w, food_max_h)
+    food = _scale_up_to_target(food, food_max_w, food_max_h, target_frac=0.92)
     fx = (CANVAS - food.width) // 2
-    fy = int(CANVAS * 0.18) + (int(CANVAS * 0.52) - food.height) // 2
+    fy = int(CANVAS * 0.18) + (food_max_h - food.height) // 2
     return {
         "food": food,
         "food_pos": (fx, fy),
@@ -636,12 +668,19 @@ def _compose_once(
     canvas.alpha_composite(food_with_shadow, (fx - pad_x, fy - pad_y))
 
     # ---- Foreground overlay (per-theme particles / texture / light rays) ----
+    # Sprint 19 hotfix: overlays should SUPPORT the food, not compete with
+    # it. Composite the overlay layer at 45% opacity (was 100%) so waves /
+    # smoke / confetti recede behind the hero.
     overlay_fn = theme.get("overlay_fn")
     if callable(overlay_fn):
         try:
             fg = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
             fg_draw = ImageDraw.Draw(fg, "RGBA")
             overlay_fn(fg, fg_draw, variant_idx)
+            # Knock overlay alpha down to 45% so it never fights the food.
+            alpha = fg.getchannel("A")
+            faded = alpha.point(lambda v: int(v * 0.45))
+            fg.putalpha(faded)
             canvas = Image.alpha_composite(canvas, fg)
         except Exception as e:  # noqa: BLE001
             logger.warning("[render_engine] overlay_fn failed for %s: %s", theme_id, e)
@@ -654,10 +693,32 @@ def _compose_once(
         by = title_end_y + 8
     draw_bullets(canvas, theme, features, bx, by, bw)
 
+    # Sprint 19 hotfix — GUARANTEE the badge has a filled background.
+    # Some legacy badge styles (e.g. distressed_stamp) only drew an outline
+    # which read as "broken / dashed circle". Draw a filled disc UNDER every
+    # badge so even outline-only styles always look intentional.
     cx, cy = spec["badge_centre"]
+    badge_radius = spec["badge_radius"]
+    badge_bg = theme.get("badge_bg") or theme.get("branding_color") or (220, 70, 50)
+    badge_ring = theme.get("badge_ring") or (255, 220, 100)
+    badge_pad_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    bdraw = ImageDraw.Draw(badge_pad_layer)
+    # Subtle outer ring for premium feel
+    bdraw.ellipse(
+        (cx - badge_radius - 8, cy - badge_radius - 8,
+         cx + badge_radius + 8, cy + badge_radius + 8),
+        fill=tuple(list(badge_ring)[:3]) + (255,),
+    )
+    bdraw.ellipse(
+        (cx - badge_radius, cy - badge_radius,
+         cx + badge_radius, cy + badge_radius),
+        fill=tuple(list(badge_bg)[:3]) + (255,),
+    )
+    canvas = Image.alpha_composite(canvas, badge_pad_layer)
+
     draw_price_badge(canvas, theme,
                      (price or "").strip() or "—",
-                     cx, cy, spec["badge_radius"])
+                     cx, cy, badge_radius)
 
     # ---- Branding ----
     draw_branding(canvas, theme)

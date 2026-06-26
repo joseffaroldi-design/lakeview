@@ -1155,7 +1155,8 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         features=features,
         price=price,
         layout_override=layout_override,
-        target_score=75.0,
+        # Sprint 19 hotfix — bump target so weak compositions actually retry.
+        target_score=80.0,
         max_iterations=2,
     )
     out = io.BytesIO()
