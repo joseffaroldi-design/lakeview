@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import BillingCard from "./BillingCard";
-import TodaysPick from "./home/TodaysPick";
+// Sprint 16J — TodaysPick + BillingCard removed from Home per user request.
+// The components themselves still exist on disk for potential reuse.
 import PickDifferentModal from "./home/PickDifferentModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -72,7 +72,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
   const [health, setHealth] = useState({ level: "green", issues: [] });
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [topItems, setTopItems] = useState([]);
-  const [todaysPick, setTodaysPick] = useState(null);
   const [pickDifferentOpen, setPickDifferentOpen] = useState(false);
 
   useEffect(() => {
@@ -83,14 +82,13 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const ymd = todayYMD();
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-        const [summaryRes, healthRes, suggestRes, specialsRes, inqRes, statsRes, todaysPickRes] = await Promise.allSettled([
+        const [summaryRes, healthRes, suggestRes, specialsRes, inqRes, statsRes] = await Promise.allSettled([
           axios.get(`${API}/home/summary`, { headers }),
           axios.get(`${API}/home/health`, { headers }),
           axios.get(`${API}/home/promote-suggestions?limit=3`, { headers }),
           axios.get(`${API}/specials`, { headers }),
           axios.get(`${API}/catering/inquiries`, { headers }),
           axios.get(`${API}/ai-ads/stats`, { headers }).catch(() => ({ data: {} })),
-          axios.get(`${API}/todays-pick/today`, { headers }).catch(() => ({ data: null })),
         ]);
 
         if (cancelled) return;
@@ -101,7 +99,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         const specials = specialsRes.status === "fulfilled" ? specialsRes.value.data || [] : [];
         const inquiries = inqRes.status === "fulfilled" ? (inqRes.value.data && inqRes.value.data.inquiries) || [] : [];
         const stats = statsRes.status === "fulfilled" ? statsRes.value.data || {} : {};
-        const pick = todaysPickRes.status === "fulfilled" ? todaysPickRes.value.data : null;
 
         setToday({
           scheduledToday: summary.scheduled || 0,
@@ -113,7 +110,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         setHealth(healthData);
         setTopItems(top3);
         setMenuItems([]);  // no longer needed — using top3 instead
-        setTodaysPick(pick);
 
         setWeek({
           mostPromotedItem: stats.most_used_goal || "—",
@@ -186,16 +182,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
     return () => { cancelled = true; };
   }, [getAuthHeader, onNavigate, onPromote]);
 
-  const refreshTodaysPick = async () => {
-    try {
-      const headers = getAuthHeader();
-      const res = await axios.get(`${API}/todays-pick/today`, { headers });
-      setTodaysPick(res.data);
-    } catch (err) {
-      console.error("Failed to refresh Today's Pick:", err);
-    }
-  };
-
   // Featured = first top-3 item (fallback null)
   const featuredItem = topItems[0] || null;
   void menuItems; // legacy state, no longer rendered
@@ -226,16 +212,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           </div>
         </div>
       </div>
-
-      {/* TODAY'S PICK — Full-width hero at top */}
-      <TodaysPick
-        pick={todaysPick}
-        onRefresh={refreshTodaysPick}
-        getAuthHeader={getAuthHeader}
-      />
-
-      {/* BILLING CARD */}
-      <BillingCard getAuthHeader={getAuthHeader} />
 
       {/* TODAY — KPIs (REDUCED FROM 7 TO 4) */}
       <div className="mb-6">
