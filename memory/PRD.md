@@ -2349,3 +2349,107 @@ flyers from the acceptance set.
 **No frontend changes. No API changes. No new themes. No new workflows.**
 **No production deploy** (per scope).
 
+
+---
+
+## Sprint 17A — AI Creative Director & Design Memory (Foundation) — 2026-02-26
+
+**Scope locked by the user**: Foundation only. NO Projects, NO Remix, NO
+Marketing Calendar. Photo→Flyer is the single workflow that consumes the
+new memory. AI Designer remains fully manual.
+
+**What shipped**
+
+1) **Design Memory** — tiny per-menu-item visual preference store.
+   New collection: `design_memory` (unique index on `item_key`,
+   secondary index on `updated_at`). Whitelisted fields only:
+   `theme, layout, overlay, badge, typography, crop, harmony, favorite_flyer_id`.
+   Generated copy / captions / videos are explicitly DROPPED by the
+   pydantic `extra='ignore'` config — verified by a regression test
+   that sends `captions` + `video_id` and asserts they are absent in
+   the response.
+
+2) **Creative Director** — pure scoring engine, never auto-applies.
+   `POST /api/creative-director/recommend` returns exactly 3 ranked
+   cards (Best Match / Good Match / Alternative — stars 5/4/3) with
+   `id, label, pack, pack_label, category, best_use, preview_color,
+   reason, all_reasons`. Scoring inputs: item category (inferred
+   from item_key + food_type + features), saved memory theme,
+   season + holiday window (Mardi Gras / July 4 / Valentines /
+   Holidays / Summer), photo dominant_colors warm/cool, and brand
+   color from `site_content` (defaults to legacy gold).
+   Memory bias = **+60** so an explicitly-saved theme outranks
+   the +50 category bonus — proven by
+   `test_recommend_memory_wins_across_categories`.
+
+3) **Frontend** — `/app/frontend/src/pages/dashboard/aiads/`
+   * `MenuItemPicker.jsx` — searchable, category-grouped dropdown
+     of menu items (reuses `/api/menu`). Keyboard nav (ArrowUp/Down/
+     Enter/Esc), grouped by display category. Computes `item_key`
+     using a slugify identical to backend
+     `services/menu_matcher.py::_item_key`.
+   * `CreativeDirectorRecs.jsx` — 3-card horizontal strip with
+     stars + 1-line reason + selected-state ring + collapsible
+     "View all themes" toggle (render-prop swaps in the existing
+     grouped picker).
+   * `PhotoToFlyer.jsx` (modified) — wired the picker, "We found
+     your preferred design style for X" banner with
+     `[Use Saved Style]` / `[Start Fresh]`, top-3 recs in the
+     Review step, and `SavePreferredStyleModal` (learning loop).
+     Menu pick + saved memory + vision results MERGE — menu pick
+     wins for name/price/features (owner explicitly picked it),
+     vision data remains visible for confirmation.
+
+4) **Learning loop** — clicking Download on the Done step
+   programmatically synthesizes an `<a download>` click and defers
+   `setSaveModal` via `setTimeout(0)` so the modal paints in ~40 ms
+   (no race with the file-save dialog). Modal fires ONCE per
+   session via `askedToSave` guard. Confirm → `PUT
+   /api/design-memory/{item_key}`. Modal is silently suppressed
+   when the current theme already equals the saved one.
+
+5) **Endpoints (all `/api/`)**:
+   * `GET /design-memory/{item_key}` (404 when missing)
+   * `PUT /design-memory/{item_key}` (whitelist + upsert)
+   * `DELETE /design-memory/{item_key}`
+   * `POST /creative-director/recommend`
+
+6) **Tests**: `/app/backend/tests/test_design_memory.py` — **15 passing**:
+   auth (3), CRUD (3), invalid key + empty body (2), recommend
+   always-3 (1), payload shape (1), category inference for burger/
+   seafood/sports (3), memory bias same-category (1), memory bias
+   cross-category (1).
+
+7) **Acceptance demo (recorded in /app/test_reports/iteration_24.json)**:
+   * Pick Chicken Wings (12) → menu picker fills name/price/features,
+     no banner (no memory yet).
+   * Save preferred style burger_neon_diner via curl → reload.
+   * Pick Chicken Wings (12) again → banner appears, click
+     [Use Saved Style] → upload photo → Review shows
+     burger_neon_diner as Best Match (5 stars,
+     "Matches your saved style."). The owner clicks 1 button
+     instead of browsing 22 themes.
+
+**Files**
+  * New: `/app/backend/routers/design_memory.py`,
+    `/app/backend/routers/creative_director.py`,
+    `/app/backend/tests/test_design_memory.py`,
+    `/app/frontend/src/pages/dashboard/aiads/MenuItemPicker.jsx`,
+    `/app/frontend/src/pages/dashboard/aiads/CreativeDirectorRecs.jsx`
+  * Modified: `/app/backend/server.py` (register routers + indexes),
+    `/app/frontend/src/pages/dashboard/aiads/PhotoToFlyer.jsx`
+
+**Guardrails honored**
+  * No new AI image generation.
+  * No duplicate workflows — reused Photo→Flyer, AI Designer themes,
+    theme packs, render engine, marketing pack.
+  * No breaking API changes; only new endpoints under
+    `/api/design-memory/*` and `/api/creative-director/*`.
+  * AI Designer left manual (per user spec — saved style is
+    Photo→Flyer-only).
+
+**Deferred (Phase 4-7) — explicitly out of scope this sprint**
+  * Phase 4: Project System (bundle photo/flyer/captions/videos)
+  * Phase 5: One-Click Remix (Holiday / Game Day / Summer / etc.)
+  * Phase 7: AI Marketing Calendar (Mardi Gras / Saints game days)
+
