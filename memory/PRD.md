@@ -2818,3 +2818,43 @@ decorative overlay opacity so waves/smoke/confetti recede behind the food.
 in the deployment checklist → Phase 5 visual sign-off → Sprint 20 (Marketing
 Workspace + Batch Campaign Generator + Calendar + Library 2.0 + Smart Insights)
 queued and paused per user direction.
+
+---
+
+## Sprint 20 Phase 0 — Agency Template Slot System — CLOSED (Feb 2026)
+
+**Scope**: Introduce hybrid template-slot rendering alongside the procedural
+PIL engine; ship 6 starter templates; close out with a formal acceptance
+audit and a prioritised polish backlog.
+
+**Status**: ✅ **CLOSED** — Sprint 20 Phase 0 acceptance audit complete.
+Cleared to deploy.
+
+**What shipped**:
+* `agency_templates/` package (manifest loader + picker) + `agency_renderer.py`
+  slot compositor. 6 starter manifests + v2 procedural background PNGs.
+* `_compose_design` in `routers/ai_designer.py` dispatches to the agency
+  renderer first, silently falls back to procedural on `TemplateError`.
+* 16 new pytests, 24 prior Sprint 18+19 tests still green.
+* Acceptance audit (5 items × Gemini Vision 10-dim rubric) — mean **6.9 / 10**
+  (vs ~5-6 / 10 estimated for the procedural pre-Sprint-20 baseline).
+* Template audit (all 6 templates) — best 7.6 (luxury-dark), worst 6.0
+  (seafood-special; deflated by seed-image content mismatch).
+
+**Reports**:
+* `/app/memory/SPRINT20_PHASE0_FINAL_REPORT.md` — full closure audit
+* `/app/memory/SPRINT20_PHASE0_TEMPLATE_SYSTEM.md` — schema & upgrade docs
+
+**Prioritised follow-up** (tracked in the final report, not blockers):
+* **P0-1** Add a real logo slot to every manifest (brand presence 5.6 / 10).
+* **P0-2** Raise feature/footer font-size floor to 24px (readability 6.9 / 10).
+* **P0-3** Drop hand-designed Canva/Figma 1024² PNGs into
+  `agency_templates/backgrounds/` — instant 8-9 / 10 ceiling. **Owner: user.**
+* **P1-1** Modernise the price-badge style (filled pill / hex).
+* **P1-2** Add a strong CTA band to every manifest.
+* **P1-3** Wire `agency_renderer` outputs into `quality_score.score_composition`.
+* **P1-4** Cuisine-specific display fonts per template.
+* **P1-5** Picker fix: Cuban → "deli/sandwich" category.
+* **P2** Optional overlay PNGs · 4-6 more templates · template thumbnail picker · auto-rotation.
+
+**Next**: Sprint 20 Phase A — Marketing Workspace (one project per menu item).
