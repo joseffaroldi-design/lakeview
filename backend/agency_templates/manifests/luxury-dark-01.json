@@ -7,50 +7,64 @@
   "background": "luxury-dark-01.png",
   "overlays": [],
   "slots": {
+    "logo": {
+      "anchor": "top-center",
+      "text": "LAKEVIEW",
+      "tagline": "PRIME · SEAFOOD · CRAFT",
+      "font": "FONT_SERIF_BOLD", "size": 38,
+      "tagline_font": "FONT_BEBAS_NEUE", "tagline_size": 18,
+      "color": [212, 175, 55],
+      "letter_spacing": 12, "tagline_letter_spacing": 10,
+      "uppercase": true, "opacity": 245,
+      "show_rule": true, "rule_width": 130, "rule_thickness": 2,
+      "margin": 32
+    },
     "photo": {
-      "x": 80, "y": 240, "w": 580, "h": 680,
+      "x": 80, "y": 280, "w": 580, "h": 640,
       "fit": "cover", "feather": 48, "shadow": true, "shadow_offset": [0, 24], "shadow_blur": 36
     },
     "title": {
-      "x": 60, "y": 70, "w": 904, "h": 150,
+      "x": 60, "y": 170, "w": 904, "h": 100,
       "align": "left",
-      "font": "FONT_SERIF_BOLD", "size": 108,
+      "font": "FONT_SERIF_BOLD", "size": 96,
       "color": [212, 175, 55],
       "stroke_width": 0,
       "uppercase": true,
       "letter_spacing": 8,
-      "max_lines": 2
+      "max_lines": 1
     },
     "features": {
-      "x": 700, "y": 260, "w": 280, "h": 480,
+      "x": 700, "y": 300, "w": 284, "h": 460,
       "style": "stacked_chips",
       "font": "FONT_BEBAS_NEUE", "size": 26,
-      "bg": [212, 175, 55, 235], "fg": [16, 16, 16],
-      "max_items": 4, "line_h": 62, "padding": 14, "border_radius": 6,
+      "bg": [212, 175, 55, 240], "fg": [16, 16, 16],
+      "max_items": 4, "line_h": 60, "padding": 14, "border_radius": 8,
       "uppercase": true, "letter_spacing": 3
     },
     "price": {
-      "cx": 838, "cy": 860, "radius": 112,
+      "cx": 838, "cy": 860, "radius": 110,
       "bg": [212, 175, 55], "ring": [16, 16, 16], "fg": [16, 16, 16],
       "font": "FONT_SERIF_BOLD", "size": 60,
-      "style": "filled_disc_double_ring"
+      "style": "filled_premium",
+      "shadow": true, "shadow_blur": 22, "shadow_offset": [0, 14],
+      "inner_ring": false
     },
     "brand": {
       "cx": 512, "y": 992, "anchor": "center",
-      "color": [212, 175, 55, 200],
-      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "color": [212, 175, 55, 220],
+      "font": "FONT_BEBAS_NEUE", "size": 22,
       "uppercase": true, "letter_spacing": 8
     },
     "cta": {
-      "x": 60, "y": 956, "w": 460, "h": 24,
-      "color": [212, 175, 55, 220],
-      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "x": 60, "y": 960, "w": 460, "h": 28,
+      "color": [212, 175, 55, 235],
+      "font": "FONT_BEBAS_NEUE", "size": 24,
       "uppercase": true, "letter_spacing": 4
     }
   },
   "safe_zones": [
-    {"x": 0, "y": 0, "w": 1024, "h": 60},
-    {"x": 0, "y": 980, "w": 1024, "h": 44}
+    {"x": 0, "y": 0, "w": 1024, "h": 140},
+    {"x": 0, "y": 940, "w": 1024, "h": 84}
   ],
   "fallback_theme": "luxury"
 }

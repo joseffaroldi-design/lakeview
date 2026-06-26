@@ -7,50 +7,64 @@
   "background": "game-day-promo-01.png",
   "overlays": [],
   "slots": {
+    "logo": {
+      "anchor": "top-center",
+      "text": "LAKEVIEW",
+      "tagline": "GAME DAY · BURGERS · SEAFOOD",
+      "font": "FONT_SERIF_BOLD", "size": 36,
+      "tagline_font": "FONT_BEBAS_NEUE", "tagline_size": 16,
+      "color": [255, 200, 60],
+      "letter_spacing": 10, "tagline_letter_spacing": 6,
+      "uppercase": true, "opacity": 240,
+      "show_rule": true, "rule_width": 120, "rule_thickness": 2,
+      "margin": 32
+    },
     "photo": {
-      "x": 60, "y": 240, "w": 600, "h": 700,
+      "x": 60, "y": 280, "w": 600, "h": 660,
       "fit": "cover", "feather": 30, "shadow": true, "shadow_offset": [0, 18], "shadow_blur": 24
     },
     "title": {
-      "x": 60, "y": 60, "w": 904, "h": 150,
+      "x": 60, "y": 160, "w": 904, "h": 110,
       "align": "left",
-      "font": "FONT_SERIF_BOLD", "size": 124,
+      "font": "FONT_SERIF_BOLD", "size": 108,
       "color": [255, 200, 60],
       "stroke_width": 3, "stroke_fill": [12, 12, 16],
       "uppercase": true,
-      "letter_spacing": 6,
-      "max_lines": 2
+      "letter_spacing": 4,
+      "max_lines": 1
     },
     "features": {
-      "x": 700, "y": 260, "w": 280, "h": 460,
+      "x": 700, "y": 300, "w": 284, "h": 460,
       "style": "stacked_chips",
       "font": "FONT_BEBAS_NEUE", "size": 26,
-      "bg": [12, 12, 16, 230], "fg": [255, 200, 60],
-      "max_items": 4, "line_h": 62, "padding": 14, "border_radius": 8,
+      "bg": [12, 12, 16, 235], "fg": [255, 200, 60],
+      "max_items": 4, "line_h": 60, "padding": 14, "border_radius": 10,
       "uppercase": true, "letter_spacing": 3
     },
     "price": {
-      "cx": 836, "cy": 870, "radius": 110,
+      "cx": 836, "cy": 860, "radius": 108,
       "bg": [200, 30, 40], "ring": [255, 200, 60], "fg": [255, 200, 60],
       "font": "FONT_SERIF_BOLD", "size": 58,
-      "style": "filled_disc_double_ring"
+      "style": "filled_premium",
+      "shadow": true, "shadow_blur": 22, "shadow_offset": [0, 12],
+      "inner_ring": false
     },
     "brand": {
-      "cx": 512, "y": 990, "anchor": "center",
+      "cx": 512, "y": 992, "anchor": "center",
       "color": [255, 200, 60, 200],
-      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "font": "FONT_BEBAS_NEUE", "size": 22,
       "uppercase": true, "letter_spacing": 6
     },
     "cta": {
-      "x": 60, "y": 956, "w": 460, "h": 24,
-      "color": [255, 200, 60, 220],
-      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "x": 60, "y": 960, "w": 460, "h": 28,
+      "color": [255, 200, 60, 235],
+      "font": "FONT_BEBAS_NEUE", "size": 24,
       "uppercase": true, "letter_spacing": 4
     }
   },
   "safe_zones": [
-    {"x": 0, "y": 0, "w": 1024, "h": 60},
-    {"x": 0, "y": 980, "w": 1024, "h": 44}
+    {"x": 0, "y": 0, "w": 1024, "h": 130},
+    {"x": 0, "y": 940, "w": 1024, "h": 84}
   ],
   "fallback_theme": "game_day_scoreboard"
 }

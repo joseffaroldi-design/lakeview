@@ -7,50 +7,64 @@
   "background": "burger-poster-01.png",
   "overlays": [],
   "slots": {
+    "logo": {
+      "anchor": "top-center",
+      "text": "LAKEVIEW",
+      "tagline": "BURGERS · SEAFOOD",
+      "font": "FONT_SERIF_BOLD", "size": 38,
+      "tagline_font": "FONT_BEBAS_NEUE", "tagline_size": 18,
+      "color": [245, 235, 210],
+      "letter_spacing": 10, "tagline_letter_spacing": 8,
+      "uppercase": true, "opacity": 240,
+      "show_rule": true, "rule_width": 110, "rule_thickness": 2,
+      "margin": 36
+    },
     "photo": {
-      "x": 60, "y": 220, "w": 580, "h": 720,
+      "x": 60, "y": 280, "w": 600, "h": 640,
       "fit": "cover", "feather": 36, "shadow": true, "shadow_offset": [0, 18], "shadow_blur": 28
     },
     "title": {
-      "x": 60, "y": 60, "w": 904, "h": 150,
+      "x": 60, "y": 160, "w": 904, "h": 110,
       "align": "left",
-      "font": "FONT_SERIF_BOLD", "size": 110,
+      "font": "FONT_SERIF_BOLD", "size": 96,
       "color": [245, 235, 210],
       "stroke_width": 0,
       "uppercase": true,
       "letter_spacing": 4,
-      "max_lines": 2
+      "max_lines": 1
     },
     "features": {
-      "x": 680, "y": 240, "w": 304, "h": 480,
+      "x": 700, "y": 300, "w": 284, "h": 480,
       "style": "stacked_chips",
-      "font": "FONT_BEBAS_NEUE", "size": 28,
-      "bg": [200, 30, 40, 230], "fg": [245, 235, 210],
-      "max_items": 4, "line_h": 64, "padding": 16, "border_radius": 12,
+      "font": "FONT_BEBAS_NEUE", "size": 26,
+      "bg": [200, 30, 40, 235], "fg": [245, 235, 210],
+      "max_items": 4, "line_h": 62, "padding": 16, "border_radius": 14,
       "uppercase": true, "letter_spacing": 2
     },
     "price": {
-      "cx": 832, "cy": 850, "radius": 110,
+      "cx": 836, "cy": 850, "radius": 108,
       "bg": [200, 30, 40], "ring": [245, 235, 210], "fg": [245, 235, 210],
-      "font": "FONT_SERIF_BOLD", "size": 60,
-      "style": "filled_disc_double_ring"
+      "font": "FONT_SERIF_BOLD", "size": 58,
+      "style": "filled_premium",
+      "shadow": true, "shadow_blur": 20, "shadow_offset": [0, 12],
+      "inner_ring": false
     },
     "brand": {
       "cx": 512, "y": 990, "anchor": "center",
       "color": [245, 235, 210, 200],
-      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "font": "FONT_BEBAS_NEUE", "size": 22,
       "uppercase": true, "letter_spacing": 6
     },
     "cta": {
-      "x": 60, "y": 956, "w": 460, "h": 24,
-      "color": [245, 235, 210, 220],
-      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "x": 60, "y": 960, "w": 460, "h": 24,
+      "color": [245, 235, 210, 235],
+      "font": "FONT_BEBAS_NEUE", "size": 24,
       "uppercase": true, "letter_spacing": 4
     }
   },
   "safe_zones": [
-    {"x": 0, "y": 0, "w": 1024, "h": 60},
-    {"x": 0, "y": 980, "w": 1024, "h": 44}
+    {"x": 0, "y": 0, "w": 1024, "h": 140},
+    {"x": 0, "y": 940, "w": 1024, "h": 84}
   ],
   "fallback_theme": "burger_classic"
 }

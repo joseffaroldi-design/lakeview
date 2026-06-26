@@ -7,50 +7,64 @@
   "background": "seafood-special-01.png",
   "overlays": [],
   "slots": {
+    "logo": {
+      "anchor": "top-center",
+      "text": "LAKEVIEW",
+      "tagline": "BURGERS · SEAFOOD",
+      "font": "FONT_SERIF_BOLD", "size": 36,
+      "tagline_font": "FONT_BEBAS_NEUE", "tagline_size": 18,
+      "color": [245, 235, 210],
+      "letter_spacing": 10, "tagline_letter_spacing": 8,
+      "uppercase": true, "opacity": 235,
+      "show_rule": true, "rule_width": 110, "rule_thickness": 2,
+      "margin": 32
+    },
     "photo": {
-      "x": 380, "y": 60, "w": 600, "h": 720,
+      "x": 380, "y": 140, "w": 600, "h": 660,
       "fit": "cover", "feather": 40, "shadow": true, "shadow_offset": [0, 22], "shadow_blur": 32
     },
     "title": {
-      "x": 60, "y": 80, "w": 320, "h": 420,
+      "x": 60, "y": 160, "w": 320, "h": 360,
       "align": "left",
-      "font": "FONT_SERIF_BOLD", "size": 78,
+      "font": "FONT_SERIF_BOLD", "size": 74,
       "color": [245, 235, 210],
       "stroke_width": 2, "stroke_fill": [12, 30, 60],
       "uppercase": true,
-      "letter_spacing": 3,
-      "max_lines": 4
+      "letter_spacing": 2,
+      "max_lines": 3
     },
     "features": {
-      "x": 60, "y": 540, "w": 320, "h": 260,
+      "x": 60, "y": 540, "w": 310, "h": 260,
       "style": "stacked_chips",
       "font": "FONT_BEBAS_NEUE", "size": 24,
-      "bg": [12, 30, 60, 220], "fg": [245, 235, 210],
-      "max_items": 4, "line_h": 56, "padding": 14, "border_radius": 28,
+      "bg": [12, 30, 60, 230], "fg": [245, 235, 210],
+      "max_items": 4, "line_h": 58, "padding": 14, "border_radius": 28,
       "uppercase": true, "letter_spacing": 2
     },
     "price": {
-      "cx": 200, "cy": 880, "radius": 100,
+      "cx": 210, "cy": 880, "radius": 102,
       "bg": [200, 60, 50], "ring": [245, 235, 210], "fg": [245, 235, 210],
       "font": "FONT_SERIF_BOLD", "size": 56,
-      "style": "filled_disc_double_ring"
+      "style": "filled_premium",
+      "shadow": true, "shadow_blur": 22, "shadow_offset": [0, 12],
+      "inner_ring": false
     },
     "brand": {
-      "cx": 512, "y": 990, "anchor": "center",
+      "cx": 512, "y": 992, "anchor": "center",
       "color": [245, 235, 210, 200],
-      "font": "FONT_BEBAS_NEUE", "size": 16,
+      "font": "FONT_BEBAS_NEUE", "size": 22,
       "uppercase": true, "letter_spacing": 6
     },
     "cta": {
-      "x": 60, "y": 956, "w": 460, "h": 24,
-      "color": [245, 235, 210, 220],
-      "font": "FONT_BEBAS_NEUE", "size": 18,
+      "x": 380, "y": 820, "w": 600, "h": 32,
+      "color": [245, 235, 210, 235],
+      "font": "FONT_BEBAS_NEUE", "size": 24,
       "uppercase": true, "letter_spacing": 4
     }
   },
   "safe_zones": [
-    {"x": 0, "y": 0, "w": 1024, "h": 60},
-    {"x": 0, "y": 980, "w": 1024, "h": 44}
+    {"x": 0, "y": 0, "w": 1024, "h": 120},
+    {"x": 0, "y": 950, "w": 1024, "h": 74}
   ],
   "fallback_theme": "seafood_coastal"
 }

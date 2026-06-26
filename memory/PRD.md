@@ -2858,3 +2858,55 @@ Cleared to deploy.
 * **P2** Optional overlay PNGs · 4-6 more templates · template thumbnail picker · auto-rotation.
 
 **Next**: Sprint 20 Phase A — Marketing Workspace (one project per menu item).
+
+---
+
+## Sprint 20 Phase 0.5 — Final Flyer Engine Polish (Freeze Candidate) (Feb 2026)
+
+**Scope**: Final rendering-engine sprint before the engine is frozen as
+the permanent foundation for all future marketing features. P0-only
+polish — Universal Logo Slot, Typography V2, Premium Badge System, Brand
+Presence, Layout Refinement. No new features.
+
+**Status**: ✅ **Ready for engine freeze.** Awaiting user approval to
+begin Sprint 20 Phase A.
+
+**What shipped**:
+* `agency_renderer.py` +210 LOC — `_draw_logo` w/ auto safe-zone luma
+  detection · `_fit_title` rewrite (32 px soft floor, proportional 22 %
+  line-gap, never truncates) · `_draw_badge` rewrite (soft drop shadow,
+  filled disc only) · `_MIN_FONT_PX = 24` global secondary-text floor.
+* All 6 manifests re-issued with `logo` slot, larger brand/cta fonts,
+  refined photo offsets, expanded safe zones.
+* New `scripts/sprint20p05_validation.py` 25-item harness.
+
+**Results**:
+* Internal Quality Score: **79.3 / 100** avg across 25 Lakeview items
+  (Sprint 19 procedural baseline 76.0; +3.3).
+* Gemini Vision (design-only rubric, 5 items): **7.5 / 10** avg
+  (Phase 0 baseline 6.7; +0.8).
+* Render time: **71 ms** avg (8.5× faster than procedural).
+* Zero regressions; 16/16 agency tests + Sprint 18+19 tests green.
+* Strongest: Smash Burger 83.6, Extra Patty 83.4. Weakest: Cuban 73.7,
+  Chicken Sandwich 74.3.
+
+**Template audit verdict** (6 templates):
+* KEEP × 5: `burger-poster-01` (7.5), `seafood-special-01` (8.1),
+  `classic-diner-01` (7.3), `luxury-dark-01` (7.7), `bold-social-01` (7.4)
+* IMPROVE × 1: `game-day-promo-01` (6.8) — busy background + badge/title
+  palette tension. Not a blocker; renders cleanly.
+* REPLACE × 0.
+
+**Why we did not hit 85/8.5 stretch targets**: The hard cap is the v2
+procedural backgrounds penalising the `whitespace` metric (35/100 across
+ALL 25 items). Asset replacement (Canva/Figma PNGs) is the only path to
+8.5+. Documented in `SPRINT20_PHASE0_TEMPLATE_SYSTEM.md §"How to upgrade"`.
+
+**Recommendation**: **A — Freeze the engine and begin Sprint 20 Phase A
+(Marketing Workspace).** Further engine iteration risks over-fitting to
+a synthetic scorer.
+
+**Reports**:
+* `/app/memory/SPRINT20_PHASE0_5_FINAL_REPORT.md` — full audit
+* `/tmp/sprint20p05_renders/*.jpg` — 25 polished renders
+* `/tmp/sprint20p05_results.json` — full metrics dump
