@@ -2951,3 +2951,38 @@ stays as the fallback for all other themes.
 
 **Reports**:
 * `/app/memory/SPRINT20A_HTML_RENDERER_REPORT.md` — full audit & comparison
+
+---
+
+## Sprint 20A — HTML Engine Polish + Seafood + Live Designer (Feb 2026)
+
+**Scope**: CSS polish to Cajun + Luxury templates, third HTML theme
+(Seafood), and a Live Template Designer page at `/template-designer`.
+
+**Status**: ✅ Live in preview.
+
+**What shipped**:
+* **CSS polish**: Cajun gold-pill CTA + richer wax-seal price stamp with
+  ribbon tails. Luxury gold corner brackets + diamond flourish below
+  price, bigger 360² plaque so it doesn't overlap the food disc.
+* **Seafood theme** (`seafood.html`): navy + lemon + coral, octagonal
+  porthole food crop, compass-rose price seal. Hits 8.0/10 first try.
+* **Live Template Designer** at `/template-designer` (frontend) backed
+  by `POST /api/html-template/preview` (backend). Edit theme/item/price/
+  features/CTA → render PNG in ~1.5 s.
+* **Worker-thread architecture**: sync Playwright runs in one dedicated
+  long-lived thread; renders submitted via queue. Solves the asyncio +
+  greenlet thread issues.
+
+**Results**:
+* Avg Gemini Vision (3 themes): **8.17/10** (PIL Phase 0.5 baseline 7.5).
+* Luxury Wagyu **8.8/10** — first single flyer above 8.5; 10/10 on color
+  harmony, first 10 ever scored on any dimension.
+* 59/59 backend tests pass; zero regressions; public APIs unchanged.
+
+**Themes still on PIL/agency**: `burger_classic`, `game_day_scoreboard`,
+`modern`, `distressed_orange`, `vintage`, `chalk` — ~half-day each to
+port via the new Template Designer iteration loop.
+
+**Reports**:
+* `/app/memory/SPRINT20A_POLISH_REPORT.md` — full audit & visuals

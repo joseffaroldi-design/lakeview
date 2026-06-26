@@ -6,6 +6,7 @@ import { Phone, MapPin, Clock, ChevronDown, Settings, Mail, ExternalLink, Users,
 import axios from "axios";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
+import TemplateDesigner from "@/pages/TemplateDesigner";
 // Sprint 12D: SpinWheel + InstallPrompt removed
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -1122,6 +1123,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/template-designer" element={<TemplateDesigner />} />
         </Routes>
       </BrowserRouter>
     </div>

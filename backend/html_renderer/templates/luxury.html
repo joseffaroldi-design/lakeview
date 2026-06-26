@@ -186,19 +186,19 @@
     backdrop-filter: blur(2px);
   }
 
-  /* ----- price plaque: classic gold rectangle ----- */
+  /* ----- price plaque: classic gold rectangle with corner accents ----- */
   .price-plaque {
     position: absolute;
-    right: 160px; top: 1320px;
-    width: 320px; height: 320px;
+    right: 160px; top: 1300px;
+    width: 360px; height: 360px;
     z-index: 7;
     border: 3px solid var(--gold);
-    background: linear-gradient(180deg, #18181d 0%, #0a0a0c 100%);
+    background: linear-gradient(180deg, #1a1a20 0%, #0a0a0c 100%);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 24px 48px rgba(0, 0, 0, .55), 0 0 0 8px rgba(212, 175, 55, .1);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, .55), 0 0 0 8px rgba(212, 175, 55, .12);
   }
   .price-plaque::before, .price-plaque::after {
     content: "";
@@ -208,15 +208,25 @@
   }
   .price-plaque::before { top: 26px; }
   .price-plaque::after { bottom: 26px; }
+  /* gold corner brackets */
+  .price-plaque .corner {
+    position: absolute;
+    width: 28px; height: 28px;
+    border: 2px solid var(--gold);
+  }
+  .price-plaque .corner.tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+  .price-plaque .corner.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+  .price-plaque .corner.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+  .price-plaque .corner.br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
   .price-plaque .label {
     font-family: "Inter", sans-serif;
     font-weight: 400;
-    font-size: 24px;
-    letter-spacing: 16px;
+    font-size: 22px;
+    letter-spacing: 14px;
     color: var(--champagne);
     text-transform: uppercase;
-    margin-bottom: 14px;
-    padding-left: 16px;
+    margin-bottom: 10px;
+    padding-left: 14px;
   }
   .price-plaque .price {
     font-family: "Playfair Display", serif;
@@ -226,6 +236,22 @@
     color: var(--gold);
     letter-spacing: -2px;
     line-height: 1;
+  }
+  .price-plaque .flourish {
+    width: 70px; height: 1px;
+    background: var(--gold);
+    margin-top: 14px;
+    position: relative;
+  }
+  .price-plaque .flourish::before {
+    content: "♦";
+    position: absolute;
+    left: 50%; top: -10px;
+    transform: translateX(-50%);
+    color: var(--gold);
+    font-size: 12px;
+    background: var(--ink);
+    padding: 0 6px;
   }
 
   /* ----- footer ----- */
@@ -297,8 +323,13 @@
 
     <!-- Price plaque -->
     <div class="price-plaque">
+      <span class="corner tl"></span>
+      <span class="corner tr"></span>
+      <span class="corner bl"></span>
+      <span class="corner br"></span>
       <div class="label">Today</div>
       <div class="price">{{ price }}</div>
+      <div class="flourish"></div>
     </div>
 
     <!-- Footer -->

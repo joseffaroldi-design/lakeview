@@ -38,9 +38,13 @@ ROOT = Path(__file__).parent
 TEMPLATES = ROOT / "templates"
 FONTS_DIR = ROOT / "fonts"
 
-# Cajun + Luxury are the launch themes for the HTML renderer. Every
-# other theme continues to flow through the PIL/agency renderer.
-SUPPORTED_THEMES = ["cajun", "luxury", "cajun_blackened", "luxury_dark"]
+# Cajun + Luxury + Seafood are the launch themes for the HTML renderer.
+# Every other theme continues to flow through the PIL/agency renderer.
+SUPPORTED_THEMES = [
+    "cajun", "luxury",
+    "cajun_blackened", "luxury_dark",
+    "seafood", "seafood_coastal", "seafood_lagoon",
+]
 
 
 def is_supported(theme: str) -> bool:
@@ -49,7 +53,7 @@ def is_supported(theme: str) -> bool:
     t = theme.strip().lower()
     if t in SUPPORTED_THEMES:
         return True
-    return any(t.startswith(s) for s in ("cajun", "luxury"))
+    return any(t.startswith(s) for s in ("cajun", "luxury", "seafood"))
 
 
 # -------------------------------------------------------------- jinja env
@@ -116,53 +120,141 @@ def _resolve_template(theme: str) -> str:
     t = (theme or "").strip().lower()
     if t.startswith("luxury") or t == "luxury_dark":
         return "luxury.html"
+    if t.startswith("seafood"):
+        return "seafood.html"
     return "cajun.html"  # default for the cajun family
 
 
 # ---------------------------------------------- playwright singleton
+# Sync Playwright greenlets are bound to a single OS thread — we run a
+# dedicated worker thread that owns the browser and consumes render jobs
+# off a queue. This lets us serve renders from many request threads /
+# asyncio loops without ever crossing the Playwright thread boundary.
+
+import queue as _queue
+import dataclasses
+from concurrent.futures import Future
 
 _PW_LOCK = threading.Lock()
-_PW = None  # type: ignore
-_BROWSER = None  # type: ignore
+_RENDER_QUEUE: "_queue.Queue[tuple[dict, Future[bytes]]]" = _queue.Queue()
+_WORKER_THREAD: Optional[threading.Thread] = None
+
+
+@dataclasses.dataclass
+class _RenderJob:
+    theme: str
+    item_name: str
+    features: List[str]
+    price: str
+    brand: str
+    cta: str
+    food_image_path: Optional[str]
+    food_image_url: Optional[str]
+    output_size: int
+    render_size: int
+    return_format: str
+
+
+def _worker_loop() -> None:
+    """Owns the Playwright instance + browser for the process lifetime."""
+    pw = sync_playwright().start()
+    browser = pw.chromium.launch(
+        headless=True,
+        args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    )
+    while True:
+        job_dict, future = _RENDER_QUEUE.get()
+        if job_dict is None:  # shutdown sentinel
+            break
+        try:
+            png = _do_render(browser, _RenderJob(**job_dict))
+            future.set_result(png)
+        except Exception as e:  # noqa: BLE001
+            future.set_exception(e)
+    try:
+        browser.close()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        pw.stop()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _ensure_worker() -> None:
+    """Lazily start the dedicated render worker thread."""
+    global _WORKER_THREAD
+    with _PW_LOCK:
+        if _WORKER_THREAD is not None and _WORKER_THREAD.is_alive():
+            return
+        _WORKER_THREAD = threading.Thread(
+            target=_worker_loop,
+            name="html-renderer-worker",
+            daemon=True,
+        )
+        _WORKER_THREAD.start()
+
+
+def _do_render(browser, job: _RenderJob) -> bytes:
+    """Runs in the worker thread — composes the HTML, screenshots,
+    downscales."""
+    feats: List[str] = [str(f) for f in job.features if f]
+    template_name = _resolve_template(job.theme)
+    template = _jinja.get_template(template_name)
+    html = template.render(
+        item_name=job.item_name or "",
+        features=feats,
+        price=job.price or "",
+        brand=job.brand or "",
+        cta=job.cta or "",
+        food_image=_food_image_data_url(job.food_image_path, job.food_image_url),
+        font_face_block=_FONT_FACE_BLOCK,
+        theme=(job.theme or "").lower(),
+    )
+
+    context = browser.new_context(
+        viewport={"width": job.render_size, "height": job.render_size},
+        device_scale_factor=1.0,
+    )
+    try:
+        page = context.new_page()
+        page.set_content(html, wait_until="load", timeout=15_000)
+        page.evaluate("document.fonts.ready")
+        png_bytes = page.screenshot(
+            type="png",
+            full_page=False,
+            clip={"x": 0, "y": 0, "width": job.render_size, "height": job.render_size},
+            omit_background=False,
+        )
+    finally:
+        context.close()
+
+    if job.output_size != job.render_size:
+        im = Image.open(io.BytesIO(png_bytes))
+        im = im.resize((job.output_size, job.output_size), Image.LANCZOS)
+        out = io.BytesIO()
+        im.save(out, format=job.return_format)
+        return out.getvalue()
+    return png_bytes
 
 
 def _ensure_browser():
-    """Lazily start a long-lived headless Chromium. Reused across renders
-    to avoid the ~600ms cold-start cost."""
-    global _PW, _BROWSER
-    with _PW_LOCK:
-        if _BROWSER is not None:
-            try:
-                # Probe — if browser died, restart it.
-                _ = _BROWSER.contexts
-                return _BROWSER
-            except Exception:  # noqa: BLE001
-                _BROWSER = None
-                _PW = None
-        _PW = sync_playwright().start()
-        _BROWSER = _PW.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-        )
-        return _BROWSER
+    """Legacy alias kept for backwards-compat; ensures the worker is up."""
+    _ensure_worker()
+    return None
 
 
 def shutdown() -> None:
     """For tests / clean shutdown."""
-    global _PW, _BROWSER
+    global _WORKER_THREAD
     with _PW_LOCK:
-        try:
-            if _BROWSER is not None:
-                _BROWSER.close()
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            if _PW is not None:
-                _PW.stop()
-        except Exception:  # noqa: BLE001
-            pass
-        _BROWSER = None
-        _PW = None
+        if _WORKER_THREAD is not None and _WORKER_THREAD.is_alive():
+            try:
+                _RENDER_QUEUE.put((None, Future()))
+            except Exception:  # noqa: BLE001
+                pass
+            _WORKER_THREAD.join(timeout=5)
+        _WORKER_THREAD = None
 
 
 # ---------------------------------------------- public render API
@@ -183,51 +275,27 @@ def render_flyer(
 ) -> bytes:
     """Render a flyer to bytes.
 
-    `render_size` is the internal browser viewport (default 2048 → 4×
-    retina); we downscale to `output_size` (default 1024) using PIL's
-    LANCZOS to preserve sharpness.
+    Submits the job to the dedicated Playwright worker thread and
+    blocks until the rendered PNG is returned. Safe to call from any
+    thread (sync code, asyncio handlers, pytest, etc.).
     """
-    feats: List[str] = [str(f) for f in features if f]
-    template_name = _resolve_template(theme)
-    template = _jinja.get_template(template_name)
-    html = template.render(
-        item_name=item_name or "",
-        features=feats,
-        price=price or "",
-        brand=brand or "",
-        cta=cta or "",
-        food_image=_food_image_data_url(food_image_path, food_image_url),
-        font_face_block=_FONT_FACE_BLOCK,
-        theme=(theme or "").lower(),
-    )
-
-    browser = _ensure_browser()
-    context = browser.new_context(
-        viewport={"width": render_size, "height": render_size},
-        device_scale_factor=1.0,
-    )
-    try:
-        page = context.new_page()
-        page.set_content(html, wait_until="load", timeout=15_000)
-        # Wait until fonts are loaded (CSS Font Loading API)
-        page.evaluate("document.fonts.ready")
-        png_bytes = page.screenshot(
-            type="png",
-            full_page=False,
-            clip={"x": 0, "y": 0, "width": render_size, "height": render_size},
-            omit_background=False,
-        )
-    finally:
-        context.close()
-
-    # Downscale 2048 → 1024 with LANCZOS for crisp output.
-    if output_size != render_size:
-        im = Image.open(io.BytesIO(png_bytes))
-        im = im.resize((output_size, output_size), Image.LANCZOS)
-        out = io.BytesIO()
-        im.save(out, format=return_format)
-        return out.getvalue()
-    return png_bytes
+    _ensure_worker()
+    fut: Future = Future()
+    job_dict = {
+        "theme": theme,
+        "item_name": item_name,
+        "features": list(features),
+        "price": price,
+        "brand": brand,
+        "cta": cta,
+        "food_image_path": food_image_path,
+        "food_image_url": food_image_url,
+        "output_size": int(output_size),
+        "render_size": int(render_size),
+        "return_format": return_format,
+    }
+    _RENDER_QUEUE.put((job_dict, fut))
+    return fut.result(timeout=30)
 
 
 __all__ = [

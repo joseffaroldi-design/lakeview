@@ -168,27 +168,40 @@
     border-color: var(--spice);
   }
 
-  /* ----- price seal ----- */
+  /* ----- price seal — gold ribbon stamp (post-polish) ----- */
   .price-seal {
     position: absolute;
-    right: 160px; bottom: 280px;
-    width: 380px; height: 380px;
+    right: 140px; bottom: 280px;
+    width: 420px; height: 380px;
     z-index: 7;
     filter: drop-shadow(0 24px 40px rgba(139, 35, 16, .45));
   }
   .price-seal svg { width: 100%; height: 100%; display: block; }
   .price-seal .price-text {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
+    position: absolute;
+    inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
     font-family: "Playfair Display", serif;
     font-weight: 900;
     font-size: 118px;
     color: var(--cream);
     letter-spacing: -2px;
     text-shadow: 0 4px 0 rgba(0,0,0,.2);
+    padding-top: 14px;
+  }
+  .price-seal .price-text .label {
+    font-family: "Oswald", sans-serif;
+    font-weight: 700;
+    font-size: 30px;
+    letter-spacing: 8px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    padding-left: 8px;
   }
 
-  /* ----- footer bar ----- */
+  /* ----- footer bar with CTA pill ----- */
   .footer {
     position: absolute;
     left: 0; right: 0; bottom: 0;
@@ -198,17 +211,22 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 130px;
+    padding: 0 90px;
     z-index: 8;
     border-top: 6px solid var(--gold);
   }
   .footer .footer-cta {
+    display: inline-block;
+    padding: 18px 44px;
+    background: var(--gold);
+    color: var(--ink);
+    border-radius: 999px;
     font-family: "Oswald", sans-serif;
     font-weight: 700;
-    font-size: 40px;
-    letter-spacing: 8px;
+    font-size: 32px;
+    letter-spacing: 6px;
     text-transform: uppercase;
-    color: var(--gold);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .35);
   }
   .footer .footer-brand {
     font-family: "Playfair Display", serif;
@@ -261,21 +279,34 @@
       {% endfor %}
     </div>
 
-    <!-- Price seal -->
+    <!-- Price seal — gold ribbon stamp -->
     <div class="price-seal">
-      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-        <!-- Outer wax-seal ring -->
-        <circle cx="100" cy="100" r="92" fill="#8b2310"/>
-        <!-- Notched scallop -->
-        <g fill="#c43a1a">
+      <svg viewBox="0 0 220 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Ribbon tails -->
+        <path d="M30 70 L0 120 L34 110 Z" fill="#8b2310"/>
+        <path d="M190 70 L220 120 L186 110 Z" fill="#8b2310"/>
+        <!-- Outer wax-seal ring with scallop -->
+        <g fill="#8b2310">
           {% for i in range(24) %}
-            <circle cx="{{ 100 + 90 * (1 if i==0 else 0) }}" cy="{{ 100 }}" r="10" transform="rotate({{ i * 15 }} 100 100)"/>
+            <circle cx="200" cy="100" r="11" transform="rotate({{ i * 15 }} 110 100)"/>
           {% endfor %}
         </g>
+        <circle cx="110" cy="100" r="92" fill="#8b2310"/>
+        <!-- Gold inner ring -->
+        <circle cx="110" cy="100" r="80" fill="none" stroke="#d6a23a" stroke-width="3"/>
         <!-- Inner disc -->
-        <circle cx="100" cy="100" r="74" fill="#c43a1a" stroke="#d6a23a" stroke-width="3"/>
+        <circle cx="110" cy="100" r="74" fill="#c43a1a"/>
+        <!-- Decorative stars on the ring -->
+        <g fill="#d6a23a">
+          {% for i in range(8) %}
+            <circle cx="110" cy="14" r="2.5" transform="rotate({{ i * 45 }} 110 100)"/>
+          {% endfor %}
+        </g>
       </svg>
-      <div class="price-text">{{ price }}</div>
+      <div class="price-text">
+        <span class="label">Today</span>
+        {{ price }}
+      </div>
     </div>
 
     <!-- Footer -->
