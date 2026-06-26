@@ -741,6 +741,25 @@ const ReviewStep = ({
             <img src={flyerUrl} alt="generated flyer"
               className="w-full max-w-md mx-auto rounded-md border-2 border-navy/10"
               data-testid="photo-flyer-flyer-img" />
+            {/* Sprint 18 — design quality label (small dev signal — not a big 8.6/10 badge). */}
+            {flyer.quality_label ? (
+              <div className="flex justify-center"
+                   data-testid="photo-flyer-quality-label">
+                <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                  flyer.quality_label === "Excellent"     ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                  flyer.quality_label === "Very Good"     ? "bg-sky-50 text-sky-700 border-sky-200" :
+                                                            "bg-amber-50 text-amber-700 border-amber-200"
+                }`}>
+                  <Sparkles className="w-3 h-3" />
+                  Design Quality: {flyer.quality_label}
+                  {typeof flyer.quality_score === "number" ? (
+                    <span className="opacity-70 normal-case">
+                      · {flyer.quality_score.toFixed(0)}/100
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

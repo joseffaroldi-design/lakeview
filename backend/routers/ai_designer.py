@@ -1000,13 +1000,16 @@ def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
     t = theme["title"]
 
     # Sprint 16I — decide whether to stack the title.
+    # Sprint 18 — apply personality.title_oversize to scale fonts further.
+    personality = theme.get("personality") or {}
+    oversize = float(personality.get("title_oversize", 1.0))
     forced_lines = split_title_lines(item_name)
     if len(forced_lines) > 1:
         # Bump the per-line size since each line is much shorter.
-        f = _font(t["font"], int(t["size"] * 1.12))
+        f = _font(t["font"], int(t["size"] * 1.12 * oversize))
         lines = forced_lines
     else:
-        f = _font(t["font"], t["size"])
+        f = _font(t["font"], int(t["size"] * oversize))
         lines = _wrap_text(draw, item_name, f, max_w)
 
     stroke_w = t.get("stroke_width", 0)
@@ -1016,8 +1019,10 @@ def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
 
     # Sprint 16I — backdrop behind each title line (optional, theme-locked
     # variant). Drawn BEFORE the text so it sits behind glyphs.
+    # Sprint 18 — personality-driven backdrop pool when available.
     backdrop_style = theme.get("_title_backdrop") or pick_title_backdrop_style(
         theme.get("_theme_id", "x"), theme.get("_variant_idx", 0),
+        personality=theme.get("personality"),
     )
     # Disable backdrop entirely if the theme opts out.
     if theme.get("disable_title_backdrop"):
@@ -1104,47 +1109,39 @@ def _draw_branding(canvas: Image.Image, theme: Dict[str, Any]) -> None:
 
 def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                     item_name: str, features: List[str], price: Optional[str],
-                    theme_id: str, layout: str) -> bytes:
+                    theme_id: str, layout: str,
+                    ) -> Tuple[bytes, Dict[str, Any]]:
     """Composite the final marketing graphic.
 
-    Sprint 16G: the imperative if/elif layout branches were replaced by a
-    delegation to `render_engine.compose_layered`. The new compositor adds:
-       * feathered photo edges (no more "photo in a box"),
-       * layered ambient + contact shadows (food sits IN the design),
-       * color-harmony wash (theme palette + 25% of the dish's tones),
-       * theme overlay hook (foreground particles per theme),
-       * six layout variants picked deterministically per (theme, variant).
-    The `layout` parameter still drives variant selection — variant_idx is
-    derived from the legacy string so all existing callers stay correct.
+    Sprint 18: now runs the iterative compose_layered_with_score loop —
+    renders an initial layout, evaluates it via quality_score, and if the
+    score is below the agency-grade threshold (75) renders ONE alternative
+    layout chosen by the weakest-metric hint. Returns the higher-scoring
+    canvas PLUS a `score` dict that the caller persists on the asset.
     """
-    from render_engine import compose_layered, LEGACY_LAYOUT_ALIAS
+    from render_engine import compose_layered_with_score, LEGACY_LAYOUT_ALIAS
 
     theme = THEME_STYLES[theme_id]
     bg = Image.open(io.BytesIO(bg_bytes)).convert("RGB")
     if bg.size != (CANVAS, CANVAS):
         bg = bg.resize((CANVAS, CANVAS), Image.LANCZOS)
 
-    # Map the historical (centered/asym_left/stacked) variant_idx so the new
-    # engine picks 3 distinct layouts per theme (one per legacy variant).
     legacy_to_variant = {"centered": 0, "asym_left": 1, "stacked": 2}
     variant_idx = legacy_to_variant.get(layout, 0)
-    # Allow callers to bypass the picker by passing a 16G layout name directly.
     layout_override = None
     if layout in LEGACY_LAYOUT_ALIAS:
         layout_override = LEGACY_LAYOUT_ALIAS[layout]
 
-    # Sprint 16I — thread `theme_id` + `variant_idx` + per-variant badge style
-    # through the theme dict so _draw_title / _draw_price_badge can pick the
-    # right backdrop / badge variant deterministically.
     from typography_engine import pick_badge_style
     theme = dict(theme)
     theme["_theme_id"] = theme_id
     theme["_variant_idx"] = variant_idx
     if not theme.get("badge_style"):
-        theme["_badge_style"] = pick_badge_style(theme_id, variant_idx)
-    THEME_STYLES_SHALLOW = THEME_STYLES  # noqa: F841 — kept for reference
+        # Sprint 18 — personality-aware badge pick.
+        theme["_badge_style"] = pick_badge_style(
+            theme_id, variant_idx, personality=theme.get("personality"))
 
-    canvas = compose_layered(
+    canvas, score = compose_layered_with_score(
         bg_image=bg,
         food_rgba=food_rgba,
         theme=theme,
@@ -1158,10 +1155,12 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         features=features,
         price=price,
         layout_override=layout_override,
+        target_score=75.0,
+        max_iterations=2,
     )
     out = io.BytesIO()
     canvas.convert("RGB").save(out, "PNG", optimize=True)
-    return out.getvalue()
+    return out.getvalue(), score
 
 
 # ---------------------------------------------------------------- LLM copy (unchanged from 13B)
@@ -1214,7 +1213,8 @@ async def _write_designer_copy(item_name: str, features: List[str], price: Optio
 
 async def _save_design_asset(img_bytes: bytes, item_name: str, theme_id: str, variant: str,
                              item_key: Optional[str] = None,
-                             source_asset_id: Optional[str] = None) -> Dict[str, Any]:
+                             source_asset_id: Optional[str] = None,
+                             score_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     aid = str(uuid.uuid4())
     storage_path = objstore.make_path("ai_designs", aid, "png")
     objstore.put_bytes(storage_path, img_bytes, "image/png")
@@ -1236,6 +1236,12 @@ async def _save_design_asset(img_bytes: bytes, item_name: str, theme_id: str, va
         "item_name": item_name,
         "item_key": item_key,
         "source_asset_id": source_asset_id,
+        # Sprint 18 — quality score persisted for future tuning + dev panel.
+        "quality_score": (score_info or {}).get("score"),
+        "quality_label": (score_info or {}).get("label"),
+        "quality_metrics": (score_info or {}).get("metrics"),
+        "quality_iterations": (score_info or {}).get("iteration"),
+        "quality_layout": (score_info or {}).get("chosen_layout"),
         "uploaded_at": _now(), "updated_at": _now(),
     }
     await db.media_assets.insert_one(doc)
@@ -1286,9 +1292,10 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
         layout = LAYOUTS[idx]
         try:
             bg_bytes = _pil_background(body.theme, idx)
-            graphic_bytes = _compose_design(bg_bytes, food_rgba,
-                                            body.item_name, body.features, body.price,
-                                            body.theme, layout)
+            graphic_bytes, score_info = _compose_design(
+                bg_bytes, food_rgba,
+                body.item_name, body.features, body.price,
+                body.theme, layout)
         except Exception as e:  # noqa: BLE001
             variations.append({"theme": body.theme, "variant": variant, "layout": layout,
                                "status": "failed", "error": "Composition failed",
@@ -1300,7 +1307,8 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
 
         saved = await _save_design_asset(graphic_bytes, body.item_name, body.theme, variant,
                                          item_key=body.item_key,
-                                         source_asset_id=body.source_asset_id)
+                                         source_asset_id=body.source_asset_id,
+                                         score_info=score_info)
         variations.append({
             "theme": body.theme,
             "theme_label": THEME_STYLES[body.theme]["label"],
@@ -1310,6 +1318,11 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
             "asset_id": saved["id"],
             "asset": saved,
             "cost_usd": 0.0,
+            # Sprint 18 — surface the design quality on the response so
+            # the FE dev panel can show "Excellent / Very Good / Needs
+            # Attention" without an extra fetch.
+            "quality_score": score_info.get("score"),
+            "quality_label": score_info.get("label"),
         })
         await update(progress=int(100 * (idx + 1) / total), variations=variations)
 

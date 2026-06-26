@@ -487,18 +487,116 @@ def compose_layered(
     price: Optional[str],
     layout_override: Optional[str] = None,
 ) -> Image.Image:
-    """The Sprint 16G compositor.
-
-    Builds the final flyer one z-layer at a time:
-
-        bg (RGB) → soft-vignette band (legibility) → color-harmony wash →
-        food (with feathered mask + layered shadows) → overlay_fn (foreground
-        particles) → bullets/title/badge → branding.
-
-    `draw_title`, `draw_bullets`, `draw_price_badge`, `draw_branding` are
-    callbacks supplied by `routers.ai_designer` — this module never imports
-    the router (no circular dependency).
+    """Sprint 16G compositor — single render path. Preserved for callers
+    that only need the canvas.
     """
+    canvas, _info, _title_h = _compose_once(
+        bg_image=bg_image, food_rgba=food_rgba,
+        theme=theme, theme_id=theme_id, variant_idx=variant_idx,
+        draw_title=draw_title, draw_bullets=draw_bullets,
+        draw_price_badge=draw_price_badge, draw_branding=draw_branding,
+        item_name=item_name, features=features, price=price,
+        layout_override=layout_override,
+    )
+    return canvas
+
+
+def compose_layered_with_score(
+    *,
+    bg_image: Image.Image,
+    food_rgba: Image.Image,
+    theme: Dict[str, Any],
+    theme_id: str,
+    variant_idx: int,
+    draw_title: Callable[[Image.Image, Dict[str, Any], int, int, int, int, str], int],
+    draw_bullets: Callable[[Image.Image, Dict[str, Any], int, int, int], None],
+    draw_price_badge: Callable[[Image.Image, Dict[str, Any], str, int, int, int], None],
+    draw_branding: Callable[[Image.Image, Dict[str, Any]], None],
+    item_name: str,
+    features: List[str],
+    price: Optional[str],
+    layout_override: Optional[str] = None,
+    target_score: float = 75.0,
+    max_iterations: int = 2,
+) -> Tuple[Image.Image, Dict[str, Any]]:
+    """Sprint 18 — iterative compose. Renders an initial candidate,
+    scores it, and if the score is below `target_score` renders ONE
+    alternative layout (chosen by mapping the weakest metric → layout
+    hint). Returns the higher-scoring canvas + the score breakdown.
+
+    Budget: at most `max_iterations` total renders (default 2), so the
+    extra cost over compose_layered is one full render (~250ms) + two
+    scorings (~60ms) → still under the 500ms/flyer ceiling.
+    """
+    from quality_score import (
+        CompositionInfo,
+        WEAKEST_TO_HINT,
+        score_composition,
+    )
+
+    supported = theme.get("supported_layouts")
+    supported_set = set(supported or DEFAULT_SUPPORTED_LAYOUTS)
+    tried: List[str] = []
+    best_canvas: Optional[Image.Image] = None
+    best_score: Optional[Dict[str, Any]] = None
+    best_layout: Optional[str] = None
+
+    current_override = layout_override
+    for it in range(max(1, max_iterations)):
+        canvas, info, title_h = _compose_once(
+            bg_image=bg_image, food_rgba=food_rgba,
+            theme=theme, theme_id=theme_id, variant_idx=variant_idx,
+            draw_title=draw_title, draw_bullets=draw_bullets,
+            draw_price_badge=draw_price_badge, draw_branding=draw_branding,
+            item_name=item_name, features=features, price=price,
+            layout_override=current_override,
+        )
+        sc = score_composition(canvas, info, title_pixel_height=title_h)
+        sc["iteration"] = it + 1
+        sc["layout"] = info.layout_name
+        tried.append(info.layout_name)
+        if best_score is None or sc["score"] > best_score["score"]:
+            best_canvas, best_score, best_layout = canvas, sc, info.layout_name
+        if sc["score"] >= target_score:
+            break
+        # Pick the next layout candidate based on the weakest metric.
+        hint = WEAKEST_TO_HINT.get(sc["weakest"])
+        # Skip if the hint is unsupported by the theme or already tried.
+        if not hint or hint not in supported_set or hint in tried:
+            # Fallback: rotate to the next layout in the supported pool.
+            pool = [x for x in (supported or DEFAULT_SUPPORTED_LAYOUTS) if x not in tried]
+            if not pool:
+                break
+            hint = pool[0]
+        current_override = hint
+
+    assert best_canvas is not None and best_score is not None
+    best_score["candidates_tried"] = tried
+    best_score["chosen_layout"] = best_layout
+    return best_canvas, best_score
+
+
+def _compose_once(
+    *,
+    bg_image: Image.Image,
+    food_rgba: Image.Image,
+    theme: Dict[str, Any],
+    theme_id: str,
+    variant_idx: int,
+    draw_title: Callable[[Image.Image, Dict[str, Any], int, int, int, int, str], int],
+    draw_bullets: Callable[[Image.Image, Dict[str, Any], int, int, int], None],
+    draw_price_badge: Callable[[Image.Image, Dict[str, Any], str, int, int, int], None],
+    draw_branding: Callable[[Image.Image, Dict[str, Any]], None],
+    item_name: str,
+    features: List[str],
+    price: Optional[str],
+    layout_override: Optional[str] = None,
+):
+    """The Sprint 16G compositor (single render). Returns
+    (canvas, CompositionInfo, title_pixel_height).
+    """
+    from quality_score import CompositionInfo
+
     canvas = bg_image.convert("RGBA")
 
     # ---- Title-legibility bands (top/bottom) — unchanged from 13B ----
@@ -523,18 +621,16 @@ def compose_layered(
         layout_name = "hero_center"
     spec = LAYOUTS[layout_name](food_rgba)
 
-    # Tint shadow with theme accent if the theme has a dark mood; default black.
     accent = theme.get("title", {}).get("color")
     shadow_tint = (0, 0, 0)
     if isinstance(accent, (tuple, list)) and len(accent) >= 3 and theme.get("bg_color"):
         bg = theme["bg_color"]
         bg_lum = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]
-        if bg_lum < 80:  # dark themes → very slightly warm shadow looks better
+        if bg_lum < 80:
             shadow_tint = (24, 12, 4)
 
     food_with_shadow = render_food_with_shadows(spec["food"], tint_rgb=shadow_tint)
     fx, fy = spec["food_pos"]
-    # Re-centre by the shadow's padding so the food still sits at the chosen point.
     pad_x = (food_with_shadow.width - spec["food"].width) // 2
     pad_y = (food_with_shadow.height - spec["food"].height) // 2
     canvas.alpha_composite(food_with_shadow, (fx - pad_x, fy - pad_y))
@@ -550,11 +646,10 @@ def compose_layered(
         except Exception as e:  # noqa: BLE001
             logger.warning("[render_engine] overlay_fn failed for %s: %s", theme_id, e)
 
-    # ---- Text + badge ---- (rect: x, y, w, h)
+    # ---- Text + badge ----
     tx, ty, tw, _th = spec["title_rect"]
     title_end_y = draw_title(canvas, theme, item_name, tx, ty, tw, spec["title_align"])
     bx, by, bw, _bh = spec["bullets_rect"]
-    # If the layout placed bullets near the title and the title overflowed, push down.
     if by < title_end_y + 8 and spec["title_align"] == "center":
         by = title_end_y + 8
     draw_bullets(canvas, theme, features, bx, by, bw)
@@ -566,7 +661,26 @@ def compose_layered(
 
     # ---- Branding ----
     draw_branding(canvas, theme)
-    return canvas
+
+    # ---- Pack composition info for scoring ----
+    food_bbox = (fx, fy, fx + spec["food"].width, fy + spec["food"].height)
+    title_bbox = (tx, ty, tx + tw, max(ty + 60, title_end_y))
+    title_pixel_height = max(40, title_end_y - ty)
+    bullets_bbox = (bx, by, bx + bw, by + spec["bullets_rect"][3])
+    info = CompositionInfo(
+        canvas_size=CANVAS,
+        food_bbox=food_bbox,
+        title_bbox=title_bbox,
+        badge_centre=(cx, cy),
+        badge_radius=spec["badge_radius"],
+        bullets_bbox=bullets_bbox,
+        has_overlay=bool(overlay_fn),
+    )
+    # Stash chosen layout name on the info object so the iterative wrapper
+    # can record what was tried. (CompositionInfo is a dataclass — set
+    # via attribute write.)
+    info.layout_name = layout_name  # type: ignore[attr-defined]
+    return canvas, info, title_pixel_height
 
 
 __all__ = [
@@ -581,6 +695,7 @@ __all__ = [
     "DEFAULT_SUPPORTED_LAYOUTS",
     "pick_layout",
     "compose_layered",
+    "compose_layered_with_score",
 ]
 
 # Suppress unused-import warning when ImageOps is imported but only sometimes used.

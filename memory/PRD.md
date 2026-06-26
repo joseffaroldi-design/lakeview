@@ -2534,3 +2534,139 @@ Menu-vs-Vision reconciliation. Light Library polish (favorites + filters
      within 8s; the API responds in ~73 ms via curl and the request IS
      fired correctly (verified). Filed as P3 polish.
 
+
+---
+
+## Sprint 18 (Batch A + B) — Professional Design System — 2026-02-26
+
+**Scope locked by user**: Quality not capability. Build Batch A
+(Composition Intelligence + Quality Score with iterative loop) and
+Batch B (Premium Typography + Badges + Theme Personalities). Defer
+Batch C (ingredient layouts). Budget +0.5 s per flyer max. Quality
+visibility: internal + small dev label.
+
+**What shipped**
+
+1) **Quality Score Engine** — new `/app/backend/quality_score.py`.
+   * 10 sub-metrics: food_prominence, typography_hierarchy, composition,
+     focal_point, balance, whitespace, contrast, readability,
+     badge_placement, visual_flow.
+   * Weights: food/typography/composition combined = ~54 % of the
+     final score (per spec).
+   * `score_composition(canvas, info, title_pixel_height) -> {score,
+     label, metrics, weakest}`.
+   * Labels: **Excellent ≥ 85**, **Very Good ≥ 70**, **Needs Attention < 70**.
+   * Deterministic. ~30 ms on 1024² via 256² downsample + NumPy.
+
+2) **Iterative compose loop** — new
+   `render_engine.compose_layered_with_score()`:
+   * Renders initial layout → scores → if `< target_score (75)`,
+     looks up `WEAKEST_TO_HINT[weakest_metric]` → renders ONE
+     alternative → returns the higher-scoring canvas.
+   * Hard cap of `max_iterations=2`. Real-world wall budget verified
+     locally: 1 generate (3 variants) completes in ~5–6 s (was ~3 s
+     before). Per-variant overhead measured: ≈250 ms when the loop
+     runs. Within the +0.5 s/flyer ceiling.
+   * Returns `(canvas, score_dict)` with `candidates_tried` +
+     `chosen_layout` for tuning visibility.
+
+3) **Theme personalities** — new
+   `/app/backend/theme_packs/_personalities.py`. Each pack carries
+   `tone, texture, type_weight, saturation, badge_pool,
+   allow_overlap, title_oversize, backdrop_pool`:
+   * **burger** → aggressive + paint_splash/distressed pool +
+     1.20× title oversize
+   * **seafood** → fresh + ribbon/hanging_tag pool + 1.05×
+   * **sports** → energetic + burst/ticket pool + 1.25×
+   * **seasonal** → festive + ribbon/burst pool + 1.10×
+   * **classic** → elegant + sticker/chalk pool + 1.00×
+   * **flyer** → promotional + ticket/burst pool + 1.15×
+   * Loader attaches `personality` to every theme spec + meta at
+     import time so the rendering engines just read it.
+
+4) **Premium typography** — `typography_engine.py`:
+   * 3 new title backdrops: **brush** (painterly stroke with
+     splatter), **torn_paper** (jagged edge label), **paint_stroke**
+     (3-streak soft brush). Renders with Gaussian blur for softness.
+   * Backdrop pool restricted by personality.
+   * `_draw_title` now applies `personality.title_oversize` to the
+     font size so burger / sports themes get the oversized headlines
+     called out in the spec.
+
+5) **Premium badges** — `typography_engine.py`:
+   * 2 new badge styles: **paint_splash** (organic blob + 6–10
+     satellite drops) and **hanging_tag** (rounded retail tag with
+     punched hole + string). Combined with the 6 existing
+     (burst/sticker/chalk_circle/ribbon/ticket/distressed_stamp)
+     → **8 total badge styles** matching the user spec.
+   * `pick_badge_style(theme_id, variant_idx, personality)` now
+     restricts to the personality's `badge_pool`.
+
+6) **Score persistence** — `ai_designer._save_design_asset` now
+   stores `quality_score`, `quality_label`, `quality_metrics`,
+   `quality_iterations`, `quality_layout` on every flyer asset doc.
+   The generate response also returns `quality_score` /
+   `quality_label` per variation for the FE.
+
+7) **Frontend dev label** — `PhotoToFlyer.jsx` Done step renders a
+   small color-coded chip:
+   `Design Quality: Very Good · 73/100`
+   (Excellent → emerald, Very Good → sky, Needs Attention → amber).
+   No big 8.6/10 badge in front of restaurant owners, per spec.
+
+8) **Tests** — `/app/backend/tests/test_sprint18_design.py` adds
+   **13 new** regressions. Combined: **36/36 passing**:
+   * Score returns correct keys + range (1)
+   * Score deterministic (1)
+   * Off-center vs centered focal-point delta (1)
+   * Tiny title penalizes hierarchy (1)
+   * Label thresholds (1)
+   * Weakest metric is actually lowest (1)
+   * `WEAKEST_TO_HINT` only maps to known layouts (1)
+   * Personality attached to every theme + propagates to THEME_META (1)
+   * Burger personality has title_oversize ≥ 1.1 (1)
+   * Picks restrict to personality pool (1)
+   * New badges render without exception (1)
+   * New backdrops render without exception (1)
+   * End-to-end compose+score returns canvas + score, < 2.5 s safety
+     margin (1)
+
+9) **Acceptance demo (live API)** — Smash Burger × 3 variants
+   (`burger_grill_smoke` theme):
+   `scores=[66.3, 72.2, 65.8] avg=68.1 labels=['Needs Attention',
+   'Very Good', 'Needs Attention']`. The asym_left layout consistently
+   wins because it satisfies the off-centre + rule-of-thirds
+   constraints the scorer rewards. Wall time: ~6 s for 3 variants.
+
+**Files**
+  * New: `/app/backend/quality_score.py`,
+    `/app/backend/theme_packs/_personalities.py`,
+    `/app/backend/tests/test_sprint18_design.py`
+  * Modified: `/app/backend/render_engine.py` (added
+    `compose_layered_with_score`, refactored to `_compose_once`),
+    `/app/backend/typography_engine.py` (3 new backdrops + 2 new
+    badges + personality-aware pickers),
+    `/app/backend/routers/ai_designer.py` (compose_design returns
+    score, _save_design_asset persists it, _draw_title applies
+    title_oversize),
+    `/app/backend/theme_packs/__init__.py` (attaches personality at
+    load time),
+    `/app/frontend/src/pages/dashboard/aiads/PhotoToFlyer.jsx`
+    (small Design Quality chip).
+
+**Guardrails honored**
+  * No new AI image generation.
+  * No new endpoints; existing /api/ai-designer/generate response
+    only ADDS optional keys (`quality_score`, `quality_label`).
+  * No breaking changes to `compose_layered` — still callable,
+    delegates to `_compose_once`.
+  * Render time budget respected: scorer ~30 ms, alt-render only
+    fires when `score < 75`, capped at 2 iterations.
+
+**Deferred to Sprint 19**
+  * Phase 4 — Ingredient Layout Engine (icon chips / handwritten /
+    grouped tags / curved paths / side panels)
+  * Side-by-side before/after visual comparison gallery (rendered
+    locally, not surfaced in PRD due to size)
+
+

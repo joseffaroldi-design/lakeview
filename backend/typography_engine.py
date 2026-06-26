@@ -116,29 +116,106 @@ def draw_title_backdrop(canvas: Image.Image, *, x: int, y: int, w: int, h: int,
             draw.ellipse((ex - r, ey - r, ex + r, ey + r), fill=(0, 0, 0, 0))
         return
 
+    # Sprint 18 — three new premium backdrops
+    if style == "brush":
+        # Heavy painterly stroke with rough edges and inner highlight.
+        pad = max(20, h // 2)
+        layer = Image.new("RGBA", (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        body_color = color if len(color) == 4 else color + (245,)
+        # Slightly tilted, irregular polygon body
+        tilt = rng.uniform(-3, 3)
+        pts = [
+            (pad - 8, pad + tilt),
+            (w + pad + 12, pad - tilt),
+            (w + pad + 6, h + pad + tilt),
+            (pad - 12, h + pad - tilt),
+        ]
+        ld.polygon(pts, fill=body_color)
+        # Splatter dots at the tails
+        for _ in range(int(rng.uniform(8, 15))):
+            ex = rng.choice([rng.randint(-4, 16), rng.randint(w + pad - 8, w + pad + 12)])
+            ey = rng.randint(pad - 4, h + pad + 4)
+            r = rng.randint(2, 5)
+            ld.ellipse((ex - r, ey - r, ex + r, ey + r), fill=body_color)
+        layer = layer.filter(ImageFilter.GaussianBlur(1.5))
+        canvas.alpha_composite(layer, (x - pad, y - pad))
+        return
+
+    if style == "torn_paper":
+        # Notebook-style label with jagged tear top + bottom.
+        body_color = color if len(color) == 4 else color + (245,)
+        # Build a jagged polygon
+        steps = max(8, w // 24)
+        top_pts = []
+        for i in range(steps + 1):
+            px = x + int(i * w / steps)
+            py = y + rng.randint(-4, 4)
+            top_pts.append((px, py))
+        bot_pts = []
+        for i in range(steps + 1):
+            px = x + int(i * w / steps)
+            py = y + h + rng.randint(-3, 5)
+            bot_pts.append((px, py))
+        poly = top_pts + list(reversed(bot_pts))
+        draw.polygon(poly, fill=body_color)
+        # Thin inner shadow line for depth
+        for tp1, tp2 in zip(top_pts[:-1], top_pts[1:]):
+            draw.line([(tp1[0], tp1[1] + 2), (tp2[0], tp2[1] + 2)],
+                      fill=(0, 0, 0, 30), width=1)
+        return
+
+    if style == "paint_stroke":
+        # Three overlapping streaks with brush-end taper. Reads as paint.
+        pad = max(18, h // 2)
+        layer = Image.new("RGBA", (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        body_color = color if len(color) == 4 else color + (235,)
+        for k in range(3):
+            yoff = pad + int(h * (k - 1) * 0.18)
+            ld.rounded_rectangle(
+                (pad - 14 - rng.randint(0, 8), yoff,
+                 w + pad + 14 + rng.randint(0, 8), yoff + h),
+                radius=int(h * 0.45),
+                fill=body_color,
+            )
+        layer = layer.filter(ImageFilter.GaussianBlur(2.5))
+        canvas.alpha_composite(layer, (x - pad, y - pad))
+        return
+
     # default = none
     return
 
 
-def pick_title_backdrop_style(theme_id: str, variant_idx: int) -> str:
+def pick_title_backdrop_style(theme_id: str, variant_idx: int,
+                              personality: dict | None = None) -> str:
     """Deterministic backdrop choice per (theme, variant).
 
-    Returns one of `ribbon`, `swash`, `distressed_rect`, or `none`. We pick
-    `none` ~33% of the time so themes don't look over-decorated.
+    Sprint 18 — when the theme's `personality` dict is provided, the pool
+    is restricted to that personality's `backdrop_pool`. Without one, we
+    fall back to the legacy 4-option rotation so old themes are unchanged.
     """
+    pool = (personality or {}).get("backdrop_pool") or \
+           ["ribbon", "swash", "distressed_rect", "none"]
     seed = int(hashlib.md5(f"{theme_id}::{variant_idx}".encode()).hexdigest()[:6], 16)
-    return ["ribbon", "swash", "distressed_rect", "none"][seed % 4]
+    return pool[seed % len(pool)]
 
 
 # ----------------------------------------------------------------- BADGES
 
+# Sprint 18 — added paint_splash + hanging_tag.
 BADGE_STYLES = ("burst", "sticker", "chalk_circle", "ribbon",
-                "ticket", "distressed_stamp")
+                "ticket", "distressed_stamp", "paint_splash", "hanging_tag")
 
 
-def pick_badge_style(theme_id: str, variant_idx: int) -> str:
+def pick_badge_style(theme_id: str, variant_idx: int,
+                     personality: dict | None = None) -> str:
+    """Sprint 18 — when personality is provided, restrict to its
+    `badge_pool`. Otherwise rotate through all styles.
+    """
+    pool = (personality or {}).get("badge_pool") or list(BADGE_STYLES)
     seed = int(hashlib.md5(f"{theme_id}::bdg::{variant_idx}".encode()).hexdigest()[:6], 16)
-    return BADGE_STYLES[seed % len(BADGE_STYLES)]
+    return pool[seed % len(pool)]
 
 
 def draw_premium_badge(canvas: Image.Image, *, cx: int, cy: int, radius: int,
@@ -213,6 +290,53 @@ def draw_premium_badge(canvas: Image.Image, *, cx: int, cy: int, radius: int,
         draw.line((cx + s, cy - s + off, cx + s, cy + s - off), fill=fg, width=2)
         # text + a faded "FRESH" sub-stamp
         _text_center(draw, price_text, font, cx, cy, fg)
+        return
+
+    # Sprint 18 — two new premium badges.
+
+    if style == "paint_splash":
+        # Splat: large soft circle + 6-9 randomized drips around the edge.
+        layer = Image.new("RGBA", (radius * 4, radius * 4), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        # Main blob (a couple of overlapping ellipses for organic feel)
+        body_color = bg if len(bg) == 4 else bg + (245,)
+        cx_l, cy_l = radius * 2, radius * 2
+        ld.ellipse((cx_l - radius - 8, cy_l - radius - 4, cx_l + radius + 6, cy_l + radius + 8),
+                   fill=body_color)
+        ld.ellipse((cx_l - radius + 4, cy_l - radius - 10, cx_l + radius + 12, cy_l + radius + 2),
+                   fill=body_color)
+        # 6-9 satellite drops
+        for _ in range(rng.randint(6, 10)):
+            ang = rng.uniform(0, math.pi * 2)
+            dist = rng.uniform(radius * 1.0, radius * 1.4)
+            dx = cx_l + int(math.cos(ang) * dist)
+            dy = cy_l + int(math.sin(ang) * dist)
+            dr = rng.randint(4, 12)
+            ld.ellipse((dx - dr, dy - dr, dx + dr, dy + dr), fill=body_color)
+        layer = layer.filter(ImageFilter.GaussianBlur(2))
+        canvas.alpha_composite(layer, (cx - radius * 2, cy - radius * 2))
+        # Text on top
+        _text_center(draw, price_text, font, cx, cy, fg)
+        return
+
+    if style == "hanging_tag":
+        # A retail "from the rafter" tag — string from top of canvas to the
+        # tag, tag is a rounded rectangle with a hole punched at the top.
+        bw, bh = int(radius * 2.0), int(radius * 1.6)
+        top_y = cy - bh // 2
+        bot_y = cy + bh // 2
+        # String going up out of the tag (to the upper edge of the canvas)
+        string_top_y = max(40, top_y - 180)
+        draw.line((cx, string_top_y, cx, top_y), fill=(60, 40, 20, 220), width=3)
+        # Tag body
+        draw.rounded_rectangle((cx - bw // 2, top_y, cx + bw // 2, bot_y),
+                               radius=14, fill=bg, outline=fg, width=3)
+        # Punched hole
+        hr = max(6, bh // 10)
+        draw.ellipse((cx - hr, top_y + 8, cx + hr, top_y + 8 + 2 * hr),
+                     fill=ring, outline=fg, width=2)
+        # Price text (slightly below the hole to leave clearance)
+        _text_center(draw, price_text, font, cx, cy + 6, fg)
         return
 
     # default = sticker (legacy circular)

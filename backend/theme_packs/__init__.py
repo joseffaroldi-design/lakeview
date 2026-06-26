@@ -105,12 +105,18 @@ def _load() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, str]],
                 warnings.append(f"pack '{pid}': {why}")
                 continue
             seen_ids.add(tid)
+            # Sprint 18 — attach personality so render/typography engines
+            # can read style cues without importing from theme_packs.
+            from theme_packs._personalities import personality_for
+            spec = dict(spec)
+            spec["personality"] = personality_for(pack.get("category", ""))
             themes[tid] = spec
             meta[tid] = {
                 "pack": pid,
                 "pack_label": pack.get("label", pid),
                 "category": pack.get("category", ""),
                 "best_use": spec.get("best_use", ""),
+                "personality": spec["personality"],
             }
             accepted_ids.append(tid)
 
