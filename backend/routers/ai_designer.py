@@ -53,6 +53,20 @@ CANVAS = 1024
 VARIATION_LABELS = ["A", "B", "C", "D", "E"]  # Support up to 5 variants
 RESTAURANT_BRANDING = os.environ.get("AI_DESIGNER_BRAND", "LAKEVIEW BURGERS & SEAFOOD")
 
+# Platform-specific canvas sizes
+PLATFORM_SIZES = {
+    "instagram_post": (1024, 1024),
+    "instagram_story": (1080, 1920),
+    "tiktok": (1080, 1920),
+    "twitter": (1200, 675),
+    "facebook": (1200, 1200),
+    "email": (600, 600),
+}
+
+def _get_canvas_size(platform: str) -> Tuple[int, int]:
+    """Return (width, height) for the given platform."""
+    return PLATFORM_SIZES.get(platform, (1024, 1024))
+
 FONT_SERIF_BOLD   = "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"
 FONT_SERIF        = "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
 FONT_SANS_BOLD    = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
@@ -149,6 +163,38 @@ class SaveTemplateRequest(BaseModel):
 
 
 # ---------------------------------------------------------------- Helpers
+
+def _map_food_to_theme(food_type: str) -> str:
+    """Phase 5: Restaurant Intelligence - Map detected food to recommended theme."""
+    food_lower = food_type.lower()
+    
+    # Burger & Sandwich mapping
+    if any(word in food_lower for word in ["burger", "sandwich", "po-boy", "poboy", "sub"]):
+        return "burger_joint"
+    # Seafood mapping  
+    elif any(word in food_lower for word in ["seafood", "shrimp", "fish", "crab", "oyster", "lobster"]):
+        return "cajun"
+    # BBQ & Grilled mapping
+    elif any(word in food_lower for word in ["bbq", "barbecue", "ribs", "brisket", "grilled", "smoked"]):
+        return "bbq_smoke"
+    # Pizza & Italian
+    elif any(word in food_lower for word in ["pizza", "pasta", "italian"]):
+        return "rustic"
+    # Desserts
+    elif any(word in food_lower for word in ["dessert", "cake", "pie", "ice cream", "sweet"]):
+        return "vintage_diner"
+    # Drinks & Cocktails
+    elif any(word in food_lower for word in ["cocktail", "beer", "wine", "drink", "coffee"]):
+        return "neon"
+    # Salads & Healthy
+    elif any(word in food_lower for word in ["salad", "healthy", "vegetarian", "vegan"]):
+        return "modern"
+    # Chicken & Poultry
+    elif any(word in food_lower for word in ["chicken", "wings", "poultry"]):
+        return "game_day"
+    # Default fallback
+    else:
+        return "comic_pop"
 
 async def _get_active_asset(asset_id: str) -> Dict[str, Any]:
     asset = await db.media_assets.find_one({"id": asset_id, "status": "active"}, {"_id": 0})
@@ -1177,6 +1223,11 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                     item_name: str, features: List[str], price: Optional[str],
                     theme_id: str, layout: str,
                     variant_idx: int = 0,
+                    cta: Optional[str] = None,
+                    include_price: bool = True,
+                    include_description: bool = True,
+                    platform: str = "instagram_post",
+                    tone: Optional[str] = None,
                     ) -> Tuple[bytes, Dict[str, Any]]:
     """Composite the final marketing graphic.
 
@@ -1223,15 +1274,17 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                 food_rgb.save(tf.name, "JPEG", quality=92)
                 food_path = tf.name
             try:
+                canvas_w, canvas_h = _get_canvas_size(platform)
+                actual_cta = (cta or "").strip() or "Order Now · Mon-Sat 11-9"
                 png_bytes = _html.render_flyer(
                     theme_id,
                     item_name=item_name or "",
-                    features=features or [],
-                    price=(price or "").strip(),
+                    features=features if include_description else [],
+                    price=(price or "").strip() if include_price else "",
                     brand=RESTAURANT_BRANDING,
-                    cta="Order Now · Mon-Sat 11-9",
+                    cta=actual_cta,
                     food_image_path=food_path,
-                    output_size=CANVAS,
+                    output_size=min(canvas_w, canvas_h),
                     render_size=2048,
                 )
             finally:
@@ -1264,14 +1317,17 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         # category since the theme already encodes it.
         tmpl = _at.pick_template_for(category=None, theme_hint=theme_id)
         if tmpl is not None:
+            actual_features = features if include_description else []
+            actual_price = (price or "").strip() if include_price else ""
+            actual_cta = (cta or "").strip() or "LIMITED-TIME SPECIAL"
             agency_canvas = compose_with_template(
                 tmpl,
                 food_rgba=food_rgba,
                 item_name=item_name or "",
-                features=features or [],
-                price=(price or "").strip(),
+                features=actual_features,
+                price=actual_price,
                 brand=RESTAURANT_BRANDING,
-                cta="LIMITED-TIME SPECIAL",
+                cta=actual_cta,
             )
             out = io.BytesIO()
             agency_canvas.convert("RGB").save(out, "PNG", optimize=True)
@@ -1298,10 +1354,14 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
     # ---- Procedural fallback (Sprint 18 iterative composer) ----
     from render_engine import compose_layered_with_score, LEGACY_LAYOUT_ALIAS
 
+    # Get platform-specific canvas size
+    canvas_w, canvas_h = _get_canvas_size(platform)
+    
     theme = THEME_STYLES[theme_id]
     bg = Image.open(io.BytesIO(bg_bytes)).convert("RGB")
-    if bg.size != (CANVAS, CANVAS):
-        bg = bg.resize((CANVAS, CANVAS), Image.LANCZOS)
+    # Resize background to match platform canvas
+    if bg.size != (canvas_w, canvas_h):
+        bg = bg.resize((canvas_w, canvas_h), Image.LANCZOS)
 
     legacy_to_variant = {"centered": 0, "asym_left": 1, "stacked": 2}
     # Sprint 22 P0 Fix 2 — prefer the explicit `variant_idx` if provided;
@@ -1314,13 +1374,43 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         layout_override = LEGACY_LAYOUT_ALIAS[layout]
 
     from typography_engine import pick_badge_style
+    import random
     theme = dict(theme)
     theme["_theme_id"] = theme_id
     theme["_variant_idx"] = variant_idx
+    
+    # Phase 3: Diversity Engine - Add per-variant randomization
+    variant_rng = random.Random(hash((theme_id, variant_idx)) & 0xFFFFFFFF)
+    
+    # Vary color intensity per variant (±10%)
+    if "title" in theme and "color" in theme["title"]:
+        title_color = theme["title"]["color"]
+        if isinstance(title_color, (tuple, list)) and len(title_color) >= 3:
+            intensity_factor = 1.0 + (variant_idx - 1) * 0.1  # v0: 0.9, v1: 1.0, v2: 1.1
+            theme["title"]["color"] = tuple(
+                min(255, max(0, int(c * intensity_factor))) for c in title_color[:3]
+            ) + (title_color[3:] if len(title_color) > 3 else ())
+    
+    # Vary badge style per variant
     if not theme.get("badge_style"):
         # Sprint 18 — personality-aware badge pick.
         theme["_badge_style"] = pick_badge_style(
             theme_id, variant_idx, personality=theme.get("personality"))
+    
+    # Vary typography size slightly per variant (±5%)
+    if "title" in theme and "size" in theme["title"]:
+        base_size = theme["title"]["size"]
+        size_variation = variant_rng.choice([-5, 0, 5])
+        theme["title"]["size"] = max(40, base_size + size_variation)
+    
+    if "body" in theme and "size" in theme["body"]:
+        base_body_size = theme["body"]["size"]
+        body_variation = variant_rng.choice([-2, 0, 2])
+        theme["body"]["size"] = max(16, base_body_size + body_variation)
+
+    # Apply conditional rendering flags
+    actual_price = price if include_price else None
+    actual_features = features if include_description else []
 
     canvas, score = compose_layered_with_score(
         bg_image=bg,
@@ -1333,9 +1423,11 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         draw_price_badge=_draw_price_badge,
         draw_branding=_draw_branding,
         item_name=item_name,
-        features=features,
-        price=price,
+        features=actual_features,
+        price=actual_price,
         layout_override=layout_override,
+        cta=cta,
+        canvas_size=(canvas_w, canvas_h),
         # Sprint 19 hotfix — bump target so weak compositions actually retry.
         target_score=80.0,
         max_iterations=2,
@@ -1347,29 +1439,83 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
 
 # ---------------------------------------------------------------- LLM copy (unchanged from 13B)
 
-async def _write_designer_copy(item_name: str, features: List[str], price: Optional[str], theme_label: str) -> Dict[str, Any]:
+async def _write_designer_copy(
+    item_name: str,
+    features: List[str],
+    price: Optional[str],
+    theme_label: str,
+    tone: Optional[str] = None,
+    marketing_goal: Optional[str] = None,
+    caption_length: Optional[str] = None,
+) -> Dict[str, Any]:
     from ai_engine.client import generate_structured
 
     feat_text = "\n".join(f"- {f}" for f in features) if features else "(none)"
     price_str = (price or "").strip() or "(omit)"
+    
+    # Map tone to writing style
+    tone_map = {
+        "professional": "professional and refined",
+        "casual": "casual and friendly",
+        "luxury": "upscale and sophisticated",
+        "bold": "bold and energetic",
+        "playful": "fun and playful",
+    }
+    tone_style = tone_map.get(tone or "professional", "warm and appetizing")
+    
+    # Map marketing goal to emphasis
+    goal_map = {
+        "drive_traffic": "Focus on urgency and immediate action. Use phrases like 'Stop by today' or 'Visit us now'.",
+        "promote_item": "Highlight what makes this dish special and unique.",
+        "limited_offer": "Emphasize scarcity and time-sensitivity. Use 'Limited time only' or 'While supplies last'.",
+        "seasonal": "Connect to the current season or holiday. Use seasonal language.",
+        "daily_special": "Position as today's featured item. Create FOMO with 'Today only' or 'Chef's pick'.",
+        "brand_awareness": "Focus on the restaurant's story and values. Build emotional connection.",
+    }
+    goal_emphasis = goal_map.get(marketing_goal or "promote_item", "Highlight the dish appeal.")
+    
+    # Map caption length to word counts
+    length_map = {
+        "short": {
+            "fb": "30-50 words",
+            "ig": "15-25 words",
+            "gbp": "40-80 words",
+            "email": "30-60 words",
+        },
+        "medium": {
+            "fb": "60-100 words",
+            "ig": "30-50 words",
+            "gbp": "80-180 words",
+            "email": "60-120 words",
+        },
+        "long": {
+            "fb": "100-150 words",
+            "ig": "50-80 words",
+            "gbp": "180-300 words",
+            "email": "120-200 words",
+        },
+    }
+    lengths = length_map.get(caption_length or "medium", length_map["medium"])
+    
     sys_prompt = (
-        "You are a New Orleans restaurant marketing copywriter for Lakeview "
-        "Burgers & Seafood. Write warm, mouth-watering, locally flavored copy. "
-        "Output ONLY a valid JSON object — no markdown."
+        f"You are a New Orleans restaurant marketing copywriter for Lakeview "
+        f"Burgers & Seafood. Write {tone_style} copy. "
+        f"Output ONLY a valid JSON object — no markdown."
     )
     usr_prompt = (
         f"Item: {item_name}\n"
         f"Features:\n{feat_text}\n"
         f"Price: {price_str}\n"
-        f"Visual theme: {theme_label}\n\n"
-        "Generate a complete marketing pack:\n"
-        " - fb_post: 60-100 words, Facebook-style conversational, 1 emoji max, ends with CTA on its own line.\n"
-        " - ig_post: 30-50 words, punchy Instagram-native, 2-3 emojis, ends with a hook question or CTA.\n"
-        " - gbp: 80-180 words for Google Business Profile, leads with the offer, ends with next step.\n"
-        " - sms: under 140 chars, includes item + price, ends with CTA.\n"
-        " - email_subject: 4-7 words, attention-grabbing.\n"
-        " - email_body: 60-120 words, friendly, plain text only.\n"
-        " - hashtags: 8-12 relevant hashtags as strings (no '#' prefix)."
+        f"Visual theme: {theme_label}\n"
+        f"Marketing Goal: {goal_emphasis}\n\n"
+        f"Generate a complete marketing pack:\n"
+        f" - fb_post: {lengths['fb']}, Facebook-style conversational, 1 emoji max, ends with CTA on its own line.\n"
+        f" - ig_post: {lengths['ig']}, punchy Instagram-native, 2-3 emojis, ends with a hook question or CTA.\n"
+        f" - gbp: {lengths['gbp']} for Google Business Profile, leads with the offer, ends with next step.\n"
+        f" - sms: under 140 chars, includes item + price, ends with CTA.\n"
+        f" - email_subject: 4-7 words, attention-grabbing.\n"
+        f" - email_body: {lengths['email']}, friendly, plain text only.\n"
+        f" - hashtags: 8-12 relevant hashtags as strings (no '#' prefix)."
     )
     schema = (
         '{"fb_post":"string","ig_post":"string","gbp":"string","sms":"string",'
@@ -1480,7 +1626,12 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
                 bg_bytes, food_rgba,
                 body.item_name, body.features, body.price,
                 body.theme, layout,
-                variant_idx=idx)
+                variant_idx=idx,
+                cta=body.cta,
+                include_price=body.include_price,
+                include_description=body.include_description,
+                platform=body.platform or "instagram_post",
+                tone=body.tone)
         except Exception as e:  # noqa: BLE001
             variations.append({"theme": body.theme, "variant": variant, "layout": layout,
                                "status": "failed", "error": "Composition failed",
@@ -1527,7 +1678,15 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
     if body.auto_copy:
         try:
             label = THEME_STYLES[body.theme]["label"]
-            copy_pack = await _write_designer_copy(body.item_name, body.features, body.price, label)
+            copy_pack = await _write_designer_copy(
+                body.item_name,
+                body.features,
+                body.price,
+                label,
+                tone=body.tone,
+                marketing_goal=body.marketing_goal,
+                caption_length=body.caption_length,
+            )
             await db.ai_design_jobs.update_one(
                 {"id": job_id}, {"$set": {"copy_pack": copy_pack, "updated_at": _now()}},
             )

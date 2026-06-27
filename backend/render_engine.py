@@ -553,6 +553,8 @@ def compose_layered_with_score(
     layout_override: Optional[str] = None,
     target_score: float = 75.0,
     max_iterations: int = 2,
+    cta: Optional[str] = None,
+    canvas_size: Tuple[int, int] = (1024, 1024),
 ) -> Tuple[Image.Image, Dict[str, Any]]:
     """Sprint 18 — iterative compose. Renders an initial candidate,
     scores it, and if the score is below `target_score` renders ONE
@@ -585,6 +587,8 @@ def compose_layered_with_score(
             draw_price_badge=draw_price_badge, draw_branding=draw_branding,
             item_name=item_name, features=features, price=price,
             layout_override=current_override,
+            cta=cta,
+            canvas_size=canvas_size,
         )
         sc = score_composition(canvas, info, title_pixel_height=title_h)
         sc["iteration"] = it + 1
@@ -626,19 +630,22 @@ def _compose_once(
     features: List[str],
     price: Optional[str],
     layout_override: Optional[str] = None,
+    cta: Optional[str] = None,
+    canvas_size: Tuple[int, int] = (1024, 1024),
 ):
     """The Sprint 16G compositor (single render). Returns
     (canvas, CompositionInfo, title_pixel_height).
     """
     from quality_score import CompositionInfo
 
+    canvas_w, canvas_h = canvas_size
     canvas = bg_image.convert("RGBA")
 
-    # ---- Title-legibility bands (top/bottom) — unchanged from 13B ----
+    # ---- Title-legibility bands (top/bottom) — adjusted for canvas size ----
     overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
-    od.rectangle((0, 0, CANVAS, 140), fill=(0, 0, 0, 60))
-    od.rectangle((0, CANVAS - 140, CANVAS, CANVAS), fill=(0, 0, 0, 50))
+    od.rectangle((0, 0, canvas_w, 140), fill=(0, 0, 0, 60))
+    od.rectangle((0, canvas_h - 140, canvas_w, canvas_h), fill=(0, 0, 0, 50))
     canvas = Image.alpha_composite(canvas, overlay)
 
     # ---- COLOR HARMONY — food's primary tone tinted onto the canvas band ----
@@ -754,13 +761,39 @@ def _compose_once(
     # ---- Branding ----
     draw_branding(canvas, theme)
 
+    # ---- CTA (Call-to-Action) — rendered at bottom if provided ----
+    if cta and cta.strip():
+        from PIL import ImageFont
+        cta_font_path = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
+        try:
+            cta_font = ImageFont.truetype(cta_font_path, 28)
+        except Exception:
+            cta_font = ImageFont.load_default()
+        
+        cta_draw = ImageDraw.Draw(canvas, "RGBA")
+        cta_text = cta.strip().upper()
+        cta_bbox = cta_draw.textbbox((0, 0), cta_text, font=cta_font)
+        cta_w = cta_bbox[2] - cta_bbox[0]
+        cta_x = (canvas_w - cta_w) // 2
+        cta_y = canvas_h - 80
+        
+        # Draw CTA background pill
+        pill_padding = 20
+        cta_draw.rounded_rectangle(
+            (cta_x - pill_padding, cta_y - 10, cta_x + cta_w + pill_padding, cta_y + 38),
+            radius=20,
+            fill=(212, 175, 55, 240)  # Gold with opacity
+        )
+        # Draw CTA text
+        cta_draw.text((cta_x, cta_y), cta_text, fill=(26, 42, 64), font=cta_font)
+
     # ---- Pack composition info for scoring ----
     food_bbox = (fx, fy, fx + spec["food"].width, fy + spec["food"].height)
     title_bbox = (tx, ty, tx + tw, max(ty + 60, title_end_y))
     title_pixel_height = max(40, title_end_y - ty)
     bullets_bbox = (bx, by, bx + bw, by + spec["bullets_rect"][3])
     info = CompositionInfo(
-        canvas_size=CANVAS,
+        canvas_size=canvas_w,  # Use actual canvas width
         food_bbox=food_bbox,
         title_bbox=title_bbox,
         badge_centre=(cx, cy),
