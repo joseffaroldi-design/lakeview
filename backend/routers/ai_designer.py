@@ -518,46 +518,11 @@ def _prepare_food_cutout(food_bytes: bytes, target_max: int, use_rembg: bool = F
 
 
 def _variant_food_transform(food_rgba: Image.Image, variant_idx: int) -> Image.Image:
-    """Sprint 22 P0 Fix 2 — apply a deterministic per-variant treatment to the
-    food cutout so the 3 generated flyers are visibly different even when the
-    underlying renderer (agency template / HTML / procedural) ignores the
-    variant index.
-
-    Variants:
-      v0 — pass-through (the canonical "hero" crop)
-      v1 — 15% zoom-in (tighter crop centred on the food)
-      v2 — 8% zoom-out + warm tone shift (wider angle feel)
-
-    Always returns a NEW Image — callers may mutate freely.
+    """Tech Debt Sprint Step 6 / Chunk 3: delegates to
+    ai_designer.composition._variant_food_transform.
     """
-    if variant_idx <= 0:
-        return food_rgba.copy()
-
-    w, h = food_rgba.size
-    if w == 0 or h == 0:
-        return food_rgba.copy()
-
-    if variant_idx == 1:
-        # v1: zoom in 15% (crop 7.5% from each edge, then resize back to original).
-        zoom = 0.15
-        dx, dy = int(w * zoom / 2), int(h * zoom / 2)
-        cropped = food_rgba.crop((dx, dy, w - dx, h - dy))
-        return cropped.resize((w, h), Image.LANCZOS)
-
-    # v2: zoom out 8% (paste onto a transparent canvas 8% larger, recenter,
-    # then resize back). Then apply a light warm tone shift on the RGB
-    # channels to give a "wider, warmer" feel.
-    zoom = 0.08
-    pad_w, pad_h = int(w * zoom / 2), int(h * zoom / 2)
-    canvas = Image.new("RGBA", (w + pad_w * 2, h + pad_h * 2), (0, 0, 0, 0))
-    canvas.paste(food_rgba, (pad_w, pad_h), food_rgba if food_rgba.mode == "RGBA" else None)
-    canvas = canvas.resize((w, h), Image.LANCZOS)
-
-    # Warm tone shift: nudge R up, B down a touch. Keep alpha untouched.
-    r, g, b, a = canvas.split()
-    r = r.point(lambda v: min(255, int(v * 1.08)))
-    b = b.point(lambda v: max(0, int(v * 0.94)))
-    return Image.merge("RGBA", (r, g, b, a))
+    from ai_designer.composition import _variant_food_transform as _impl
+    return _impl(food_rgba, variant_idx)
 
 
 def _rounded_rect_mask(im: Image.Image, radius_pct: float = 0.08) -> Image.Image:
@@ -793,15 +758,12 @@ def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
 def _draw_spaced(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
                  x: int, y: int, spacing: int, *, fill,
                  stroke_width: int = 0, stroke_fill=None) -> None:
-    """Render `text` glyph-by-glyph with `spacing` extra pixels between."""
-    cx = x
-    for ch in text:
-        kwargs = {"fill": fill, "font": font}
-        if stroke_width and stroke_fill:
-            kwargs["stroke_width"] = stroke_width
-            kwargs["stroke_fill"] = stroke_fill
-        draw.text((cx, y), ch, **kwargs)
-        cx += draw.textbbox((0, 0), ch, font=font)[2] + spacing
+    """Tech Debt Sprint Step 6 / Chunk 3: delegates to
+    ai_designer.composition._draw_spaced.
+    """
+    from ai_designer.composition import _draw_spaced as _impl
+    _impl(draw, text, font, x, y, spacing,
+          fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
 
 
 def _draw_branding(canvas: Image.Image, theme: Dict[str, Any]) -> None:

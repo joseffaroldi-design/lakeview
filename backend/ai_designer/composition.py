@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 # ---------------------------------------------------------------- Color helpers
@@ -300,6 +300,9 @@ __all__ = [
     "_olive_branch",
     "_confetti",
     "_wavy_ribbon",
+    # Chunk 3 — variant food transform + glyph-spaced text
+    "_variant_food_transform",
+    "_draw_spaced",
 ]
 
 
@@ -597,3 +600,66 @@ def _wavy_ribbon(draw: ImageDraw.ImageDraw, color, start, end, width: int = 40) 
         points.append((x, y))
     for (x, y) in points:
         draw.ellipse((x - width // 2, y - width // 2, x + width // 2, y + width // 2), fill=color)
+
+
+# ---------------------------------------------------------------- Chunk 3 helpers
+# Per-variant food cutout treatment + glyph-by-glyph text spacing.
+# Both are pure PIL helpers. Kept `_xxx` names for parity with the router's
+# previous private surface.
+
+
+def _variant_food_transform(food_rgba: Image.Image, variant_idx: int) -> Image.Image:
+    """Sprint 22 P0 Fix 2 — apply a deterministic per-variant treatment to the
+    food cutout so the 3 generated flyers are visibly different even when the
+    underlying renderer (agency template / HTML / procedural) ignores the
+    variant index.
+
+    Variants:
+      v0 — pass-through (the canonical "hero" crop)
+      v1 — 15% zoom-in (tighter crop centred on the food)
+      v2 — 8% zoom-out + warm tone shift (wider angle feel)
+
+    Always returns a NEW Image — callers may mutate freely.
+    """
+    if variant_idx <= 0:
+        return food_rgba.copy()
+
+    w, h = food_rgba.size
+    if w == 0 or h == 0:
+        return food_rgba.copy()
+
+    if variant_idx == 1:
+        # v1: zoom in 15% (crop 7.5% from each edge, then resize back to original).
+        zoom = 0.15
+        dx, dy = int(w * zoom / 2), int(h * zoom / 2)
+        cropped = food_rgba.crop((dx, dy, w - dx, h - dy))
+        return cropped.resize((w, h), Image.LANCZOS)
+
+    # v2: zoom out 8% (paste onto a transparent canvas 8% larger, recenter,
+    # then resize back). Then apply a light warm tone shift on the RGB
+    # channels to give a "wider, warmer" feel.
+    zoom = 0.08
+    pad_w, pad_h = int(w * zoom / 2), int(h * zoom / 2)
+    canvas = Image.new("RGBA", (w + pad_w * 2, h + pad_h * 2), (0, 0, 0, 0))
+    canvas.paste(food_rgba, (pad_w, pad_h), food_rgba if food_rgba.mode == "RGBA" else None)
+    canvas = canvas.resize((w, h), Image.LANCZOS)
+
+    # Warm tone shift: nudge R up, B down a touch. Keep alpha untouched.
+    r, g, b, a = canvas.split()
+    r = r.point(lambda v: min(255, int(v * 1.08)))
+    b = b.point(lambda v: max(0, int(v * 0.94)))
+    return Image.merge("RGBA", (r, g, b, a))
+
+
+def _draw_spaced(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
+                 x: int, y: int, spacing: int, *, fill,
+                 stroke_width: int = 0, stroke_fill=None) -> None:
+    """Render `text` glyph-by-glyph with `spacing` extra pixels between."""
+    cx = x
+    for ch in text:
+        kwargs = {"fill": fill, "font": font}
+        if stroke_width and stroke_fill:
+            kwargs["stroke_width"] = stroke_width
+            kwargs["stroke_fill"] = stroke_fill
+        draw.text((cx, y), ch, **kwargs)
+        cx += draw.textbbox((0, 0), ch, font=font)[2] + spacing
