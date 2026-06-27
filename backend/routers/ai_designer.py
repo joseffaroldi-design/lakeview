@@ -1334,6 +1334,21 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         # Pick by theme first (exact fallback_theme match wins); ignore
         # category since the theme already encodes it.
         tmpl = _at.pick_template_for(category=None, theme_hint=theme_id)
+        # Priority 3 platform-sizing fix (Feb 2026): agency templates have a
+        # FIXED `template.canvas` size (typically 1024×1024). If the caller
+        # requested a different platform canvas, skip this path and fall
+        # through to the procedural renderer which honors _get_canvas_size().
+        # Without this skip, instagram_story / tiktok / twitter / fb / email
+        # all silently rendered as 1024×1024.
+        requested_canvas = _get_canvas_size(platform)
+        if tmpl is not None and tmpl.canvas != requested_canvas:
+            import logging as _logging
+            _logging.getLogger("uvicorn.error").info(
+                f"[ai_designer] platform={platform} canvas={requested_canvas} "
+                f"!= template.canvas={tmpl.canvas} — skipping agency template "
+                f"for theme={theme_id!r}, using procedural fallback."
+            )
+            tmpl = None
         if tmpl is not None:
             actual_features = features if include_description else []
             actual_price = (price or "").strip() if include_price else ""

@@ -74,28 +74,28 @@ def map_food_to_theme(food_type: str) -> str:
     
     # Burger & Sandwich mapping
     if any(word in food_lower for word in ["burger", "sandwich", "po-boy", "poboy", "sub"]):
-        return "burger_joint"
+        return "burger_classic"
     # Seafood mapping  
     elif any(word in food_lower for word in ["seafood", "shrimp", "fish", "crab", "oyster", "lobster"]):
         return "cajun"
     # BBQ & Grilled mapping
     elif any(word in food_lower for word in ["bbq", "barbecue", "ribs", "brisket", "grilled", "smoked"]):
-        return "bbq_smoke"
+        return "burger_grill_smoke"
     # Pizza & Italian
     elif any(word in food_lower for word in ["pizza", "pasta", "italian"]):
-        return "rustic"
+        return "vintage_diner"
     # Desserts
     elif any(word in food_lower for word in ["dessert", "cake", "pie", "ice cream", "sweet"]):
         return "vintage_diner"
     # Drinks & Cocktails
     elif any(word in food_lower for word in ["cocktail", "beer", "wine", "drink", "coffee"]):
-        return "neon"
+        return "burger_neon_diner"
     # Salads & Healthy
     elif any(word in food_lower for word in ["salad", "healthy", "vegetarian", "vegan"]):
         return "modern"
     # Chicken & Poultry
     elif any(word in food_lower for word in ["chicken", "wings", "poultry"]):
-        return "game_day"
+        return "game_day_tailgate"
     # Default fallback
     else:
         return "comic_pop"
