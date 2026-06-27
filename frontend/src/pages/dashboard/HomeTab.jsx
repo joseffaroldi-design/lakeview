@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import BillingCard from "./BillingCard";
 import TodaysPick from "./home/TodaysPick";
 import PickDifferentModal from "./home/PickDifferentModal";
+import OnboardingGuide from "./home/OnboardingGuide";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -272,6 +273,9 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           )}
         </div>
       ) : null}
+
+      {/* ONBOARDING — auto-hides once owner has any saved flyer */}
+      <OnboardingGuide getAuthHeader={getAuthHeader} onNavigate={onNavigate} />
 
       {/* TODAY'S PICK — Full-width hero at top */}
       <TodaysPick

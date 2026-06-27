@@ -1,95 +1,95 @@
 {
+  "theme": "light",
+  "archetype": "5 (Luxury Light variant) mixed with 4 (Swiss & High-Contrast for SaaS)",
   "typography": {
-    "primary_font": "Playfair Display",
-    "secondary_font": "Lato",
-    "accent_font": "Great Vibes",
-    "google_fonts_url": "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Lato:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap",
-    "usage": {
-      "headings": "font-serif tracking-tight font-bold",
-      "body": "font-sans leading-relaxed",
-      "accents": "font-accent text-gold"
+    "headings": "Outfit",
+    "body": "Plus Jakarta Sans",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl tracking-tight font-medium text-navy",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-medium text-navy",
+      "h3": "text-xl sm:text-2xl font-medium text-navy",
+      "body": "text-base font-normal text-slate-600",
+      "small": "text-sm font-medium tracking-wide uppercase text-slate-500"
     }
   },
   "colors": {
-    "theme": "light",
-    "palette": {
-      "background": "40 33% 96%",
-      "foreground": "217 33% 17%",
-      "primary": "217 33% 17%",
-      "primary_foreground": "40 33% 96%",
-      "secondary": "140 30% 30%",
-      "secondary_foreground": "40 33% 96%",
-      "accent": "45 29% 50%",
-      "accent_foreground": "217 33% 17%",
-      "muted": "40 20% 90%",
-      "muted_foreground": "217 20% 40%",
-      "card": "40 33% 98%",
-      "card_foreground": "217 33% 17%",
-      "border": "217 33% 17%"
-    },
-    "hex_reference": {
-      "navy": "#1d2a3b",
-      "forest_green": "#366343",
-      "cream": "#fcfbf7",
-      "gold": "#a5935b"
-    }
-  },
-  "visual_enhancers": {
-    "texture": "bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]",
-    "borders": "border-double border-4 border-primary/20",
-    "shadows": "shadow-[4px_4px_0px_0px_rgba(29,42,59,0.2)]",
-    "radius": "rounded-sm"
-  },
-  "layout": {
-    "structure": "Single page scrolling (Hero -> About -> Menu -> Contact)",
-    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
-    "spacing": "py-20 md:py-32 gap-12"
+    "background": "hsl(40 33% 98%)",
+    "foreground": "hsl(217 33% 17%)",
+    "primary": "hsl(217 33% 17%)",
+    "primary_foreground": "hsl(40 33% 96%)",
+    "card": "hsl(0 0% 100%)",
+    "border": "hsl(217 20% 90%)",
+    "navy": "#1d2a3b",
+    "gold": "#a5935b",
+    "cream": "#fcfbf7",
+    "forest": "#366343"
   },
   "components": {
-    "Hero": {
-      "description": "Full screen height. Vintage postcard aesthetic. Logo centered.",
-      "elements": [
-        "Logo: Centered, large (w-64 md:w-96)",
-        "Background: Parallax effect with NOLA street scene or subtle texture",
-        "Tagline: 'Market • Kitchen • Catering' in accent font",
-        "CTA: 'View Menu' button with vintage border style"
-      ]
+    "top_nav": {
+      "style": "Glassmorphism with backdrop-blur-xl bg-white/80, sticky top-0 z-50, 1px border-b border-border/40",
+      "active_tab": "Subtle pill background (bg-slate-100) or bold text with a 2px bottom border in gold"
     },
-    "Menu": {
-      "description": "Classic paper menu look. Two columns. Dotted leaders.",
-      "structure": "Grid cols-1 md:cols-2 gap-16",
-      "item_style": "Flex justify-between items-baseline border-b border-primary/10 pb-2 mb-6"
+    "cards": {
+      "style": "bg-white rounded-2xl border border-border/50 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border",
+      "hover": "translate-y-[-2px] shadow-lg"
     },
-    "About": {
-      "description": "Storytelling section. Split layout.",
-      "structure": "Grid cols-1 md:cols-2 gap-12 items-center",
-      "content": "History of the restaurant, connection to New Orleans."
+    "buttons": {
+      "primary": "bg-navy text-white rounded-full px-6 py-2.5 font-medium hover:bg-navy/90 transition-colors shadow-sm",
+      "secondary": "bg-white text-navy border border-border/60 rounded-full px-6 py-2.5 font-medium hover:bg-slate-50 transition-colors",
+      "sparkle": "bg-gold text-white rounded-full px-6 py-2.5 font-medium hover:bg-gold/90 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
     },
-    "Contact": {
-      "description": "Footer area with map and details.",
-      "style": "bg-primary text-primary-foreground p-12"
+    "empty_states": {
+      "style": "flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-border/60 rounded-3xl bg-slate-50/50"
     }
   },
-  "images": {
-    "logo": "https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/artifacts/y3vh8170_5D695FC6-4513-41E6-8C85-02DA2EA2EF08.png",
-    "hero_bg": "https://images.unsplash.com/photo-1767468200555-4b07ba275a43?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHxuZXclMjBvcmxlYW5zJTIwZnJlbmNoJTIwcXVhcnRlciUyMHN0cmVldCUyMGRheXRpbWV8ZW58MHx8fHwxNzcwMjE5MDA0fDA&ixlib=rb-4.1.0&q=85",
-    "menu_burger": "https://images.unsplash.com/photo-1632898657999-ae6920976661?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwYnVyZ2VyJTIwd29vZGVuJTIwdGFibGV8ZW58MHx8fHwxNzcwMjE4OTg5fDA&ixlib=rb-4.1.0&q=85",
-    "menu_seafood": "https://images.unsplash.com/photo-1715609374345-d652ce42303c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxmcmllZCUyMHNocmltcCUyMGJhc2tldCUyMG5ldyUyMG9ybGVhbnN8ZW58MHx8fHwxNzcwMjE4OTk0fDA&ixlib=rb-4.1.0&q=85",
-    "about_img": "https://images.unsplash.com/photo-1549965738-e1aaf1168943?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwyfHxuZXclMjBvcmxlYW5zJTIwZnJlbmNoJTIwcXVhcnRlciUyMHN0cmVldCUyMGRheXRpbWV8ZW58MHx8fHwxNzcwMjE5MDA0fDA&ixlib=rb-4.1.0&q=85"
+  "layout": {
+    "spacing_scale": "Generous spacing. p-6 or p-8 inside cards. gap-6 or gap-8 between sections.",
+    "home_tab": "Bento grid layout. Today's Featured spans large columns. Stats use tight bento cards.",
+    "workspace_tab": "CSS Grid for cards with gap-6. Clear hierarchy in the detail view.",
+    "promote_tab": "Clean, centered stepper wizard. Large drag-drop area with dashed borders.",
+    "mobile": "Ensure no overflow, p-4 padding on mobile, stack grids to 1 column."
+  },
+  "visual_enhancers": {
+    "shadows": "Modern soft shadows: shadow-[0_2px_10px_rgba(29,42,59,0.04)]",
+    "borders": "Soft, low-contrast borders: border-slate-200",
+    "micro_interactions": "Smooth 0.2s ease transitions on transforms and opacity. Staggered fade-ins."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "sizing": "w-5 h-5 for inline, w-8 h-8 for empty states/heroes"
+  },
+  "accessibility": {
+    "contrast": "Ensure text meets 4.5:1 against background. Use text-navy instead of light gray for important text.",
+    "testing": "All interactive elements MUST include data-testid attribute."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwcmVzdGF1cmFudCUyMGZvb2R8ZW58MHx8fHwxNzgyNTIzMTcxfDA&ixlib=rb-4.1.0&q=85",
+        "category": "hero_featured",
+        "description": "Premium dish on white ceramic plate - useful for 'Today's Featured' or 'Workspace Project hero'"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1622115837997-90c89ae689f9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwzfHxwcmVtaXVtJTIwcmVzdGF1cmFudCUyMGZvb2R8ZW58MHx8fHwxNzgyNTIzMTcxfDA&ixlib=rb-4.1.0&q=85",
+        "category": "library_preview",
+        "description": "Cooked food on white plate - for library asset previews"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1613274554329-70f997f5789f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjByZXN0YXVyYW50JTIwaW50ZXJpb3J8ZW58MHx8fHwxNzgyNTIzMTc1fDA&ixlib=rb-4.1.0&q=85",
+        "category": "onboarding_background",
+        "description": "Modern restaurant interior for onboarding card or dashboard background"
+      }
+    ]
   },
   "instructions_to_main_agent": [
-    "Update tailwind.config.js to include the new fonts and colors.",
-    "Update index.css with the HSL variables provided.",
-    "Create a 'Navbar' component that is sticky and changes style on scroll.",
-    "Use the 'texture' class on the main background to give it a paper feel.",
-    "Ensure all buttons have the 'shadows' and 'borders' defined in visual_enhancers.",
-    "Use 'data-testid' for all interactive elements."
-  ],
-  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
-    "Do not use generic centered layouts. Use asymmetry where possible.",
-    "Create depth through layered design elements.",
-    "Use 2-3x more spacing than feels comfortable.",
-    "Every interaction needs micro-animations.",
-    "Use 'sonner' for toasts."
+    "Refactor index.css to replace vintage typography/shadows with the new premium SaaS tokens.",
+    "Update tailwind.config.js to include Outfit and Plus Jakarta Sans.",
+    "Revamp top navigation to use Glassmorphism and clear active states.",
+    "Redesign HomeTab using a bento grid. Today's featured must feel like a premium hero.",
+    "Redesign WorkspaceTab to use rounded-2xl cards with soft shadows and cleaner stat pills.",
+    "Redesign Promote wizard to feel like a high-end AI tool.",
+    "Ensure all interactive elements have data-testid attributes.",
+    "Make sure mobile layout is perfect (no overflow, stack grids).",
+    "Maintain all backend API logic as is. Do not touch backend routes."
   ]
 }

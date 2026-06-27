@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon, BarChart3,
+  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon,
   Briefcase,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -29,6 +29,8 @@ const TabFallback = () => (
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Sprint 12D — 5 top tabs: Settings retired, Library promoted from a sub-tab.
+// Launch Cleanup Sprint — Analytics hidden from pilot nav (code retained;
+// route still works if accessed via switchTab('analytics')).
 const TABS = [
   { id: "home",        label: "Home",       icon: Home },
   { id: "workspace",   label: "Workspace",  icon: Briefcase },
@@ -36,7 +38,6 @@ const TABS = [
   { id: "promotions",  label: "Promote",    icon: Megaphone },
   { id: "library",     label: "Library",    icon: ImageIcon },
   { id: "customers",   label: "Customers",  icon: Users },
-  { id: "analytics",   label: "Analytics",  icon: BarChart3 },
 ];
 
 const Dashboard = () => {

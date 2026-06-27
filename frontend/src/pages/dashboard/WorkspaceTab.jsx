@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Briefcase, Image as ImageIcon, Video, MessageSquare, Star,
-  ChevronRight, Sparkles, ArrowLeft, Megaphone, Calendar, Activity,
+  ChevronRight, Sparkles, ArrowLeft, Megaphone,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -203,13 +203,13 @@ function ProjectCard({ project, featuredId, onOpen, onPromote }) {
 
 // ----------------------------------------------------------- Detail view
 
+// Launch Cleanup Sprint — Schedule + Insights "Soon" tabs removed from
+// the per-project detail view until the real features land (Sprint 20B / 20E).
 const DETAIL_TABS = [
   { id: "overview", label: "Overview", icon: Sparkles },
   { id: "designs",  label: "Designs",  icon: ImageIcon },
   { id: "videos",   label: "Videos",   icon: Video },
   { id: "captions", label: "Captions", icon: MessageSquare },
-  { id: "schedule", label: "Schedule", icon: Calendar, readonly: true },
-  { id: "insights", label: "Insights", icon: Activity, readonly: true },
 ];
 
 function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
@@ -313,9 +313,6 @@ function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
             <span className="inline-flex items-center gap-1.5">
               <t.icon className="w-4 h-4" />
               {t.label}
-              {t.readonly && (
-                <span className="ml-1 text-[10px] uppercase tracking-wider text-navy/40">Soon</span>
-              )}
             </span>
           </button>
         ))}
@@ -325,8 +322,6 @@ function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
       {tab === "designs"  && <AssetGrid title="Designs"  data={tabData.designs}  kind="image" />}
       {tab === "videos"   && <AssetGrid title="Videos"   data={tabData.videos}   kind="video" />}
       {tab === "captions" && <CaptionList data={tabData.captions} />}
-      {tab === "schedule" && <ReadOnlyPlaceholder title="Schedule" subtitle="Visual marketing calendar — Sprint 20B." />}
-      {tab === "insights" && <ReadOnlyPlaceholder title="Insights" subtitle="Smart marketing insights — Sprint 20E." />}
     </section>
   );
 }
@@ -412,15 +407,6 @@ function CaptionList({ data }) {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function ReadOnlyPlaceholder({ title, subtitle }) {
-  return (
-    <div className="bg-white border border-navy/10 rounded-lg p-10 text-center" data-testid="readonly-placeholder">
-      <div className="text-xl font-serif font-bold text-navy mb-2">{title}</div>
-      <div className="text-sm text-navy/60">{subtitle}</div>
     </div>
   );
 }

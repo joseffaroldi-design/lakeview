@@ -1,10 +1,10 @@
 /**
  * Photo → Flyer (Sprint 16D)
  *
- * Replaces AiImageGenerator.jsx as the front-end entry point for the
- * marketing workflow. Upload a food photo → AI vision analysis →
- * auto-filled flyer + caption in one click. Video is opt-in from the
- * review screen ("Turn this into a 15s video").
+ * Primary front-end entry point for the marketing workflow. Upload a
+ * food photo → AI vision analysis → auto-filled flyer + caption in one
+ * click. Video is opt-in from the review screen ("Turn this into a 15s
+ * video").
  *
  * Sprint 16F.2 additions:
  *   * Reads sessionStorage key `lakeview.photo_flyer.prefill` (set by

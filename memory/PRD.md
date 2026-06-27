@@ -3091,3 +3091,57 @@ homepage hero are all untouched.
 
 **Reports**:
 * `/app/memory/SPRINT20A_PHASE4_WORKSPACE_REPORT.md` — full audit
+
+
+---
+
+## Launch Cleanup Sprint — Dead Code + Dead Ends (Feb 27, 2026)
+
+**Goal:** Prepare the app for real pilot customers by removing dead UI,
+collapsing duplicate flyer entry points, hiding placeholder screens, and
+adding a 3-step onboarding helper. **No** flyer-engine, agency-renderer,
+typography, quality-score, Creative Director, or Design Memory changes.
+
+**Changes (frontend only, preview-only):**
+
+1. **Dead UI removed** — `frontend/src/pages/dashboard/aiads/AiImageGenerator.jsx`
+   (388 lines) deleted. Repo grep confirmed no imports remained.
+2. **Stale comments cleaned** — references to old `AiImageGenerator`
+   behaviour stripped from `AiDesigner.jsx` and `PhotoToFlyer.jsx`.
+3. **Workspace detail simplified** — `Schedule` and `Insights` "Soon"
+   placeholder tabs removed from `WorkspaceTab.jsx`'s per-project
+   detail view. Detail tabs now: Overview · Designs · Videos · Captions.
+   `ReadOnlyPlaceholder` helper deleted.
+4. **Dashboard nav simplified** — Analytics top tab hidden for pilot
+   launch. Top tabs now: Home · Workspace · Menu · Promote · Library ·
+   Customers (6 instead of 7). Analytics code retained — only nav entry
+   hidden.
+5. **Onboarding helper added** — new `home/OnboardingGuide.jsx` rendered
+   at the top of `HomeTab`. 3 numbered steps with deep-link CTAs
+   (Menu → Promote → Library). Dismissible (`localStorage` key
+   `lakeview.onboarding.dismissed.v1`) and auto-hides once the owner has
+   any saved image in `/api/media/assets`.
+
+**Files changed:**
+- DELETED: `frontend/src/pages/dashboard/aiads/AiImageGenerator.jsx` (388 LOC)
+- NEW:     `frontend/src/pages/dashboard/home/OnboardingGuide.jsx` (~160 LOC)
+- MOD:     `frontend/src/pages/Dashboard.js`
+- MOD:     `frontend/src/pages/dashboard/HomeTab.jsx`
+- MOD:     `frontend/src/pages/dashboard/WorkspaceTab.jsx`
+- MOD:     `frontend/src/pages/dashboard/aiads/AiDesigner.jsx` (comment only)
+- MOD:     `frontend/src/pages/dashboard/aiads/PhotoToFlyer.jsx` (comment only)
+
+**Verification (Playwright + manual):**
+- Top tabs query confirms 6 tabs (Analytics hidden) ✓
+- Workspace detail tabs query confirms 4 tabs (Schedule/Insights hidden) ✓
+- Onboarding card renders 3 steps with CTAs when library empty ✓
+- Onboarding auto-hides when library has assets ✓
+- Promote tab still opens Photo→Flyer wizard directly ✓
+- `/template-designer` route preserved as advanced fallback ✓
+- ESLint clean on every touched file ✓
+- Backend engines untouched per spec ✓
+
+**Pilot-readiness recommendation:** Ready. Single happy path
+(Menu → Promote → Photo→Flyer → Make Video → Save → Download) is now the
+only owner-facing surface, and the onboarding guide walks new users
+through it.

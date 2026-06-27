@@ -1355,10 +1355,10 @@ const AiDesigner = ({ getAuthHeader }) => {
   const [recentRefreshKey, setRecentRefreshKey] = useState(0);
   const [openingId, setOpeningId] = useState(null);
 
-  // Sprint 15B.8: when AiImageGenerator emits "Use In Ad", it drops the
-  // generated asset payload into sessionStorage and switches the parent tab
-  // to designer. Read it ONCE on mount, hydrate `asset`, and auto-advance
-  // to the form step. Skip silently if nothing is queued.
+  // Optional sessionStorage handoff: any external surface may drop a
+  // generated asset payload under HANDOFF_KEY to deep-link into the form
+  // step. Read it ONCE on mount, hydrate `asset`, and auto-advance. Skip
+  // silently if nothing is queued.
   useEffect(() => {
     let raw = null;
     try {
