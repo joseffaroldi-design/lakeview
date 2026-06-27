@@ -767,14 +767,15 @@ def _draw_spaced(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeF
 
 
 def _draw_branding(canvas: Image.Image, theme: Dict[str, Any]) -> None:
-    """Footer-style restaurant branding line at the bottom of the canvas."""
-    draw = ImageDraw.Draw(canvas, "RGBA")
-    f = _font(FONT_SANS_BOLD, 20)
-    text = RESTAURANT_BRANDING
-    bbox = draw.textbbox((0, 0), text, font=f)
-    tw = bbox[2] - bbox[0]
-    draw.text(((CANVAS - tw) // 2, CANVAS - 40 - (bbox[3] - bbox[1])),
-              text, fill=theme["branding_color"], font=f)
+    """Tech Debt Sprint Step 6 / Chunk 4: delegates to
+    ai_designer.composition._draw_branding with router-local constants
+    (`FONT_SANS_BOLD`, `RESTAURANT_BRANDING`, `CANVAS`) injected. Preserves
+    the original signature so call sites in `_compose_design` and elsewhere
+    remain untouched.
+    """
+    from ai_designer.composition import _draw_branding as _impl
+    _impl(canvas, theme, branding_text=RESTAURANT_BRANDING,
+          font_path=FONT_SANS_BOLD, canvas_size=CANVAS)
 
 
 def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,

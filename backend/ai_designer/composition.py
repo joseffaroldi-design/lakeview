@@ -303,7 +303,27 @@ __all__ = [
     # Chunk 3 — variant food transform + glyph-spaced text
     "_variant_food_transform",
     "_draw_spaced",
+    # Chunk 4 — branding footer
+    "_draw_branding",
 ]
+
+
+def _draw_branding(canvas: Image.Image, theme: dict, branding_text: str,
+                   font_path: str, canvas_size: int) -> None:
+    """Footer-style restaurant branding line at the bottom of the canvas.
+
+    Chunk 4: extracted from routers/ai_designer.py. The original implementation
+    read three router-local module constants (`CANVAS`, `FONT_SANS_BOLD`,
+    `RESTAURANT_BRANDING`); we now accept them as explicit parameters so
+    composition.py stays free of router/env coupling.
+    """
+    from ai_designer.utils import load_font
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    f = load_font(font_path, 20)
+    bbox = draw.textbbox((0, 0), branding_text, font=f)
+    tw = bbox[2] - bbox[0]
+    draw.text(((canvas_size - tw) // 2, canvas_size - 40 - (bbox[3] - bbox[1])),
+              branding_text, fill=theme["branding_color"], font=f)
 
 
 # ---------------------------------------------------------------- Background painter primitives
