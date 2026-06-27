@@ -410,277 +410,49 @@ def _pil_background(theme_id: str, variant_idx: int) -> bytes:
 
 
 # ---- PIL background primitives ------------------------------------------------
+# Tech Debt Sprint Step 6 / Chunk 2 — all 19 decorative drawing helpers moved
+# to `ai_designer.composition`. We re-export them here under the same `_xxx`
+# names because `/app/backend/theme_packs/*.py` imports them directly from
+# `routers.ai_designer`. Keeping the public import surface identical is the
+# whole point of the re-export.
 
-# ---- Sprint 16A flyer-grade decorative primitives ----
-# All accept an ImageDraw or Image and draw in-place. Designed for the new
-# flyer themes (comic_pop, vintage_diner, bold_purple_pop, casual_teal,
-# distressed_orange). No external assets; everything is generated with PIL.
-
-def _halftone_dots(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-                   start_xy: Tuple[int, int], end_xy: Tuple[int, int],
-                   spacing: int = 24, max_r: int = 8) -> None:
-    """Halftone gradient dots filling a rectangular zone — denser near the
-    near corner, sparser away. Color must be RGBA."""
-    x1, y1 = start_xy
-    x2, y2 = end_xy
-    diag = max(1.0, ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5)
-    for x in range(x1, x2, spacing):
-        for y in range(y1, y2, spacing):
-            d = ((x - x1) ** 2 + (y - y1) ** 2) ** 0.5
-            t = 1.0 - (d / diag)
-            r = max(1, int(max_r * t))
-            draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
-
-
-def _lightning_bolt(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-                    tip: Tuple[int, int], size: int = 140) -> None:
-    """Classic Z-shaped bolt anchored at `tip` (bottom point)."""
-    cx, cy = tip
-    pts = [
-        (cx,                 cy),
-        (cx - int(size * 0.35), cy - int(size * 0.55)),
-        (cx + int(size * 0.05), cy - int(size * 0.45)),
-        (cx - int(size * 0.20), cy - size),
-        (cx + int(size * 0.30), cy - int(size * 0.45)),
-        (cx - int(size * 0.05), cy - int(size * 0.55)),
-        (cx + int(size * 0.18), cy - int(size * 0.20)),
-    ]
-    draw.polygon(pts, fill=color)
+from ai_designer.composition import (
+    _halftone_dots,
+    _lightning_bolt,
+    _speed_lines,
+    _star,
+    _squiggle,
+    _sparks,
+    _distressed_grain,
+    _brush_stamp,
+    _radial_gradient,
+    _linear_gradient,
+    _corner_frame,
+    _corner_ornaments,
+    _diagonal_ribbon,
+    _marble_veins,
+    _checker_strip,
+    _corner_dots,
+    _olive_branch,
+    _confetti,
+    _wavy_ribbon,
+)
 
 
-def _speed_lines(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-                 origin: Tuple[int, int], count: int = 12, length: int = 200) -> None:
-    """Radial speed lines (comic-style) emanating from `origin`."""
+def _wavy_ribbon(draw: ImageDraw.ImageDraw, color, start, end, width: int = 40) -> None:
+    """A rough wavy ribbon from start to end."""
     import math
-    ox, oy = origin
-    for i in range(count):
-        ang = (math.pi * 2 / count) * i
-        x2 = int(ox + math.cos(ang) * length)
-        y2 = int(oy + math.sin(ang) * length)
-        draw.line((ox, oy, x2, y2), fill=color, width=3)
-
-
-def _star(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-          cx: int, cy: int, r: int = 20) -> None:
-    """5-point star, filled."""
-    import math
-    pts = []
-    for i in range(10):
-        ang = math.pi / 2 + (math.pi * 2 / 10) * i
-        rr = r if i % 2 == 0 else int(r * 0.45)
-        pts.append((cx + int(math.cos(ang) * rr), cy - int(math.sin(ang) * rr)))
-    draw.polygon(pts, fill=color)
-
-
-def _squiggle(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-              start: Tuple[int, int], end: Tuple[int, int],
-              amplitude: int = 18, segments: int = 12, width: int = 5) -> None:
-    """Hand-drawn-feeling wavy line between two points."""
-    import math
-    x1, y1 = start
-    x2, y2 = end
-    pts = []
-    for s in range(segments + 1):
-        t = s / segments
-        bx = x1 + (x2 - x1) * t
-        by = y1 + (y2 - y1) * t + math.sin(t * math.pi * 3) * amplitude
-        pts.append((int(bx), int(by)))
-    for i in range(len(pts) - 1):
-        draw.line((pts[i], pts[i + 1]), fill=color, width=width)
-
-
-def _sparks(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-            cx: int, cy: int, rays: int = 8, length: int = 40) -> None:
-    """Star-burst rays (like a hand-drawn pop accent)."""
-    import math
-    for i in range(rays):
-        ang = (math.pi * 2 / rays) * i
-        x2 = int(cx + math.cos(ang) * length)
-        y2 = int(cy + math.sin(ang) * length)
-        draw.line((cx, cy, x2, y2), fill=color, width=4)
-
-
-def _distressed_grain(canvas: Image.Image, color: Tuple[int, int, int, int],
-                      density: int = 1200) -> None:
-    """Sprinkle small specks across the canvas for a worn / aged look."""
-    import random
-    random.seed(density + color[0])
-    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    for _ in range(density):
-        x = random.randint(0, CANVAS - 1)
-        y = random.randint(0, CANVAS - 1)
-        s = random.choice((1, 1, 1, 2))
-        od.rectangle((x, y, x + s, y + s), fill=color)
-    canvas.paste(overlay, (0, 0), overlay)
-
-
-def _brush_stamp(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-                 x: int, y: int, w: int, h: int) -> None:
-    """A ragged-edge rectangle that reads as a brush-painted block — good
-    for layering distressed headline plates."""
-    import random
-    random.seed(x + y + w + h)
-    draw.rectangle((x, y, x + w, y + h), fill=color)
-    # Add jagged edges by painting thin slivers of background back over the
-    # top/bottom — easier than computing a true alpha mask, and matches the
-    # distressed-orange / vintage-diner aesthetic.
-    bg = (255, 255, 255, 0)  # transparent — we'll just punch holes
-    for _ in range(40):
-        ex = random.randint(x - 6, x + w + 6)
-        ew = random.randint(8, 28)
-        et = random.randint(0, 1)
-        if et == 0:
-            draw.rectangle((ex, y - random.randint(2, 10), ex + ew, y + random.randint(0, 6)), fill=bg)
-        else:
-            draw.rectangle((ex, y + h - random.randint(0, 6), ex + ew, y + h + random.randint(2, 10)), fill=bg)
-
-
-def _radial_gradient(canvas: Image.Image, inner_rgb: Tuple[int, int, int],
-                     outer_rgb: Tuple[int, int, int], cx: int, cy: int, r: int) -> None:
-    """Paint a soft radial gradient in-place on the canvas."""
-    overlay = Image.new("RGBA", canvas.size, outer_rgb + (255,))
-    mask = Image.new("L", canvas.size, 0)
-    md = ImageDraw.Draw(mask)
-    steps = 16
-    for i in range(steps, 0, -1):
-        rr = int(r * (i / steps))
-        md.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), fill=int(255 * (1 - i / steps)))
-    mask = mask.filter(ImageFilter.GaussianBlur(20))
-    inner = Image.new("RGBA", canvas.size, inner_rgb + (255,))
-    composite = Image.composite(inner, overlay, mask)
-    canvas.paste(composite.convert("RGB"), (0, 0))
-
-
-def _linear_gradient(canvas: Image.Image, c1: Tuple[int, int, int], c2: Tuple[int, int, int],
-                     vertical: bool = True) -> None:
-    grad = Image.new("RGB", (1, CANVAS) if vertical else (CANVAS, 1))
-    px = grad.load()
-    for i in range(CANVAS):
-        t = i / (CANVAS - 1)
-        r = int(c1[0] * (1 - t) + c2[0] * t)
-        g = int(c1[1] * (1 - t) + c2[1] * t)
-        b = int(c1[2] * (1 - t) + c2[2] * t)
-        if vertical:
-            px[0, i] = (r, g, b)
-        else:
-            px[i, 0] = (r, g, b)
-    grad = grad.resize((CANVAS, CANVAS), Image.LANCZOS)
-    canvas.paste(grad, (0, 0))
-
-
-def _corner_frame(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int],
-                  thickness: int = 4, inset: int = 70, corner_len: int = 180) -> None:
-    """Draw 4 L-shaped corner brackets."""
-    c = color + (240,) if len(color) == 3 else color
-    coords = [
-        (inset, inset, inset + corner_len, inset, inset, inset + corner_len),  # TL
-        (CANVAS - inset - corner_len, inset, CANVAS - inset, inset, CANVAS - inset, inset + corner_len),  # TR
-        (inset, CANVAS - inset - corner_len, inset, CANVAS - inset, inset + corner_len, CANVAS - inset),  # BL
-        (CANVAS - inset - corner_len, CANVAS - inset, CANVAS - inset, CANVAS - inset, CANVAS - inset, CANVAS - inset - corner_len),
-    ]
-    for cx1, cy1, cx2, cy2, cx3, cy3 in coords:
-        draw.line((cx1, cy1, cx2, cy2), fill=c, width=thickness)
-        draw.line((cx2, cy2, cx3, cy3), fill=c, width=thickness)
-
-
-def _corner_ornaments(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int], size: int = 120) -> None:
-    """Small decorative diamonds in each corner."""
-    c = color + (180,) if len(color) == 3 else color
-    inset = 100
-    for cx, cy in [(inset, inset), (CANVAS - inset, inset), (inset, CANVAS - inset), (CANVAS - inset, CANVAS - inset)]:
-        s = size // 6
-        draw.polygon([(cx, cy - s), (cx + s, cy), (cx, cy + s), (cx - s, cy)], outline=c, width=2)
-
-
-def _diagonal_ribbon(draw: ImageDraw.ImageDraw, color: Tuple[int, int, int, int],
-                     corner: str, width: int = 160) -> None:
-    if corner == "tr":
-        points = [(CANVAS - width, 0), (CANVAS, 0), (CANVAS, width), (CANVAS - width // 2, width // 2)]
-    elif corner == "bl":
-        points = [(0, CANVAS - width), (width, CANVAS), (0, CANVAS), (0, CANVAS - width)]
-    else:
-        return
-    draw.polygon(points, fill=color)
-
-
-def _marble_veins(canvas: Image.Image, color: Tuple[int, int, int, int], count: int = 4) -> None:
-    import random
-    random.seed(count + sum(color[:3]))
-    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    for _ in range(count):
-        x1, y1 = random.randint(0, CANVAS), random.randint(0, CANVAS // 3)
-        x2, y2 = random.randint(0, CANVAS), random.randint(CANVAS * 2 // 3, CANVAS)
-        od.line((x1, y1, x2, y2), fill=color, width=2)
-    overlay = overlay.filter(ImageFilter.GaussianBlur(1))
-    canvas.paste(overlay, (0, 0), overlay)
-
-
-def _checker_strip(draw: ImageDraw.ImageDraw, c1: Tuple[int, int, int], c2: Tuple[int, int, int],
-                   y: int, h: int, square: int = 40) -> None:
-    for i, sx in enumerate(range(0, CANVAS, square)):
-        color = c1 if i % 2 == 0 else c2
-        draw.rectangle((sx, y, sx + square, y + h), fill=color + (255,) if len(color) == 3 else color)
-
-
-def _corner_dots(draw: ImageDraw.ImageDraw, color, size: int = 10, count: int = 8, edge: int = 70) -> None:
-    import random
-    random.seed(count)
-    for _ in range(count * 4):
-        edge_choice = random.choice(["t", "b", "l", "r"])
-        if edge_choice == "t":
-            x, y = random.randint(edge, CANVAS - edge), random.randint(20, edge - 10)
-        elif edge_choice == "b":
-            x, y = random.randint(edge, CANVAS - edge), random.randint(CANVAS - edge + 10, CANVAS - 20)
-        elif edge_choice == "l":
-            x, y = random.randint(20, edge - 10), random.randint(edge, CANVAS - edge)
-        else:
-            x, y = random.randint(CANVAS - edge + 10, CANVAS - 20), random.randint(edge, CANVAS - edge)
-        draw.ellipse((x - size, y - size, x + size, y + size), fill=color)
-
-
-def _olive_branch(draw: ImageDraw.ImageDraw, color, x: int, y: int, size: int = 200) -> None:
-    """Stylized leafy branch line drawing."""
-    end_x, end_y = x + int(size * 0.85), y + size
-    draw.line((x, y, end_x, end_y), fill=color, width=3)
-    for i in range(6):
-        t = (i + 1) / 7.0
-        mx = int(x + (end_x - x) * t)
-        my = int(y + (end_y - y) * t)
-        leaf_dx, leaf_dy = (40 if i % 2 == 0 else -40, 20 if i % 2 == 0 else -20)
-        # Normalize bbox so x1>=x0, y1>=y0 regardless of leaf direction
-        bx0, by0 = mx - 16, my - 8
-        bx1, by1 = mx + leaf_dx + 16, my + leaf_dy + 8
-        if bx1 < bx0:
-            bx0, bx1 = bx1, bx0
-        if by1 < by0:
-            by0, by1 = by1, by0
-        draw.ellipse((bx0, by0, bx1, by1), outline=color, width=2)
-
-
-def _confetti(draw: ImageDraw.ImageDraw, palette, count: int = 60, edge_only: bool = False) -> None:
-    import random
-    random.seed(count + len(palette))
-    for _ in range(count):
-        if edge_only:
-            band = random.choice(["t", "b", "l", "r"])
-            if band == "t":
-                x, y = random.randint(20, CANVAS - 20), random.randint(20, 140)
-            elif band == "b":
-                x, y = random.randint(20, CANVAS - 20), random.randint(CANVAS - 140, CANVAS - 20)
-            elif band == "l":
-                x, y = random.randint(20, 140), random.randint(20, CANVAS - 20)
-            else:
-                x, y = random.randint(CANVAS - 140, CANVAS - 20), random.randint(20, CANVAS - 20)
-        else:
-            x, y = random.randint(0, CANVAS), random.randint(0, CANVAS)
-        s = random.randint(6, 16)
-        color = random.choice(palette)
-        if random.random() < 0.6:
-            draw.ellipse((x - s, y - s, x + s, y + s), fill=color)
-        else:
-            draw.rectangle((x - s, y - s, x + s, y + s), fill=color)
+    points = []
+    sx, sy = start
+    ex, ey = end
+    length = max(1, int(math.hypot(ex - sx, ey - sy)))
+    for i in range(length):
+        t = i / length
+        x = int(sx * (1 - t) + ex * t)
+        y = int(sy * (1 - t) + ey * t + math.sin(t * 3.14159 * 4) * 20)
+        points.append((x, y))
+    for (x, y) in points:
+        draw.ellipse((x - width // 2, y - width // 2, x + width // 2, y + width // 2), fill=color)
 
 
 def _wavy_ribbon(draw: ImageDraw.ImageDraw, color, start, end, width: int = 40) -> None:
