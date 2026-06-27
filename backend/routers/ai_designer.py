@@ -50,7 +50,7 @@ logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/ai-designer", tags=["ai-designer"])
 
 CANVAS = 1024
-VARIATION_LABELS = ["A", "B", "C"]  # always exactly 3
+VARIATION_LABELS = ["A", "B", "C", "D", "E"]  # Support up to 5 variants
 RESTAURANT_BRANDING = os.environ.get("AI_DESIGNER_BRAND", "LAKEVIEW BURGERS & SEAFOOD")
 
 FONT_SERIF_BOLD   = "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"
@@ -131,6 +131,15 @@ class GenerateRequest(BaseModel):
     # generated asset so the Library can filter by menu item and the
     # Creative Director can learn from favorited flyers per dish.
     item_key: Optional[constr(strip_whitespace=True, max_length=200)] = None
+    # Priority 2 & 3 — Variant count and generation options
+    variations: int = Field(default=3, ge=1, le=5)
+    tone: Optional[constr(max_length=40)] = None
+    marketing_goal: Optional[constr(max_length=60)] = None
+    caption_length: Optional[constr(max_length=20)] = None
+    platform: Optional[constr(max_length=40)] = None
+    cta: Optional[constr(max_length=60)] = None
+    include_price: bool = True
+    include_description: bool = True
 
 
 class SaveTemplateRequest(BaseModel):
@@ -1460,9 +1469,11 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
     await update(status="processing", progress=5)
 
     variations: List[Dict[str, Any]] = []
-    total = 3
-    for idx, variant in enumerate(VARIATION_LABELS):
-        layout = LAYOUTS[idx]
+    variant_count = min(5, max(1, body.variations))  # Clamp to 1-5
+    total = variant_count
+    for idx in range(variant_count):
+        variant = VARIATION_LABELS[idx]
+        layout = LAYOUTS[idx % len(LAYOUTS)]  # Cycle through layouts if more than 3
         try:
             bg_bytes = _pil_background(body.theme, idx)
             graphic_bytes, score_info = _compose_design(
@@ -1505,7 +1516,7 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
         await update(status="failed", error={
             "code": "all_variations_failed", "status": 500, "retryable": True,
             "retry_action": "retry",
-            "user_message": "All 3 variations failed. Try again or pick a different theme.",
+            "user_message": f"All {variant_count} variations failed. Try again or pick a different theme.",
             "technical": "all variations failed",
         })
         return

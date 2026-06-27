@@ -22,7 +22,7 @@ import requests
 
 API = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://food-graphics-lab.preview.emergentagent.com",
+    "https://upload-stage-two.preview.emergentagent.com",
 ).rstrip("/") + "/api"
 
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]

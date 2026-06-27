@@ -27,7 +27,7 @@ from pathlib import Path
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-BASE = "https://food-graphics-lab.preview.emergentagent.com"
+BASE = "https://upload-stage-two.preview.emergentagent.com"
 PW = os.environ.get("ADMIN_PASSWORD", "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o")
 OUT = Path("/app/memory/launch/assets")
 OUT.mkdir(parents=True, exist_ok=True)

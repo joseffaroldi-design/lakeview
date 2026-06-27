@@ -1,7 +1,7 @@
 # Lakeview Marketing Engine — Launch Readiness Report
 
 **Date**: Feb 24, 2026
-**Test environment**: Preview (`https://food-graphics-lab.preview.emergentagent.com`)
+**Test environment**: Preview (`https://upload-stage-two.preview.emergentagent.com`)
 **Test execution**: E1 launch validation script + manual review
 **Total duration of generation run**: 221 seconds (5 promotions, end-to-end)
 
@@ -35,8 +35,8 @@
 
 | Surface | Preview URL | Status |
 |---|---|---|
-| Public homepage | `https://food-graphics-lab.preview.emergentagent.com/` | 200 |
-| Public menu | `https://food-graphics-lab.preview.emergentagent.com/api/menu` | 200 |
+| Public homepage | `https://upload-stage-two.preview.emergentagent.com/` | 200 |
+| Public menu | `https://upload-stage-two.preview.emergentagent.com/api/menu` | 200 |
 | Auth login | `POST /api/auth/login` (with rate limit) | 200 + token |
 | Auth verify | `GET /api/auth/verify` | 200 with valid; 401 with bogus |
 | Media upload | `POST /api/media/upload` | 5/5 succeeded |

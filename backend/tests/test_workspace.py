@@ -12,7 +12,7 @@ import os
 import time
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://food-graphics-lab.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://upload-stage-two.preview.emergentagent.com").rstrip("/")
 
 
 def _get(path: str, **kw):

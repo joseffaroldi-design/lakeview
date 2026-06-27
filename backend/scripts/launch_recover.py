@@ -12,7 +12,7 @@ from pathlib import Path
 
 import requests
 
-BASE = "https://food-graphics-lab.preview.emergentagent.com"
+BASE = "https://upload-stage-two.preview.emergentagent.com"
 PW = "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
 OUT = Path("/app/memory/launch/assets")
 OUT.mkdir(parents=True, exist_ok=True)

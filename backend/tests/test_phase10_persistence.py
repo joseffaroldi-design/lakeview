@@ -32,7 +32,7 @@ from PIL import Image
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://food-graphics-lab.preview.emergentagent.com",
+    "https://upload-stage-two.preview.emergentagent.com",
 ).rstrip("/")
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 TIMEOUT = 30

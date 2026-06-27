@@ -1,6 +1,6 @@
 # Marketing Engine UX & Workflow Audit
 **Auditor**: Senior SaaS UX consultant + restaurant tech advisor
-**Environment**: Preview only (`https://food-graphics-lab.preview.emergentagent.com`)
+**Environment**: Preview only (`https://upload-stage-two.preview.emergentagent.com`)
 **Persona**: Busy restaurant owner / chef / GM — limited time, limited patience, non-technical
 **Method**: Live navigation through the marketing engine + code-level walkthrough of every screen
 **Screenshots**: `/app/memory/launch/screenshots/01-dashboard-home.jpg`, `02-promote-ai-ads.jpg`

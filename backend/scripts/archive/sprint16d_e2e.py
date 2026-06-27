@@ -20,7 +20,7 @@ from pathlib import Path
 import requests
 from PIL import Image, ImageDraw
 
-BASE = "https://food-graphics-lab.preview.emergentagent.com"
+BASE = "https://upload-stage-two.preview.emergentagent.com"
 PW = "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
 OUT = Path("/app/memory/launch/assets/sprint16d")
 OUT.mkdir(parents=True, exist_ok=True)

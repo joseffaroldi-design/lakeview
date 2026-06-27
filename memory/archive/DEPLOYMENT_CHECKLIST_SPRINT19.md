@@ -46,11 +46,11 @@ new routes, no new collections, no env var changes.
 
 ## Phase 2 — Pre-deploy smoke (preview, last sanity)
 
-Run these against `https://food-graphics-lab.preview.emergentagent.com`
+Run these against `https://upload-stage-two.preview.emergentagent.com`
 within 30 min of pushing to prod. All must return 200 + valid bodies:
 
 ```bash
-API=https://food-graphics-lab.preview.emergentagent.com
+API=https://upload-stage-two.preview.emergentagent.com
 TOKEN=$(curl -s -X POST $API/api/auth/login \
    -H "Content-Type: application/json" \
    -H "X-Forwarded-For: 198.51.100.7" \

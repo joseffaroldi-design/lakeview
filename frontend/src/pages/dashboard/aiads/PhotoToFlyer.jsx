@@ -99,19 +99,27 @@ const UploadStep = ({
   savedMemory,
   onUseSavedStyle,
   onStartFresh,
+  generationOptions,
+  onOptionsChange,
+  themesData,
 }) => {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
 
   const handlePick = async (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
+    await processFile(f);
+  };
+
+  const processFile = async (file) => {
     setBusy(true); setError(null); setProgress("Uploading photo…");
     try {
       const fd = new FormData();
-      fd.append("file", f);
+      fd.append("file", file);
       fd.append("folder", "Custom");
       setProgress("Enhancing and analyzing your photo (≈8s)…");
       const r = await axios.post(`${API}/photo-flyer/analyze`, fd, {
@@ -123,6 +131,27 @@ const UploadStep = ({
       setError(parseAxiosError(e2));
     } finally {
       setBusy(false); setProgress("");
+    }
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (busy) return;
+    const files = e.dataTransfer?.files;
+    if (files && files[0]) {
+      await processFile(files[0]);
     }
   };
 
@@ -205,7 +234,25 @@ const UploadStep = ({
           shareable flyer + captions in under 60 seconds.
           {menuItem ? <> Name, price and features have been pre-filled from <strong>{menuItem.name}</strong>.</> : null}
         </p>
-        <div className="flex flex-wrap gap-2">
+
+        {/* Drag-and-drop upload zone */}
+        <div
+          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+            dragActive
+              ? "border-gold bg-gold/10"
+              : "border-navy/20 hover:border-gold/50 bg-white"
+          } ${busy ? "opacity-50 pointer-events-none" : ""}`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          data-testid="photo-flyer-dropzone"
+        >
+          <Upload className={`w-12 h-12 mx-auto mb-3 ${dragActive ? "text-gold" : "text-navy/40"}`} />
+          <p className="text-sm font-semibold text-navy mb-1">
+            {dragActive ? "Drop your photo here" : "Drag & drop your food photo"}
+          </p>
+          <p className="text-xs text-navy/60 mb-3">or</p>
           <Button
             onClick={() => fileRef.current && fileRef.current.click()}
             disabled={busy}
@@ -213,8 +260,8 @@ const UploadStep = ({
             data-testid="photo-flyer-upload-btn"
           >
             {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                  : <Upload className="w-4 h-4 mr-1.5" />}
-            {busy ? "Working…" : "Upload food photo"}
+                  : <ImageIcon className="w-4 h-4 mr-1.5" />}
+            {busy ? "Working…" : "Browse files"}
           </Button>
           <input
             ref={fileRef} type="file"
@@ -223,6 +270,9 @@ const UploadStep = ({
             className="hidden"
             data-testid="photo-flyer-upload-input"
           />
+          <p className="text-[10px] text-navy/50 mt-2">
+            Supports JPG, PNG, WebP
+          </p>
         </div>
         {busy && progress ? (
           <p className="text-xs text-muted-foreground mt-2"
@@ -235,6 +285,201 @@ const UploadStep = ({
               onRetry={() => setError(null)} />
           </div>
         ) : null}
+
+        {/* Generation Options */}
+        <details className="mt-6 border border-navy/10 rounded-lg overflow-hidden"
+                 data-testid="photo-flyer-generation-options">
+          <summary className="cursor-pointer select-none px-4 py-3 bg-navy/5 hover:bg-navy/10 transition-colors font-semibold text-sm text-navy flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-gold" />
+              Generation Options
+            </span>
+            <span className="text-xs text-navy/60 font-normal">
+              Customize your design upfront
+            </span>
+          </summary>
+          <div className="p-4 space-y-4 bg-white">
+            
+            {/* Variant Count */}
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Number of designs to generate
+              </label>
+              <div className="flex gap-2">
+                {[1, 3, 5].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => onOptionsChange({ ...generationOptions, variantCount: count })}
+                    className={`flex-1 px-4 py-2 rounded-md border text-sm font-semibold transition-colors ${
+                      generationOptions.variantCount === count
+                        ? "border-gold bg-gold/15 text-navy"
+                        : "border-navy/20 hover:border-gold/50 text-navy/70"
+                    }`}
+                    data-testid={`photo-flyer-variant-${count}`}
+                  >
+                    {count} {count === 1 ? "Design" : "Designs"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tone Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Tone
+              </label>
+              <select
+                value={generationOptions.tone}
+                onChange={(e) => onOptionsChange({ ...generationOptions, tone: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-tone"
+              >
+                <option value="professional">Professional</option>
+                <option value="casual">Casual</option>
+                <option value="luxury">Luxury</option>
+                <option value="bold">Bold</option>
+                <option value="playful">Playful</option>
+              </select>
+            </div>
+
+            {/* Marketing Goal */}
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Marketing Goal
+              </label>
+              <select
+                value={generationOptions.marketingGoal}
+                onChange={(e) => onOptionsChange({ ...generationOptions, marketingGoal: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-marketing-goal"
+              >
+                <option value="drive_traffic">Drive Traffic</option>
+                <option value="promote_item">Promote New Item</option>
+                <option value="limited_offer">Limited Time Offer</option>
+                <option value="seasonal">Seasonal Campaign</option>
+                <option value="daily_special">Daily Special</option>
+                <option value="brand_awareness">Build Brand Awareness</option>
+              </select>
+            </div>
+
+            {/* Caption Length */}
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Caption Length: <span className="text-gold">{generationOptions.captionLength}</span>
+              </label>
+              <div className="flex gap-2 items-center">
+                <span className="text-[10px] text-navy/60 font-medium">Short</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="3"
+                  value={generationOptions.captionLength === "short" ? 1 : generationOptions.captionLength === "medium" ? 2 : 3}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    const length = val === 1 ? "short" : val === 2 ? "medium" : "long";
+                    onOptionsChange({ ...generationOptions, captionLength: length });
+                  }}
+                  className="flex-1 h-2 bg-navy/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gold [&::-moz-range-thumb]:border-0"
+                  data-testid="photo-flyer-caption-length"
+                />
+                <span className="text-[10px] text-navy/60 font-medium">Long</span>
+              </div>
+              <p className="text-[10px] text-navy/50 mt-1">
+                {generationOptions.captionLength === "short" ? "1-2 sentences" :
+                 generationOptions.captionLength === "medium" ? "3-4 sentences" : "5+ sentences"}
+              </p>
+            </div>
+
+            {/* Platform / Export Size */}
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Platform / Export Size
+              </label>
+              <select
+                value={generationOptions.platform}
+                onChange={(e) => onOptionsChange({ ...generationOptions, platform: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-platform"
+              >
+                <option value="instagram_post">Instagram Post (1024×1024)</option>
+                <option value="instagram_story">Instagram Story (1080×1920)</option>
+                <option value="facebook">Facebook Post (1200×1200)</option>
+                <option value="tiktok">TikTok (1080×1920)</option>
+                <option value="twitter">Twitter/X (1200×675)</option>
+                <option value="email">Email Campaign (600×600)</option>
+              </select>
+            </div>
+
+            {/* Optional CTA */}
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Call-to-Action (Optional)
+              </label>
+              <select
+                value={generationOptions.cta}
+                onChange={(e) => onOptionsChange({ ...generationOptions, cta: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-cta"
+              >
+                <option value="">None</option>
+                <option value="Order Today">Order Today</option>
+                <option value="Limited Time">Limited Time</option>
+                <option value="Chef Special">Chef Special</option>
+                <option value="Available Now">Available Now</option>
+                <option value="Today's Feature">Today&apos;s Feature</option>
+                <option value="Order Now">Order Now</option>
+              </select>
+            </div>
+
+            {/* Include Price */}
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-navy">
+                Include Price
+              </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={generationOptions.includePrice}
+                onClick={() => onOptionsChange({ ...generationOptions, includePrice: !generationOptions.includePrice })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  generationOptions.includePrice ? "bg-gold" : "bg-navy/20"
+                }`}
+                data-testid="photo-flyer-include-price"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    generationOptions.includePrice ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Include Description */}
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-navy">
+                Include Description
+              </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={generationOptions.includeDescription}
+                onClick={() => onOptionsChange({ ...generationOptions, includeDescription: !generationOptions.includeDescription })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  generationOptions.includeDescription ? "bg-gold" : "bg-navy/20"
+                }`}
+                data-testid="photo-flyer-include-description"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    generationOptions.includeDescription ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+          </div>
+        </details>
       </Section>
     </div>
   );
@@ -617,7 +862,8 @@ const ReviewStep = ({
   onRegenerate, onStartOver,
 }) => {
   const vars = job.variations || [];
-  const flyer = vars[0] || {};
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const flyer = vars[selectedIdx] || vars[0] || {};
   const flyerUrl = flyer.asset_id ? `${API}/media/file/${flyer.asset_id}` : null;
   const copy = job.copy_pack || {};
   const fb = copy.fb_post || "";
@@ -730,9 +976,54 @@ const ReviewStep = ({
   return (
     <div className="space-y-6" data-testid="photo-flyer-step-review-done">
       {/* Flyer */}
-      <Section title="Your flyer is ready" icon={CheckCircle} testId="photo-flyer-review-flyer">
+      <Section title={`Your ${vars.length > 1 ? `${vars.length} designs are` : "design is"} ready`} icon={CheckCircle} testId="photo-flyer-review-flyer">
         {flyerUrl ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Variant gallery - only show if multiple variants */}
+            {vars.length > 1 ? (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-navy mb-2">
+                  Choose your favorite design:
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {vars.map((v, idx) => {
+                    const url = v.asset_id ? `${API}/media/thumb/${v.asset_id}` : null;
+                    if (!url) return null;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedIdx(idx)}
+                        className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                          selectedIdx === idx
+                            ? "border-gold ring-2 ring-gold/30"
+                            : "border-navy/10 hover:border-gold/50"
+                        }`}
+                        data-testid={`photo-flyer-variant-${idx}`}
+                      >
+                        <img
+                          src={url}
+                          alt={`Variant ${v.variant || idx + 1}`}
+                          className="w-full aspect-square object-cover"
+                        />
+                        {selectedIdx === idx ? (
+                          <div className="absolute top-1 right-1 bg-gold text-navy rounded-full p-1">
+                            <CheckCircle className="w-4 h-4" />
+                          </div>
+                        ) : null}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-navy/80 to-transparent p-2">
+                          <p className="text-[10px] font-bold text-white text-center">
+                            Design {v.variant || String.fromCharCode(65 + idx)}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Selected flyer preview */}
             <img src={flyerUrl} alt="generated flyer"
               className="w-full max-w-md mx-auto rounded-md border-2 border-navy/10"
               data-testid="photo-flyer-flyer-img" />
@@ -949,6 +1240,18 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
   // Last generated theme (so the save modal knows what to save).
   const [lastTheme, setLastTheme] = useState(null);
 
+  // Priority 2 & 3 — Generation options state
+  const [generationOptions, setGenerationOptions] = useState({
+    variantCount: 3,
+    tone: "professional",
+    marketingGoal: "promote_item",
+    captionLength: "medium",
+    platform: "instagram_post",
+    cta: "",
+    includePrice: true,
+    includeDescription: true,
+  });
+
   useEffect(() => {
     let cancelled = false;
     axios.get(`${API}/ai-designer/themes`, { headers: getAuthHeader() })
@@ -1063,9 +1366,17 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
         theme: params.theme,
         headline: params.headline,
         item_key: params.item_key || null,
-        variations: 1,
+        variations: generationOptions.variantCount,
         auto_copy: true,
         remove_background: false,
+        // Pass generation options to backend
+        tone: generationOptions.tone,
+        marketing_goal: generationOptions.marketingGoal,
+        caption_length: generationOptions.captionLength,
+        platform: generationOptions.platform,
+        cta: generationOptions.cta || null,
+        include_price: generationOptions.includePrice,
+        include_description: generationOptions.includeDescription,
       }, { headers: getAuthHeader(), timeout: 30000 });
       setDesignerJobId(r.data.job_id);
       setDesignerJob({ price: params.price });
@@ -1160,6 +1471,9 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
           savedMemory={savedMemory}
           onUseSavedStyle={onUseSavedStyle}
           onStartFresh={onStartFresh}
+          generationOptions={generationOptions}
+          onOptionsChange={setGenerationOptions}
+          themesData={themesData}
         />
       )}
       {step === "review" && analysis && (
