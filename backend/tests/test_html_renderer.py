@@ -56,8 +56,8 @@ def test_render_flyer_returns_png_of_requested_size(theme):
         price="$12.50",
         brand="Lakeview Burgers & Seafood",
         cta="Order Now · Mon-Sat 11-9",
-        output_size=512,   # small for fast tests
-        render_size=1024,
+        output_width=512, output_height=512,
+        render_width=1024, render_height=1024,
     )
     assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
     im = Image.open(io.BytesIO(png_bytes))
@@ -72,7 +72,8 @@ def test_render_flyer_handles_long_titles_without_overflow():
         item_name="The Lakeview Triple Stack Smoked Brisket Sandwich",
         features=["Brisket", "House BBQ", "Pickles", "Slaw"],
         price="$18.95",
-        output_size=512, render_size=1024,
+        output_width=512, output_height=512,
+        render_width=1024, render_height=1024,
     )
     assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
     im = Image.open(io.BytesIO(png_bytes))
@@ -86,7 +87,8 @@ def test_render_flyer_handles_missing_features():
         item_name="Minimal Dish",
         features=[],
         price="",
-        output_size=512, render_size=1024,
+        output_width=512, output_height=512,
+        render_width=1024, render_height=1024,
     )
     assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
 
@@ -110,6 +112,7 @@ def test_render_flyer_with_real_food_photo_if_available():
         features=["ingredient one"],
         price="$9.99",
         food_image_path=path,
-        output_size=512, render_size=1024,
+        output_width=512, output_height=512,
+        render_width=1024, render_height=1024,
     )
     assert png[:8] == b"\x89PNG\r\n\x1a\n"

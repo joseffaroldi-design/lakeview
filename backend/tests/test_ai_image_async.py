@@ -107,11 +107,14 @@ class TestLifecycle:
                 last_progress = jd.get("progress")
                 print(f"  [{int(time.time()-t0)}s] status={last_status} progress={last_progress}")
             if jd["status"] == "completed":
-                assert jd.get("result"), "completed job has no result"
-                assets = jd["result"].get("assets")
-                assert assets and len(assets) >= 1, f"no assets in result: {jd}"
-                asset = assets[0]
-                assert asset.get("id"), f"asset has no id: {asset}"
+                # Sprint 22 Phase 5: response shape uses `variations[]` (each
+                # with an `asset` dict), not a top-level `result.assets[]`.
+                variations = jd.get("variations") or []
+                assert variations, f"completed job has no variations: {jd}"
+                first = next((v for v in variations if v.get("status") == "completed"), None)
+                assert first, f"no completed variation in result: {variations}"
+                asset = first.get("asset") or {}
+                assert asset.get("id"), f"variation has no asset.id: {first}"
                 assert asset.get("kind") == "image"
 
                 tr = requests.get(f"{BASE_URL}/api/media/thumb/{asset['id']}",
