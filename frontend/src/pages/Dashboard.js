@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon, BarChart3,
+  Briefcase,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -16,6 +17,7 @@ const AiAdsTab      = lazy(() => import(/* webpackPrefetch: true */ "@/pages/das
 const CustomersTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/CustomersTab"));
 const LibraryTab    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LibraryTab"));
 const AnalyticsTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AnalyticsTab"));
+const WorkspaceTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/WorkspaceTab"));
 const PromoteThisItem = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/aiads/PromoteThisItem"));
 
 const TabFallback = () => (
@@ -29,6 +31,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Sprint 12D — 5 top tabs: Settings retired, Library promoted from a sub-tab.
 const TABS = [
   { id: "home",        label: "Home",       icon: Home },
+  { id: "workspace",   label: "Workspace",  icon: Briefcase },
   { id: "menu",        label: "Menu",       icon: Pencil },
   { id: "promotions",  label: "Promote",    icon: Megaphone },
   { id: "library",     label: "Library",    icon: ImageIcon },
@@ -170,6 +173,11 @@ const Dashboard = () => {
         {activeTab === "promotions" && (
           <Suspense fallback={<TabFallback />}>
             <AiAdsTab getAuthHeader={getAuthHeader} />
+          </Suspense>
+        )}
+        {activeTab === "workspace" && (
+          <Suspense fallback={<TabFallback />}>
+            <WorkspaceTab getAuthHeader={getAuthHeader} onPromote={openPromote} />
           </Suspense>
         )}
         {activeTab === "library" && (

@@ -3057,3 +3057,37 @@ on the public homepage as a "Today's Special" hero band.
 
 **Reports**: `/app/memory/SPRINT20A_POLISH_REPORT.md` updated with the
 Today's Special section.
+
+---
+
+## Sprint 20A Phase 4 — Marketing Workspace foundation (Feb 2026)
+
+**Scope**: Phases 1-4 of the Workspace plan — auto-create one marketing
+project per menu item, surface them in a dashboard tab, drill into a
+6-tab project detail view. Stop after Phase 4 for review.
+
+**Status**: ✅ Live in preview. Awaiting review per Phase 7.
+
+**What shipped**:
+* `marketing_projects` collection — one doc per menu item, idempotent.
+* `/api/workspace/*` router (8 endpoints): list, detail,
+  designs/videos/captions sub-views, hero pin, ops backfill.
+* New Dashboard tab **Workspace** between Home and Menu (lazy-loaded).
+  ProjectCard grid with hero, name, price, asset counts, favorite theme,
+  ⭐ Featured Today badge, Open/Promote actions.
+* ProjectDetail view with 6 tabs (Overview, Designs, Videos, Captions,
+  Schedule, Insights). Schedule + Insights are read-only placeholders
+  reserved for Sprints 20B / 20E.
+* 7 new backend tests in `tests/test_workspace.py`. **79/79 backend
+  tests pass** across all suites.
+
+**Performance**: list endpoint dropped from 13.0 s to **314 ms** (42×)
+by batching 240+ per-project mongo queries into 4 collection sweeps.
+
+**Phase 4 — Integrations** rule honoured: workspace organises existing
+data only. Photo→Flyer, AI Designer, Design Memory, Creative Director,
+Library, Today's Featured, Quality Score, the flyer engine, and the
+homepage hero are all untouched.
+
+**Reports**:
+* `/app/memory/SPRINT20A_PHASE4_WORKSPACE_REPORT.md` — full audit

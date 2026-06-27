@@ -20,7 +20,7 @@ from routers import (
     catering, newsletter, misc, ai_ads, media, home,
     marketing_pack, billing, ai_designer, todays_pick, ai_image,
     photo_flyer, design_memory, creative_director,
-    html_template,
+    html_template, workspace,
 )
 
 logging.basicConfig(
@@ -58,6 +58,7 @@ api_router.include_router(todays_pick.router)
 api_router.include_router(design_memory.router)
 api_router.include_router(creative_director.router)
 api_router.include_router(html_template.router)
+api_router.include_router(workspace.router)
 app.include_router(api_router)
 
 # CORS
