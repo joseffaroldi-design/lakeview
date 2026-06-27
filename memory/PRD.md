@@ -3145,3 +3145,78 @@ typography, quality-score, Creative Director, or Design Memory changes.
 (Menu → Promote → Photo→Flyer → Make Video → Save → Download) is now the
 only owner-facing surface, and the onboarding guide walks new users
 through it.
+
+---
+
+## Sprint 21 — Dashboard UX Refresh (Feb 27, 2026)
+
+**Goal:** Light visual redesign across the entire owner dashboard so it
+feels like a premium commercial SaaS product rather than an internal
+admin panel. **Frontend-only.** No backend / engine changes.
+
+**Design system introduced (scoped to `.dashboard-shell` so the public
+restaurant site is unchanged):**
+- Typography pair: `Outfit` (display) + `Plus Jakarta Sans` (UI). Public
+  site keeps `Playfair Display` + `Lato`.
+- `ds-card` / `ds-card-interactive` — soft 1px border, 16px radius,
+  two-step elevation on hover.
+- `ds-hero` — 24px-radius gradient hero container with soft shadow.
+- `ds-btn-primary` (navy pill), `ds-btn-secondary` (cream pill),
+  `ds-btn-gold` (gold gradient with lift).
+- `ds-tab` — glass-pill nav tab with `is-active` state and gold
+  underline accent.
+- `ds-stat`, `ds-badge-gold`, `ds-empty`, `ds-input`, `ds-thumb`,
+  `ds-eyebrow`, `ds-fade` entrance animation.
+
+**Pages refreshed (all 6 tabs):**
+1. **Top nav** — glassmorphic sticky header, "Lakeview · Studio"
+   wordmark, unmistakable active tab (gold underline + soft pill).
+   Analytics tab hidden from nav (code retained).
+2. **Home** — "Good to see you." display headline, system-health pill,
+   Today's Pick as full hero, **Quick Actions** (4 grouped tiles:
+   Menu / Promote / Library / Customers), Workspace summary stats,
+   Billing card, Recent activity (suggestions), and **subtle**
+   onboarding card at the bottom.
+3. **Workspace** — eyebrow + display header + project count chip,
+   larger 5-gap project grid with thumbnail hero, category badge,
+   price, gold-flag "Featured Today", stat chips, Open + Promote
+   buttons. Project detail uses ds-hero layout with 3 stat cards and
+   a single gold "Promote this item" CTA.
+4. **Menu** — clean header explaining the sparkle ✨ entry point;
+   MenuEditor + ContentEditor rendered with new typography.
+5. **Promote** — clean "Photo → Flyer" header with gold arrow accent;
+   PhotoToFlyer wizard preserved as-is (engine frozen per spec).
+6. **Library** — "Your saved assets" header, refined filter chips, new
+   upload button, ds-card asset grid with new thumbnail hover.
+7. **Customers** — display header, ds-tab strip for 4 sub-views.
+
+**Files changed (frontend only):**
+- `tailwind.config.js` — added `display` (Outfit) + `ui` (Plus Jakarta) fonts.
+- `src/index.css` — `.dashboard-shell` scoped design system tokens.
+- `src/pages/Dashboard.js` — glass top nav, new shell, new menu tab header.
+- `src/pages/dashboard/HomeTab.jsx` — bento layout, Quick Actions, hero, subtle onboarding.
+- `src/pages/dashboard/WorkspaceTab.jsx` — premium cards, hero detail, loading state.
+- `src/pages/dashboard/LibraryTab.jsx` — ds-card grid + ds-input search.
+- `src/pages/dashboard/CustomersTab.jsx` — ds-tab strip + display header.
+- `src/pages/dashboard/AiAdsTab.jsx` — Promote shell with new header.
+- `src/pages/dashboard/home/OnboardingGuide.jsx` — subtle ds-card variant.
+
+**Validation:**
+- ESLint clean on every touched file ✓
+- Frontend testing agent (`/app/test_reports/iteration_26.json`) —
+  **100% pass**, zero bugs, all data-testids preserved, all new
+  testids present, mobile (390×800) has no horizontal scroll on Home
+  and Workspace, zero JS errors, all 6 tabs render, logout still works.
+- Confirmed **zero** backend changes (`git status backend/` empty).
+- Public restaurant site (Hero / Menu / Contact pages) unchanged —
+  design tokens are scoped to `.dashboard-shell`.
+
+**New testids:** `dashboard-shell`, `dashboard-topbar`, `qa-menu`,
+`qa-promote`, `qa-library`, `qa-customers`, `home-hero-card`,
+`home-quick-actions`, `home-workspace-summary`, `home-suggestions`,
+`home-open-workspace`, `workspace-detail-loading`.
+
+**Pilot-readiness:** Ready. Dashboard now feels commercial SaaS-grade
+without disrupting the single happy path (Menu → Promote → Photo→Flyer
+→ Make Video → Save → Download).
+

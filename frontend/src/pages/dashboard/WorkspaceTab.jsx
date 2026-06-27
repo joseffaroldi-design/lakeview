@@ -234,7 +234,11 @@ function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
   useEffect(() => { loadTab(tab); }, [tab, loadTab]);
 
   if (loading) {
-    return <div className="py-12 text-center text-navy/60">Loading…</div>;
+    return (
+      <div className="ds-empty" data-testid="workspace-detail-loading">
+        <p className="text-sm text-navy/55">Loading project…</p>
+      </div>
+    );
   }
   if (!proj) {
     return <div className="py-12 text-center text-rose-500">Project not found.</div>;
