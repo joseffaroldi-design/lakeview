@@ -154,6 +154,13 @@ class GenerateRequest(BaseModel):
     cta: Optional[constr(max_length=60)] = None
     include_price: bool = True
     include_description: bool = True
+    # Priority 4.1 — Logo placement
+    logo_url: Optional[constr(max_length=500)] = None
+    logo_placement: Optional[constr(max_length=40)] = "none"
+    logo_size: Optional[constr(max_length=20)] = "medium"
+    # Priority 4.2 — Background customization
+    background_type: Optional[constr(max_length=40)] = "auto"
+    background_custom_url: Optional[constr(max_length=500)] = None
 
 
 class SaveTemplateRequest(BaseModel):
@@ -1439,7 +1446,32 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
     )
     out = io.BytesIO()
     canvas.convert("RGB").save(out, "PNG", optimize=True)
-    return out.getvalue(), score
+    png_bytes = out.getvalue()
+    
+    # Priority 4.1: Apply logo if requested
+    if body.logo_url and body.logo_placement and body.logo_placement != "none":
+        try:
+            from logo_renderer import apply_logo_to_flyer
+            from flyer_config import LogoPlacement, LogoSize
+            
+            # Load the generated image
+            canvas_with_logo = Image.open(io.BytesIO(png_bytes))
+            
+            # Apply logo
+            placement = LogoPlacement(body.logo_placement)
+            size = LogoSize(body.logo_size or "medium")
+            canvas_with_logo = apply_logo_to_flyer(canvas_with_logo, body.logo_url, placement, size)
+            
+            # Re-encode
+            out_with_logo = io.BytesIO()
+            canvas_with_logo.convert("RGB").save(out_with_logo, "PNG", optimize=True)
+            png_bytes = out_with_logo.getvalue()
+            logger.info(f"[ai-designer] Logo applied: {placement.value} @ {size.value}")
+        except Exception as e:
+            logger.error(f"[ai-designer] Logo application failed: {e}", exc_info=True)
+            # Continue with original image without logo
+    
+    return png_bytes, score
 
 
 # ---------------------------------------------------------------- LLM copy (unchanged from 13B)

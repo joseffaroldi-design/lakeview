@@ -478,6 +478,78 @@ const UploadStep = ({
               </button>
             </div>
 
+            {/* Divider */}
+            <div className="border-t border-navy/10 my-2"></div>
+            
+            {/* Logo Section */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-navy uppercase tracking-wide">Logo Options</p>
+              
+              {/* Logo Upload */}
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-2">
+                  Logo URL (optional)
+                </label>
+                <input
+                  type="url"
+                  value={generationOptions.logoUrl}
+                  onChange={(e) => onOptionsChange({ ...generationOptions, logoUrl: e.target.value })}
+                  placeholder="https://example.com/logo.png"
+                  className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm"
+                  data-testid="photo-flyer-logo-url"
+                />
+                <p className="text-[10px] text-navy/50 mt-1">
+                  Paste URL to your restaurant logo
+                </p>
+              </div>
+
+              {/* Logo Placement */}
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-2">
+                  Logo Placement
+                </label>
+                <select
+                  value={generationOptions.logoPlacement}
+                  onChange={(e) => onOptionsChange({ ...generationOptions, logoPlacement: e.target.value })}
+                  className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                  data-testid="photo-flyer-logo-placement"
+                >
+                  <option value="none">No Logo</option>
+                  <option value="top_left">Top Left</option>
+                  <option value="top_center">Top Center</option>
+                  <option value="top_right">Top Right</option>
+                  <option value="bottom_left">Bottom Left</option>
+                  <option value="bottom_center">Bottom Center</option>
+                  <option value="bottom_right">Bottom Right</option>
+                  <option value="watermark">Watermark (Centered, Transparent)</option>
+                </select>
+              </div>
+
+              {/* Logo Size */}
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-2">
+                  Logo Size
+                </label>
+                <div className="flex gap-2">
+                  {['small', 'medium', 'large'].map((logoSize) => (
+                    <button
+                      key={logoSize}
+                      type="button"
+                      onClick={() => onOptionsChange({ ...generationOptions, logoSize })}
+                      className={`flex-1 px-4 py-2 rounded-md border text-xs font-semibold transition-colors capitalize ${
+                        generationOptions.logoSize === logoSize
+                          ? "border-gold bg-gold/15 text-navy"
+                          : "border-navy/20 hover:border-gold/50 text-navy/70"
+                      }`}
+                      data-testid={`photo-flyer-logo-size-${logoSize}`}
+                    >
+                      {logoSize}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
           </div>
         </details>
       </Section>
@@ -1250,6 +1322,10 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
     cta: "",
     includePrice: true,
     includeDescription: true,
+    // Priority 4.1: Logo options
+    logoUrl: "",
+    logoPlacement: "none",
+    logoSize: "medium",
   });
 
   useEffect(() => {
@@ -1377,6 +1453,10 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
         cta: generationOptions.cta || null,
         include_price: generationOptions.includePrice,
         include_description: generationOptions.includeDescription,
+        // Priority 4.1: Logo options
+        logo_url: generationOptions.logoUrl || null,
+        logo_placement: generationOptions.logoPlacement,
+        logo_size: generationOptions.logoSize,
       }, { headers: getAuthHeader(), timeout: 30000 });
       setDesignerJobId(r.data.job_id);
       setDesignerJob({ price: params.price });
