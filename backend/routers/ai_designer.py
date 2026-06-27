@@ -158,13 +158,8 @@ class GenerateRequest(BaseModel):
     logo_url: Optional[constr(max_length=500)] = None
     logo_placement: Optional[constr(max_length=40)] = "none"
     logo_size: Optional[constr(max_length=20)] = "medium"
-    # Priority 4.2 — Background customization
+    # Priority 4.2 — Background customization (disabled, will be enabled in tech debt sprint)
     background_type: Optional[constr(max_length=40)] = "auto"
-    background_custom_url: Optional[constr(max_length=500)] = None
-    background_opacity: Optional[float] = Field(default=1.0, ge=0.0, le=1.0)
-    background_blur: Optional[int] = Field(default=0, ge=0, le=20)
-    vignette_intensity: Optional[float] = Field(default=0.3, ge=0.0, le=1.0)
-    texture_intensity: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
 
 
 class SaveTemplateRequest(BaseModel):
@@ -1239,6 +1234,9 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                     include_description: bool = True,
                     platform: str = "instagram_post",
                     tone: Optional[str] = None,
+                    logo_url: Optional[str] = None,
+                    logo_placement: Optional[str] = None,
+                    logo_size: Optional[str] = None,
                     ) -> Tuple[bytes, Dict[str, Any]]:
     """Composite the final marketing graphic.
 
@@ -1453,7 +1451,7 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
     png_bytes = out.getvalue()
     
     # Priority 4.1: Apply logo if requested
-    if body.logo_url and body.logo_placement and body.logo_placement != "none":
+    if logo_url and logo_placement and logo_placement != "none":
         try:
             from logo_renderer import apply_logo_to_flyer
             from flyer_config import LogoPlacement, LogoSize
@@ -1462,9 +1460,9 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
             canvas_with_logo = Image.open(io.BytesIO(png_bytes))
             
             # Apply logo
-            placement = LogoPlacement(body.logo_placement)
-            size = LogoSize(body.logo_size or "medium")
-            canvas_with_logo = apply_logo_to_flyer(canvas_with_logo, body.logo_url, placement, size)
+            placement = LogoPlacement(logo_placement)
+            size = LogoSize(logo_size or "medium")
+            canvas_with_logo = apply_logo_to_flyer(canvas_with_logo, logo_url, placement, size)
             
             # Re-encode
             out_with_logo = io.BytesIO()
@@ -1672,7 +1670,10 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
                 include_price=body.include_price,
                 include_description=body.include_description,
                 platform=body.platform or "instagram_post",
-                tone=body.tone)
+                tone=body.tone,
+                logo_url=body.logo_url,
+                logo_placement=body.logo_placement,
+                logo_size=body.logo_size)
         except Exception as e:  # noqa: BLE001
             variations.append({"theme": body.theme, "variant": variant, "layout": layout,
                                "status": "failed", "error": "Composition failed",
