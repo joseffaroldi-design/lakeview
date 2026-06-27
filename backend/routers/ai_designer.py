@@ -193,8 +193,10 @@ class GenerateRequest(BaseModel):
     logo_url: Optional[constr(max_length=500)] = None
     logo_placement: Optional[constr(max_length=40)] = "none"
     logo_size: Optional[constr(max_length=20)] = "medium"
-    # Priority 4.2 — Background customization (disabled, will be enabled in tech debt sprint)
-    background_type: Optional[constr(max_length=40)] = "auto"
+    # Priority 4.2 — Background customization was reverted to keep the Tech Debt
+    # Sprint deploy-safe. The `background_type` field is intentionally removed
+    # from this schema; `extra="ignore"` ensures any legacy callers still send-
+    # ing it won't break. Re-introduce after Step 6 lands.
 
 
 class SaveTemplateRequest(BaseModel):
