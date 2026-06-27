@@ -47,6 +47,14 @@ import storage as objstore
 from routers.media.shared import _now, _spawn_ai_image_task, db
 # Tech Debt Sprint Step 2.1: Import from registries
 from ai_designer.registries.layouts import PLATFORM_SIZES as _PLATFORM_SIZES_NEW, LAYOUTS as _LAYOUTS_NEW, get_canvas_size as _get_canvas_size_new
+# Tech Debt Sprint Step 2.2: Import themes from registries
+from ai_designer.registries.themes import (
+    THEME_STYLES as _THEME_STYLES_NEW,
+    THEME_META as _THEME_META_NEW,
+    THEME_PACKS as _THEME_PACKS_NEW,
+    THEME_WARNINGS as _THEME_WARNINGS_NEW,
+    THEME_IDS as _THEME_IDS_NEW,
+)
 
 logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/ai-designer", tags=["ai-designer"])
@@ -116,9 +124,16 @@ def _resolve_font_path(path: str) -> str:
 # To add a new theme: edit (or create) a `<name>_pack.py` under theme_packs/
 # and add it to `theme_packs.__init__._PACK_MODULES`. No edits here required.
 
-from theme_packs import THEME_STYLES, THEME_META, PACKS as THEME_PACKS, WARNINGS as _THEME_WARNINGS  # noqa: E402
+# Tech Debt Sprint Step 2.2: Themes now imported from registries
+# Old import kept commented for safety:
+# from theme_packs import THEME_STYLES, THEME_META, PACKS as THEME_PACKS, WARNINGS as _THEME_WARNINGS
+# Use new registry imports:
+THEME_STYLES = _THEME_STYLES_NEW
+THEME_META = _THEME_META_NEW
+THEME_PACKS = _THEME_PACKS_NEW
+_THEME_WARNINGS = _THEME_WARNINGS_NEW
 
-THEME_IDS = list(THEME_STYLES.keys())
+THEME_IDS = _THEME_IDS_NEW
 
 if _THEME_WARNINGS:
     logger.warning("[ai-designer] theme pack warnings: %s", "; ".join(_THEME_WARNINGS))
