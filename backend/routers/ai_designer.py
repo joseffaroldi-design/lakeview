@@ -575,70 +575,11 @@ def _draw_price_badge(canvas: Image.Image, theme: Dict[str, Any], price_text: st
 
 def _draw_bullets(canvas: Image.Image, theme: Dict[str, Any], features: List[str],
                   x: int, y: int, max_w: int) -> None:
-    """Draw up to 5 feature bullets.
-
-    Sprint 16A.2 — flyer themes get PIL-drawn ingredient icons.
-    Sprint 16I — themes with `icons=True` (i.e. flyer + burger + seafood +
-    game_day + seasonal packs) render as horizontally-wrapping pill chips
-    instead of vertical bullet lines. Looks more like a magazine spread.
-    Classic themes keep the legacy bullet list for typography contrast.
+    """Tech Debt Sprint Step 6 / Chunk 6: delegates to
+    ai_designer.composition._draw_bullets. Signature unchanged.
     """
-    if not features:
-        return
-    draw = ImageDraw.Draw(canvas, "RGBA")
-    body = theme["body"]
-    f = _font(body["font"], body["size"])
-
-    if theme.get("icons"):
-        # Sprint 16I — pill chips path.
-        from typography_engine import draw_pill_chips
-        chip_bg = theme.get("price", {}).get("bg", (40, 40, 40))
-        chip_fg = theme.get("price", {}).get("fg", (255, 255, 255))
-        if isinstance(chip_bg, tuple) and len(chip_bg) == 3:
-            chip_bg = chip_bg + (220,)
-        # Smaller font inside chips so they don't dominate.
-        chip_font = _font(body["font"], max(20, body["size"] - 4))
-        draw_pill_chips(canvas, features[:6], x=x, y=y, max_w=max_w,
-                        bg=chip_bg, fg=chip_fg, font=chip_font,
-                        border=body.get("marker_color"))
-        return
-
-    # Legacy bullet list (classic themes).
-    line_h = body["size"] + 14
-    use_icons = bool(theme.get("icons"))
-    icon_size = max(28, min(40, body["size"] + 4))
-    icon_color = body.get("marker_color", (255, 255, 255))
-    cur_y = y
-    drawn_lines = 0
-    for feat in features[:5]:
-        if drawn_lines >= 6:  # Cap total wrapped lines at 6 — keeps the block from running off-canvas
-            break
-        ty = cur_y
-        icon_drawn = False
-        if use_icons:
-            kind = _icon_for_feature(feat)
-            if kind:
-                _draw_ingredient_icon(canvas, kind, x, ty + 2, icon_size, icon_color)
-                text_x = x + icon_size + 10
-                icon_drawn = True
-        if not icon_drawn:
-            marker = body["marker"]
-            draw.text((x, ty), marker, fill=body["marker_color"], font=f)
-            mb = draw.textbbox((0, 0), marker + " ", font=f)
-            text_x = x + (mb[2] - mb[0])
-        # Sprint 19 polish: draw ALL wrapped lines for this feature, not just
-        # the first one. Previously long features like "Sour Cream & Jalapeños"
-        # were truncated to "Sour Cream &" because only wrapped[0] was drawn.
-        wrapped = _wrap_text(draw, feat, f, max_w - (text_x - x))
-        for line_idx, line in enumerate(wrapped):
-            if drawn_lines >= 6:
-                break
-            # First wrapped line uses the bullet/icon row; continuation lines
-            # are indented under the text column with no marker.
-            line_y = cur_y + line_idx * line_h
-            draw.text((text_x, line_y), line, fill=body["color"], font=f)
-            drawn_lines += 1
-        cur_y += line_h * max(1, len(wrapped))
+    from ai_designer.composition import _draw_bullets as _impl
+    _impl(canvas, theme, features, x, y, max_w)
 
 
 def _draw_title(canvas: Image.Image, theme: Dict[str, Any], item_name: str,
