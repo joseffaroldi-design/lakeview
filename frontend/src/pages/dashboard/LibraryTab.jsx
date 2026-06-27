@@ -13,6 +13,7 @@ import {
   RotateCcw, Filter, X, Download, Copy as CopyIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader, EmptyState, LoadingState } from "@/components/dashboard/primitives";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const REMIX_KEY = "lakeview.photo_flyer.remix";
@@ -252,13 +253,11 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
 
   return (
     <div className="space-y-5 ds-fade" data-testid="library-tab">
-      <header className="mb-2">
-        <p className="ds-eyebrow mb-1">Library</p>
-        <h2 className="ds-display text-3xl sm:text-4xl">Your saved assets</h2>
-        <p className="text-sm text-navy/60 mt-2 max-w-xl">
-          Flyers, videos and uploads from every campaign — search, filter, favourite, or remix any item.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Library"
+        title="Your saved assets"
+        subtitle="Flyers, videos and uploads from every campaign — search, filter, favourite, or remix any item."
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -343,18 +342,14 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
       </div>
 
       {loading ? (
-        <div className="ds-empty">
-          <Loader2 className="h-5 w-5 animate-spin inline mr-2 text-navy/40" />
-          <span className="text-sm text-navy/55">Loading assets…</span>
-        </div>
+        <LoadingState message="Loading assets…" />
       ) : assets.length === 0 ? (
-        <div className="ds-empty" data-testid="library-empty">
-          <p className="text-sm text-navy/55">
-            {q ? `No assets match "${q}".` :
-              anyFilter ? "No assets match the current filters."
-                        : "No assets yet — upload your first photo above."}
-          </p>
-        </div>
+        <EmptyState
+          testId="library-empty"
+          message={q ? `No assets match "${q}".` :
+            anyFilter ? "No assets match the current filters."
+                      : "No assets yet — upload your first photo above."}
+        />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
              data-testid="library-grid">

@@ -4,6 +4,7 @@ import {
   Image as ImageIcon, Video, MessageSquare, Star,
   ChevronRight, Sparkles, ArrowLeft, Megaphone,
 } from "lucide-react";
+import { PageHeader, StatTile, EmptyState, LoadingState } from "@/components/dashboard/primitives";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
@@ -56,19 +57,16 @@ export default function WorkspaceTab({ getAuthHeader, onPromote }) {
 
   return (
     <section data-testid="workspace-tab" className="ds-fade">
-      <header className="mb-8 flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <p className="ds-eyebrow mb-1">Workspace</p>
-          <h2 className="ds-display text-3xl sm:text-4xl">Marketing projects</h2>
-          <p className="text-sm text-navy/60 mt-2 max-w-md">
-            Every menu item gets its own project. Open one to see its flyers,
-            videos, captions, and campaign history.
-          </p>
-        </div>
-        <div className="ds-stat" data-testid="workspace-count">
-          {projects ? `${projects.length} projects` : "—"}
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Marketing projects"
+        subtitle="Every menu item gets its own project. Open one to see its flyers, videos, captions, and campaign history."
+        actions={
+          <div className="ds-stat" data-testid="workspace-count">
+            {projects ? `${projects.length} projects` : "—"}
+          </div>
+        }
+      />
 
       <div className="mb-6">
         <input
@@ -81,11 +79,7 @@ export default function WorkspaceTab({ getAuthHeader, onPromote }) {
         />
       </div>
 
-      {loading && (
-        <div className="ds-empty" data-testid="workspace-loading">
-          <p className="text-sm text-navy/55">Loading projects…</p>
-        </div>
-      )}
+      {loading && <LoadingState message="Loading projects…" testId="workspace-loading" />}
       {error && (
         <div className="ds-card p-4 text-rose-600 text-sm" data-testid="workspace-error">
           {error}
@@ -104,8 +98,8 @@ export default function WorkspaceTab({ getAuthHeader, onPromote }) {
             />
           ))}
           {filtered.length === 0 && (
-            <div className="ds-empty col-span-full">
-              <p className="text-sm text-navy/55">No projects match &ldquo;{filter}&rdquo;.</p>
+            <div className="col-span-full">
+              <EmptyState message={`No projects match "${filter}".`} />
             </div>
           )}
         </div>
@@ -283,9 +277,9 @@ function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
             </div>
 
             <div className="grid grid-cols-3 gap-3 mt-6 max-w-md">
-              <DetailStat icon={ImageIcon} label="Flyers"   value={proj.flyer_count} />
-              <DetailStat icon={Video}     label="Videos"   value={proj.video_count} />
-              <DetailStat icon={MessageSquare} label="Captions" value={proj.caption_count} />
+              <StatTile icon={ImageIcon}     label="Flyers"   value={proj.flyer_count} />
+              <StatTile icon={Video}         label="Videos"   value={proj.video_count} />
+              <StatTile icon={MessageSquare} label="Captions" value={proj.caption_count} />
             </div>
 
             <div className="mt-6">
@@ -325,17 +319,6 @@ function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
       {tab === "videos"   && <AssetGrid title="Videos"   data={tabData.videos}   kind="video" />}
       {tab === "captions" && <CaptionList data={tabData.captions} />}
     </section>
-  );
-}
-
-function DetailStat({ icon: Icon, label, value }) {
-  return (
-    <div className="ds-card p-3">
-      <div className="text-[10px] text-navy/55 mb-1 flex items-center gap-1 uppercase tracking-wider font-semibold">
-        <Icon className="w-3 h-3" /> {label}
-      </div>
-      <div className="text-2xl font-semibold text-navy" style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}>{value}</div>
-    </div>
   );
 }
 

@@ -22,6 +22,7 @@ import BillingCard from "./BillingCard";
 import TodaysPick from "./home/TodaysPick";
 import PickDifferentModal from "./home/PickDifferentModal";
 import OnboardingGuide from "./home/OnboardingGuide";
+import { PageHeader, StatTile } from "@/components/dashboard/primitives";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -29,18 +30,6 @@ const todayYMD = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-
-const Stat = ({ label, value, icon: Icon, tone = "navy", testId }) => (
-  <div className="ds-card p-4 flex items-center gap-3" data-testid={testId}>
-    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tone === "gold" ? "bg-gold/12 text-gold" : tone === "red" ? "bg-red-50 text-red-700" : "bg-navy/8 text-navy"}`}>
-      {Icon ? <Icon className="w-5 h-5" /> : null}
-    </div>
-    <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-wider text-navy/55 font-semibold">{label}</p>
-      <p className={`text-2xl font-display font-semibold leading-tight ${tone === "red" ? "text-red-700" : "text-navy"}`} style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}>{value}</p>
-    </div>
-  </div>
-);
 
 const Suggestion = ({ icon: Icon, title, body, cta, onClick, tone = "navy", testId }) => (
   <div
@@ -212,35 +201,30 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
 
   return (
     <section data-testid="home-tab" className="ds-fade">
-      {/* HEADER */}
-      <header className="flex items-start justify-between gap-4 mb-8">
-        <div>
-          <p className="ds-eyebrow mb-2">Studio</p>
-          <h1 className="ds-display text-3xl sm:text-4xl leading-tight">
-            Good to see you<span className="text-gold">.</span>
-          </h1>
-          <p className="text-sm text-navy/60 mt-2 max-w-md">
-            Your morning check-in. Today&apos;s pick is ready below, plus everything that needs your attention.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin text-navy/40" /> : null}
-          <button type="button"
-            onClick={() => setIssuesOpen((o) => !o)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all hover:shadow-sm ${health.level === "red" ? "border-red-200 bg-red-50" : health.level === "yellow" ? "border-gold/30 bg-gold/8" : "border-forest/20 bg-forest/5"}`}
-            title={(health.issues || []).length ? "Click to see details" : "All systems healthy"}
-            data-testid="home-health-pill" data-health-level={health.level}
-            aria-expanded={issuesOpen}>
-            <span className={`w-2 h-2 rounded-full ${healthTone.dot}`} />
-            <span className="text-xs font-semibold text-navy">{healthTone.text}</span>
-            {(health.issues || []).length > 0 ? (
-              <span className="text-[10px] font-bold text-navy/60 bg-white/70 rounded-full px-1.5 py-0.5">
-                {(health.issues || []).length}
-              </span>
-            ) : null}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Studio"
+        title={<>Good to see you<span className="text-gold">.</span></>}
+        subtitle="Your morning check-in. Today's pick is ready below, plus everything that needs your attention."
+        actions={
+          <>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin text-navy/40" /> : null}
+            <button type="button"
+              onClick={() => setIssuesOpen((o) => !o)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all hover:shadow-sm ${health.level === "red" ? "border-red-200 bg-red-50" : health.level === "yellow" ? "border-gold/30 bg-gold/8" : "border-forest/20 bg-forest/5"}`}
+              title={(health.issues || []).length ? "Click to see details" : "All systems healthy"}
+              data-testid="home-health-pill" data-health-level={health.level}
+              aria-expanded={issuesOpen}>
+              <span className={`w-2 h-2 rounded-full ${healthTone.dot}`} />
+              <span className="text-xs font-semibold text-navy">{healthTone.text}</span>
+              {(health.issues || []).length > 0 ? (
+                <span className="text-[10px] font-bold text-navy/60 bg-white/70 rounded-full px-1.5 py-0.5">
+                  {(health.issues || []).length}
+                </span>
+              ) : null}
+            </button>
+          </>
+        }
+      />
 
       {/* HEALTH ISSUES PANEL */}
       {issuesOpen ? (
@@ -318,10 +302,10 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           </button>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Stat label="Active Promos" value={today.activePromos} icon={Megaphone} tone="navy" testId="home-active-promos" />
-          <Stat label="New Inquiries" value={today.newInquiries} icon={Users} tone={today.newInquiries > 0 ? "gold" : "navy"} testId="home-new-inquiries" />
-          <Stat label="Items in queue" value={topItems.length > 0 ? topItems.length : "—"} icon={TrendingUp} tone="navy" testId="home-week-summary" />
-          <Stat label="View Analytics" value="→" icon={BarChart3} tone="navy" testId="home-analytics-link" />
+          <StatTile label="Active Promos" value={today.activePromos} icon={Megaphone} tone="navy" testId="home-active-promos" />
+          <StatTile label="New Inquiries" value={today.newInquiries} icon={Users} tone={today.newInquiries > 0 ? "gold" : "navy"} testId="home-new-inquiries" />
+          <StatTile label="Items in queue" value={topItems.length > 0 ? topItems.length : "—"} icon={TrendingUp} tone="navy" testId="home-week-summary" />
+          <StatTile label="View Analytics" value="→" icon={BarChart3} tone="navy" testId="home-analytics-link" />
         </div>
       </div>
 

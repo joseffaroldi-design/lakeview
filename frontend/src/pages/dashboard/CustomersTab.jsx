@@ -15,6 +15,7 @@ import { Mail, UtensilsCrossed, CreditCard, Send } from "lucide-react";
 import SubscribersTab from "./SubscribersTab";
 import CateringTab from "./CateringTab";
 import { LoyaltyManager, MessagingDashboard } from "@/pages/LoyaltyMessaging";
+import { PageHeader } from "@/components/dashboard/primitives";
 
 const FILTERS = [
   { id: "subscribers", label: "Subscribers", icon: Mail },
@@ -28,13 +29,11 @@ const CustomersTab = ({ getAuthHeader, initialFilter }) => {
 
   return (
     <section data-testid="customers-tab" className="ds-fade">
-      <header className="mb-8">
-        <p className="ds-eyebrow mb-1">Customers</p>
-        <h2 className="ds-display text-3xl sm:text-4xl">Everyone you can talk to</h2>
-        <p className="text-sm text-navy/60 mt-2 max-w-xl">
-          Subscribers, loyalty members, catering leads and your message blasts — all in one place.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Customers"
+        title="Everyone you can talk to"
+        subtitle="Subscribers, loyalty members, catering leads and your message blasts — all in one place."
+      />
 
       <div className="flex flex-wrap gap-1 mb-6 ds-nav-scroll overflow-x-auto" data-testid="customers-filters">
         {FILTERS.map((f) => {

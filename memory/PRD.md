@@ -3220,3 +3220,133 @@ restaurant site is unchanged):**
 without disrupting the single happy path (Menu → Promote → Photo→Flyer
 → Make Video → Save → Download).
 
+
+---
+
+## Sprint 22 — Stability & Refactor (Foundation Only) (Feb 27, 2026)
+
+**Scope per user direction:** Phase 6 (dead-code audit) + Phase 3 (shared
+components) only. **No** behavioural / API / engine changes. Both
+`ai_designer.py` and `AiDesigner.jsx` remain **frozen** per user choice
+1C — not touched in this session.
+
+### Phase 6 — Dead-code audit
+
+**Frontend orphan scan** (BFS from `index.js` + `App.js` over static +
+dynamic imports): 34 source files (excl. shadcn `ui/`). Found 4
+orphans:
+- `pages/dashboard/aiads/AiDesigner.jsx` + `aiDesignerAnalytics.js` +
+  `aiDesignerBoot.js` — **kept** (user choice 1C freeze).
+- `hooks/use-toast.js` — kept (part of shadcn `ui/toast` ecosystem,
+  shipped whole with the library).
+
+**Backend orphan scan** (AST over all 90+ py files): 3 truly orphaned
+scaffold files — never imported, present only as multi-business reuse
+aspiration in module docstring.
+- `backend/ai_engine/prompts.py` (71 LOC) — **archived**
+- `backend/ai_engine/providers.py` (85 LOC) — **archived**
+- `backend/ai_engine/templates.py` (162 LOC) — **archived**
+
+All three moved to `backend/ai_engine/_archive/` (recoverable via git
+or by moving back). Verified `python3 -c "import server"` is clean,
+and all 21 routers still import.
+
+**Historical sprint artefacts archived:**
+- `/app/memory/archive/` — 13 reports moved
+  (`CODE_REVIEW_CLEANUP_REPORT.md`, `DEPLOYMENT_CHECKLIST_SPRINT19.md`,
+  `PERFORMANCE_PASS_REPORT.md`, `SPRINT19_HOTFIX_VALIDATION_REPORT.md`,
+  `SPRINT19_PROD_VERIFICATION.md`, `SPRINT20A_HTML_RENDERER_REPORT.md`,
+  `SPRINT20A_PHASE4_WORKSPACE_REPORT.md`, `SPRINT20A_POLISH_REPORT.md`,
+  `SPRINT20_PHASE0_5_FINAL_REPORT.md`,
+  `SPRINT20_PHASE0_FINAL_REPORT.md`,
+  `SPRINT20_PHASE0_TEMPLATE_SYSTEM.md`, `SPRINT_16D_PLAN.md`,
+  `FULL_CONSULTANT_AUDIT.md`).
+- `/app/memory/` now contains only live ops docs: `PRD.md`,
+  `test_credentials.md`, `integrations.md`, `DEPLOYMENT_CHECKLIST.md`,
+  `OPERATOR_GUIDE.md`, plus `launch/`.
+- `/app/backend/scripts/archive/` — 6 sprint-specific validation
+  scripts moved (`sprint16d_e2e.py`, `sprint19_before_after.py`,
+  `sprint19_visual_audit.py`, `sprint20_render_missing_audits.py`,
+  `sprint20a_html_smoke.py`, `sprint20p05_validation.py`).
+- `/app/backend/scripts/` now contains only live ops scripts:
+  `launch_recover.py`, `launch_validation.py`, `media_orphans.py`,
+  `menu_validation.py`, `seed_agency_template_backgrounds.py`.
+
+### Phase 3 — Shared components
+
+**New file:** `frontend/src/components/dashboard/primitives.jsx` —
+single source of truth for dashboard primitives (95 LOC):
+
+| Primitive    | Replaces                                                                 |
+|--------------|--------------------------------------------------------------------------|
+| `PageHeader` | Hand-coded `<header>` blocks across 5 tabs (eyebrow + title + subtitle + actions) |
+| `StatTile`   | `Stat` (HomeTab) **and** `DetailStat` (WorkspaceTab) — duplicate def      |
+| `EmptyState` | Hand-coded `<div className="ds-empty">…</div>` blocks                     |
+| `LoadingState` | Hand-coded loader + text blocks                                         |
+
+**Refactored to use shared primitives:**
+- `pages/dashboard/HomeTab.jsx` — `PageHeader` + 4× `StatTile`. Removed
+  local `Stat` (~14 LOC).
+- `pages/dashboard/WorkspaceTab.jsx` — `PageHeader`, 3× `StatTile`,
+  `LoadingState`, `EmptyState`. Removed local `DetailStat` (~9 LOC).
+- `pages/dashboard/LibraryTab.jsx` — `PageHeader`, `LoadingState`,
+  `EmptyState`.
+- `pages/dashboard/CustomersTab.jsx` — `PageHeader`.
+- `pages/dashboard/AiAdsTab.jsx` — `PageHeader`.
+
+### LOC summary
+
+| Category                                     | Δ LOC      |
+|----------------------------------------------|------------|
+| Backend orphans archived                     | −318       |
+| Old sprint reports archived (from active)    | −2,800 ~   |
+| Old validation scripts archived              | −1,400 ~   |
+| Duplicate `Stat`/`DetailStat` removed        | −23        |
+| Hand-coded headers/empties replaced          | −60 ~      |
+| New shared primitives                        | +95        |
+| **Net active LOC removed/archived**          | **≈ −4,500** |
+
+### Validation
+
+- `python3 -c "import server"` clean ✓
+- All 21 backend routers import cleanly ✓
+- `pytest tests/test_workspace.py` → 7/7 pass ✓
+- `pytest tests/test_html_template_routes.py` → all pass ✓
+- ESLint clean on every refactored file ✓
+- Smoke screenshots: all 5 dashboard tabs render with 0 JS errors ✓
+- All preserved `data-testid`s intact (`home-tab`, `home-active-promos`,
+  `workspace-tab`, `workspace-count`, `library-tab`, `customers-tab`,
+  `aiads-tab`) ✓
+- Zero backend route / API / engine changes ✓
+
+### Refactor risks discovered
+
+1. **`test_ai_ads.py` + `test_final_launch.py` have pre-existing async
+   fixture failures** (1 failed + 17 errors collecting routes that no
+   longer exist). Unrelated to this sprint but will need attention in
+   Phase 5 (Test repair) before any backend refactor.
+2. `Dashboard.js` still lazy-imports `AnalyticsTab` even though it's
+   not in the nav. Safe — code retained intentionally; can be cleaned
+   if/when Analytics is permanently retired.
+3. The `hooks/use-toast.js` shadcn primitive is dormant because the app
+   uses `sonner` directly; left in place because the shadcn UI library
+   ships as a unit.
+
+### Recommendation for next refactor phase
+
+**Phase 5 — Test repair** is the prerequisite for any future risky
+work. Fix the broken async fixtures in `test_ai_ads.py` and
+`test_final_launch.py` first (they currently throw collection errors
+that hide real failures). Then proceed in this order:
+
+1. **Phase 5:** repair broken tests → restore green baseline.
+2. **Phase 3 (round 2):** extract Button/Badge/Modal/UploadDropzone now
+   that PageHeader/StatTile/EmptyState/LoadingState have proven the
+   pattern.
+3. **Phase 1:** split `routers/ai_designer.py` (1,750+ LOC) — protect
+   with characterization tests BEFORE splitting.
+4. **Phase 2:** extract `AiDesigner.jsx` into smaller components — only
+   after Phase 1 lands and the backend contract is stable.
+5. **Phase 4:** services / hooks / utils — naturally falls out after
+   Phases 1 + 2 succeed.
+
