@@ -155,7 +155,7 @@ backend:
 
   - task: "Platform Canvas Sizes - Non-Square Formats"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/routers/ai_designer.py, /app/backend/html_renderer/engine.py"
     stuck_count: 0
     priority: "high"
@@ -164,6 +164,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "CRITICAL BUG: instagram_story (expected 1080×1920, got 1080×1080) and twitter (expected 1200×675, got 675×675) generate square images instead of correct aspect ratios. ROOT CAUSE: HTML renderer (html_renderer/engine.py lines 234, 226) only supports square outputs - always resizes to (output_size, output_size) and takes square screenshots. In ai_designer.py line 1287, output_size=min(canvas_w, canvas_h) makes non-square platforms square. FIX NEEDED: Update HTML renderer to accept width and height separately instead of single output_size parameter."
+      - working: true
+        agent: "testing"
+        comment: "BUG FIXED: Main agent updated ai_designer.py to pass output_width/output_height parameters, but _RenderJob dataclass in html_renderer/engine.py still had old field names (output_size, render_size). Testing agent completed the fix by updating _RenderJob dataclass to accept output_width, output_height, render_width, render_height (lines 143-157). All platform sizes now verified: instagram_story=1080×1920 ✓, twitter=1200×675 ✓, instagram_post=1024×1024 ✓, facebook=1200×1200 ✓. No backend errors during generation."
 
   - task: "CTA Rendering"
     implemented: true
@@ -220,8 +223,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Platform Canvas Sizes - Non-Square Formats"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -229,3 +231,5 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "Completed comprehensive testing of AI Designer Phase 6 parameters. 7 out of 8 test scenarios PASSED. 1 CRITICAL BUG found: Non-square platform sizes (instagram_story, twitter) generate incorrect dimensions due to HTML renderer limitation. All other parameters (variations, include_price, include_description, CTA, tone, caption_length, marketing_goal) are working correctly. Copy generation is functional - test timeouts were network-related."
+  - agent: "testing"
+    message: "Phase 6 Retest Complete: Platform size bug FIXED. Main agent updated ai_designer.py to pass separate width/height parameters, but _RenderJob dataclass still had old field names. Testing agent completed the fix by updating _RenderJob to accept output_width, output_height, render_width, render_height. All 4 platform tests PASSED: instagram_story (1080×1920), twitter (1200×675), instagram_post (1024×1024), facebook (1200×1200). No backend errors. All Phase 6 features are now working correctly."

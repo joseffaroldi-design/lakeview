@@ -1276,6 +1276,9 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
             try:
                 canvas_w, canvas_h = _get_canvas_size(platform)
                 actual_cta = (cta or "").strip() or "Order Now · Mon-Sat 11-9"
+                # Calculate render size (4× for retina/print quality)
+                render_w = canvas_w * 2
+                render_h = canvas_h * 2
                 png_bytes = _html.render_flyer(
                     theme_id,
                     item_name=item_name or "",
@@ -1284,8 +1287,10 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                     brand=RESTAURANT_BRANDING,
                     cta=actual_cta,
                     food_image_path=food_path,
-                    output_size=min(canvas_w, canvas_h),
-                    render_size=2048,
+                    output_width=canvas_w,
+                    output_height=canvas_h,
+                    render_width=render_w,
+                    render_height=render_h,
                 )
             finally:
                 try:

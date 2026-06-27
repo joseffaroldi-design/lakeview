@@ -150,8 +150,10 @@ class _RenderJob:
     cta: str
     food_image_path: Optional[str]
     food_image_url: Optional[str]
-    output_size: int
-    render_size: int
+    output_width: int
+    output_height: int
+    render_width: int
+    render_height: int
     return_format: str
 
 
@@ -213,7 +215,7 @@ def _do_render(browser, job: _RenderJob) -> bytes:
     )
 
     context = browser.new_context(
-        viewport={"width": job.render_size, "height": job.render_size},
+        viewport={"width": job.render_width, "height": job.render_height},
         device_scale_factor=1.0,
     )
     try:
@@ -223,15 +225,15 @@ def _do_render(browser, job: _RenderJob) -> bytes:
         png_bytes = page.screenshot(
             type="png",
             full_page=False,
-            clip={"x": 0, "y": 0, "width": job.render_size, "height": job.render_size},
+            clip={"x": 0, "y": 0, "width": job.render_width, "height": job.render_height},
             omit_background=False,
         )
     finally:
         context.close()
 
-    if job.output_size != job.render_size:
+    if job.output_width != job.render_width or job.output_height != job.render_height:
         im = Image.open(io.BytesIO(png_bytes))
-        im = im.resize((job.output_size, job.output_size), Image.LANCZOS)
+        im = im.resize((job.output_width, job.output_height), Image.LANCZOS)
         out = io.BytesIO()
         im.save(out, format=job.return_format)
         return out.getvalue()
@@ -269,8 +271,10 @@ def render_flyer(
     cta: str = "Order Now · Mon-Sat 11-9",
     food_image_path: Optional[str] = None,
     food_image_url: Optional[str] = None,
-    output_size: int = 1024,
-    render_size: int = 2048,
+    output_width: int = 1024,
+    output_height: int = 1024,
+    render_width: int = 2048,
+    render_height: int = 2048,
     return_format: str = "PNG",
 ) -> bytes:
     """Render a flyer to bytes.
@@ -278,6 +282,8 @@ def render_flyer(
     Submits the job to the dedicated Playwright worker thread and
     blocks until the rendered PNG is returned. Safe to call from any
     thread (sync code, asyncio handlers, pytest, etc.).
+    
+    Supports non-square dimensions for different platforms.
     """
     _ensure_worker()
     fut: Future = Future()
@@ -290,8 +296,10 @@ def render_flyer(
         "cta": cta,
         "food_image_path": food_image_path,
         "food_image_url": food_image_url,
-        "output_size": int(output_size),
-        "render_size": int(render_size),
+        "output_width": int(output_width),
+        "output_height": int(output_height),
+        "render_width": int(render_width),
+        "render_height": int(render_height),
         "return_format": return_format,
     }
     _RENDER_QUEUE.put((job_dict, fut))
