@@ -32,6 +32,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 # Tech Debt Sprint Step 2.3: Import constants from registries
 from ai_designer.registries.badges import BADGE_STYLES as _BADGE_STYLES_NEW
 from ai_designer.registries.typography import TITLE_BACKDROP_STYLES as _TITLE_BACKDROP_STYLES_NEW
+# Tech Debt Sprint Step 3: Import copy generation
+from ai_designer.copy_generation import write_designer_copy as _write_designer_copy_new
 
 
 # ----------------------------------------------------------------- title split
