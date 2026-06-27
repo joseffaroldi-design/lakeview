@@ -6,7 +6,6 @@ Technical Debt Reduction Sprint Step 3 - Extracted from ai_designer.py
 """
 
 from typing import Dict, List, Optional, Any
-from database import get_db
 
 
 async def write_designer_copy(
@@ -37,10 +36,8 @@ async def write_designer_copy(
         Dict with fb_post, ig_post, gbp, sms, email, hashtags, generated_at
     """
     from ai_engine.client import generate_structured
-    from routers.media.shared import _now
+    from routers.media.shared import _now, db
     
-    db = await get_db()
-
     feat_text = "\n".join(f"- {f}" for f in features) if features else "(none)"
     price_str = (price or "").strip() or "(omit)"
     

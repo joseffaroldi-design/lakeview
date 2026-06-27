@@ -57,6 +57,15 @@ from ai_designer.registries.themes import (
 )
 # Tech Debt Sprint Step 3: Import copy generation
 from ai_designer.copy_generation import write_designer_copy as _write_designer_copy_new
+# Tech Debt Sprint Step 4: Import pure helpers
+from ai_designer.utils import (
+    resolve_font_path as _resolve_font_path_new,
+    load_font as _load_font_new,
+    wrap_text as _wrap_text_new,
+    map_food_to_theme as _map_food_to_theme_new,
+    normalize_theme as _normalize_theme_new,
+    fit_text_to_box as _fit_text_to_box_new,
+)
 
 logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/ai-designer", tags=["ai-designer"])
@@ -110,11 +119,12 @@ _FONT_FALLBACKS = {
 def _resolve_font_path(path: str) -> str:
     """Return `path` if the font file exists; otherwise return the registered
     fallback. Tested at every theme resolution so a missing font file
-    degrades gracefully instead of crashing."""
-    if Path(path).exists():
-        return path
-    fallback = _FONT_FALLBACKS.get(path, FONT_SANS_BOLD)
-    return fallback if Path(fallback).exists() else FONT_SANS_BOLD
+    degrades gracefully instead of crashing.
+
+    Tech Debt Sprint Step 4: now delegates to ai_designer.utils.resolve_font_path
+    (kept as shim to preserve internal call sites until Step 5/6 land).
+    """
+    return _resolve_font_path_new(path)
 
 
 # ---------------------------------------------------------------- Theme styles
@@ -196,36 +206,11 @@ class SaveTemplateRequest(BaseModel):
 # ---------------------------------------------------------------- Helpers
 
 def _map_food_to_theme(food_type: str) -> str:
-    """Phase 5: Restaurant Intelligence - Map detected food to recommended theme."""
-    food_lower = food_type.lower()
-    
-    # Burger & Sandwich mapping
-    if any(word in food_lower for word in ["burger", "sandwich", "po-boy", "poboy", "sub"]):
-        return "burger_joint"
-    # Seafood mapping  
-    elif any(word in food_lower for word in ["seafood", "shrimp", "fish", "crab", "oyster", "lobster"]):
-        return "cajun"
-    # BBQ & Grilled mapping
-    elif any(word in food_lower for word in ["bbq", "barbecue", "ribs", "brisket", "grilled", "smoked"]):
-        return "bbq_smoke"
-    # Pizza & Italian
-    elif any(word in food_lower for word in ["pizza", "pasta", "italian"]):
-        return "rustic"
-    # Desserts
-    elif any(word in food_lower for word in ["dessert", "cake", "pie", "ice cream", "sweet"]):
-        return "vintage_diner"
-    # Drinks & Cocktails
-    elif any(word in food_lower for word in ["cocktail", "beer", "wine", "drink", "coffee"]):
-        return "neon"
-    # Salads & Healthy
-    elif any(word in food_lower for word in ["salad", "healthy", "vegetarian", "vegan"]):
-        return "modern"
-    # Chicken & Poultry
-    elif any(word in food_lower for word in ["chicken", "wings", "poultry"]):
-        return "game_day"
-    # Default fallback
-    else:
-        return "comic_pop"
+    """Phase 5: Restaurant Intelligence - Map detected food to recommended theme.
+
+    Tech Debt Sprint Step 4: delegates to ai_designer.utils.map_food_to_theme.
+    """
+    return _map_food_to_theme_new(food_type)
 
 async def _get_active_asset(asset_id: str) -> Dict[str, Any]:
     asset = await db.media_assets.find_one({"id": asset_id, "status": "active"}, {"_id": 0})
@@ -237,34 +222,28 @@ async def _get_active_asset(asset_id: str) -> Dict[str, Any]:
 
 
 def _normalize_theme(theme: str) -> str:
-    if theme not in THEME_STYLES:
+    """Validate `theme` against the active theme registry; raise 400 if unknown.
+
+    Tech Debt Sprint Step 4: pure check now lives in ai_designer.utils.normalize_theme.
+    This wrapper preserves the HTTP error contract for route handlers.
+    """
+    valid = _normalize_theme_new(theme, THEME_STYLES)
+    if valid is None:
         raise HTTPException(status_code=400, detail=f"Unknown theme. Pick from: {THEME_IDS}")
-    return theme
+    return valid
 
 
 def _font(path: str, size: int) -> ImageFont.FreeTypeFont:
-    try:
-        return ImageFont.truetype(_resolve_font_path(path), size=size)
-    except Exception:
-        return ImageFont.load_default()
+    """Tech Debt Sprint Step 4: delegates to ai_designer.utils.load_font."""
+    return _load_font_new(path, size)
 
 
 def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_w: int) -> List[str]:
-    """Word-wrap `text` so each line fits within `max_w` pixels."""
-    words = (text or "").split()
-    lines: List[str] = []
-    cur: List[str] = []
-    for w in words:
-        trial = (" ".join(cur + [w])).strip()
-        bbox = draw.textbbox((0, 0), trial, font=font)
-        if (bbox[2] - bbox[0]) <= max_w or not cur:
-            cur.append(w)
-        else:
-            lines.append(" ".join(cur))
-            cur = [w]
-    if cur:
-        lines.append(" ".join(cur))
-    return lines or [""]
+    """Word-wrap `text` so each line fits within `max_w` pixels.
+
+    Tech Debt Sprint Step 4: delegates to ai_designer.utils.wrap_text.
+    """
+    return _wrap_text_new(draw, text, font, max_w)
 
 
 # ---------------------------------------------------------------- Background generation
