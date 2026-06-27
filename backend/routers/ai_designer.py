@@ -565,28 +565,12 @@ from ai_designer.composition import (
 # ---------------------------------------------------------------- Composition
 
 def _draw_price_badge(canvas: Image.Image, theme: Dict[str, Any], price_text: str, cx: int, cy: int, radius: int) -> None:
-    """Sprint 16I — Premium badge dispatcher.
-
-    Themes can pin `theme["badge_style"]` to one of `BADGE_STYLES`; otherwise
-    a style is picked deterministically per (theme_id, variant_idx) by the
-    caller via the optional `theme["_badge_style"]` context key set in
-    `_compose_design`. Falls back to the legacy circular sticker when no
-    style is selected.
+    """Tech Debt Sprint Step 6 / Chunk 5: delegates to
+    ai_designer.composition._draw_price_badge. Signature unchanged so
+    `typography_engine`-aware callers continue to work without modification.
     """
-    from typography_engine import draw_premium_badge
-    import random
-
-    p = theme["price"]
-    style = theme.get("_badge_style") or theme.get("badge_style") or "sticker"
-    font_size = max(28, radius // 2)
-    f = _font(p["font"], font_size)
-    bg = p["bg"] if (isinstance(p["bg"], tuple) and len(p["bg"]) == 4) else (p["bg"] + (255,) if isinstance(p["bg"], tuple) else p["bg"])
-    fg = p["fg"]
-    ring = p["ring"] if (isinstance(p["ring"], tuple) and len(p["ring"]) == 4) else (p["ring"] + (255,) if isinstance(p["ring"], tuple) else p["ring"])
-    rng = random.Random(hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0))) & 0xFFFFFFFF)
-    draw_premium_badge(canvas, cx=cx, cy=cy, radius=radius,
-                       price_text=price_text, bg=bg, fg=fg, ring=ring,
-                       font=f, style=style, rng=rng)
+    from ai_designer.composition import _draw_price_badge as _impl
+    _impl(canvas, theme, price_text, cx, cy, radius)
 
 
 def _draw_bullets(canvas: Image.Image, theme: Dict[str, Any], features: List[str],

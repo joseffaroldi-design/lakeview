@@ -305,6 +305,8 @@ __all__ = [
     "_draw_spaced",
     # Chunk 4 — branding footer
     "_draw_branding",
+    # Chunk 5 — price badge
+    "_draw_price_badge",
 ]
 
 
@@ -324,6 +326,38 @@ def _draw_branding(canvas: Image.Image, theme: dict, branding_text: str,
     tw = bbox[2] - bbox[0]
     draw.text(((canvas_size - tw) // 2, canvas_size - 40 - (bbox[3] - bbox[1])),
               branding_text, fill=theme["branding_color"], font=f)
+
+
+def _draw_price_badge(canvas: Image.Image, theme: dict, price_text: str,
+                      cx: int, cy: int, radius: int) -> None:
+    """Sprint 16I — Premium badge dispatcher.
+
+    Chunk 5: extracted from routers/ai_designer.py. Reads only the `theme`
+    dict — no router-local constants. The lazy import of `typography_engine`
+    is preserved (same as the original) to avoid pulling premium-badge
+    rendering deps at module-load time.
+
+    Themes can pin `theme["badge_style"]` to one of `BADGE_STYLES`; otherwise
+    a style is picked deterministically per (theme_id, variant_idx) by the
+    caller via the optional `theme["_badge_style"]` context key set in
+    `_compose_design`. Falls back to the legacy circular sticker when no
+    style is selected.
+    """
+    from typography_engine import draw_premium_badge
+    from ai_designer.utils import load_font
+    import random
+
+    p = theme["price"]
+    style = theme.get("_badge_style") or theme.get("badge_style") or "sticker"
+    font_size = max(28, radius // 2)
+    f = load_font(p["font"], font_size)
+    bg = p["bg"] if (isinstance(p["bg"], tuple) and len(p["bg"]) == 4) else (p["bg"] + (255,) if isinstance(p["bg"], tuple) else p["bg"])
+    fg = p["fg"]
+    ring = p["ring"] if (isinstance(p["ring"], tuple) and len(p["ring"]) == 4) else (p["ring"] + (255,) if isinstance(p["ring"], tuple) else p["ring"])
+    rng = random.Random(hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0))) & 0xFFFFFFFF)
+    draw_premium_badge(canvas, cx=cx, cy=cy, radius=radius,
+                       price_text=price_text, bg=bg, fg=fg, ring=ring,
+                       font=f, style=style, rng=rng)
 
 
 # ---------------------------------------------------------------- Background painter primitives
