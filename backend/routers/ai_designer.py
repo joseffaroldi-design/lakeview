@@ -45,6 +45,8 @@ from auth import verify_session
 import billing
 import storage as objstore
 from routers.media.shared import _now, _spawn_ai_image_task, db
+# Tech Debt Sprint Step 2.1: Import from registries
+from ai_designer.registries.layouts import PLATFORM_SIZES as _PLATFORM_SIZES_NEW, LAYOUTS as _LAYOUTS_NEW, get_canvas_size as _get_canvas_size_new
 
 logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/ai-designer", tags=["ai-designer"])
@@ -54,18 +56,22 @@ VARIATION_LABELS = ["A", "B", "C", "D", "E"]  # Support up to 5 variants
 RESTAURANT_BRANDING = os.environ.get("AI_DESIGNER_BRAND", "LAKEVIEW BURGERS & SEAFOOD")
 
 # Platform-specific canvas sizes
-PLATFORM_SIZES = {
-    "instagram_post": (1024, 1024),
-    "instagram_story": (1080, 1920),
-    "tiktok": (1080, 1920),
-    "twitter": (1200, 675),
-    "facebook": (1200, 1200),
-    "email": (600, 600),
-}
+# Tech Debt Sprint Step 2.1: Moved to ai_designer/registries/layouts.py
+# Keeping old definitions commented for safety, will remove in final cleanup
+# PLATFORM_SIZES = {
+#     "instagram_post": (1024, 1024),
+#     "instagram_story": (1080, 1920),
+#     "tiktok": (1080, 1920),
+#     "twitter": (1200, 675),
+#     "facebook": (1200, 1200),
+#     "email": (600, 600),
+# }
+# Use new import
+PLATFORM_SIZES = _PLATFORM_SIZES_NEW
 
 def _get_canvas_size(platform: str) -> Tuple[int, int]:
     """Return (width, height) for the given platform."""
-    return PLATFORM_SIZES.get(platform, (1024, 1024))
+    return _get_canvas_size_new(platform)
 
 FONT_SERIF_BOLD   = "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"
 FONT_SERIF        = "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
@@ -118,7 +124,9 @@ if _THEME_WARNINGS:
     logger.warning("[ai-designer] theme pack warnings: %s", "; ".join(_THEME_WARNINGS))
 
 # Three layout templates so each variation FEELS distinct beyond just the background.
-LAYOUTS = ["centered", "asym_left", "stacked"]
+# Tech Debt Sprint Step 2.1: Moved to ai_designer/registries/layouts.py
+# LAYOUTS = ["centered", "asym_left", "stacked"]
+LAYOUTS = _LAYOUTS_NEW
 
 
 # ---------------------------------------------------------------- Schemas
