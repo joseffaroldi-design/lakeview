@@ -30,15 +30,21 @@ class LogoSize(str, Enum):
 
 
 class BackgroundType(str, Enum):
-    """Background preset types."""
-    AUTO = "auto"  # Theme default
-    SOLID = "solid"
-    WOOD = "wood"
-    MARBLE = "marble"
-    BRICK = "brick"
-    CHALKBOARD = "chalkboard"
+    """Background preset types - Priority 4.2 expanded."""
+    AUTO = "auto"  # Smart selection based on food category
+    SOLID_BLACK = "solid_black"
+    SOLID_WHITE = "solid_white"
+    BRAND_COLOR = "brand_color"
+    DARK_GRADIENT = "dark_gradient"
+    LIGHT_GRADIENT = "light_gradient"
+    WOOD_TABLE = "wood_table"
     RUSTIC_WOOD = "rustic_wood"
+    MARBLE = "marble"
+    CONCRETE = "concrete"
+    BRICK_WALL = "brick_wall"
+    CHALKBOARD = "chalkboard"
     METAL = "metal"
+    PAPER = "paper"
     LINEN = "linen"
     SMOKE = "smoke"
     FIRE = "fire"
@@ -46,6 +52,9 @@ class BackgroundType(str, Enum):
     RESTAURANT_INTERIOR = "restaurant_interior"
     SPORTS_BAR = "sports_bar"
     HOLIDAY = "holiday"
+    KITCHEN = "kitchen"
+    BOKEH_LIGHTS = "bokeh_lights"
+    MINIMAL_STUDIO = "minimal_studio"
     CUSTOM = "custom"  # User-uploaded
 
 
@@ -67,6 +76,10 @@ class FlyerCustomizationConfig:
     theme: str = "modern"
     background_type: BackgroundType = BackgroundType.AUTO
     background_custom_url: Optional[str] = None  # For custom backgrounds
+    background_opacity: float = 1.0  # 0.0 to 1.0
+    background_blur: int = 0  # Gaussian blur radius (0-20)
+    vignette_intensity: float = 0.3  # 0.0 to 1.0 (darkens edges)
+    texture_intensity: float = 0.5  # 0.0 to 1.0 (overlay texture strength)
     
     # === Logo Configuration ===
     logo_url: Optional[str] = None  # URL to logo image

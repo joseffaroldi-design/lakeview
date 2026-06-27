@@ -161,6 +161,10 @@ class GenerateRequest(BaseModel):
     # Priority 4.2 — Background customization
     background_type: Optional[constr(max_length=40)] = "auto"
     background_custom_url: Optional[constr(max_length=500)] = None
+    background_opacity: Optional[float] = Field(default=1.0, ge=0.0, le=1.0)
+    background_blur: Optional[int] = Field(default=0, ge=0, le=20)
+    vignette_intensity: Optional[float] = Field(default=0.3, ge=0.0, le=1.0)
+    texture_intensity: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
 
 
 class SaveTemplateRequest(BaseModel):
