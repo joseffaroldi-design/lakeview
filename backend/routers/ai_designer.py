@@ -678,6 +678,49 @@ def _prepare_food_cutout(food_bytes: bytes, target_max: int, use_rembg: bool = F
     return cut.resize((new_w, new_h), Image.LANCZOS)
 
 
+def _variant_food_transform(food_rgba: Image.Image, variant_idx: int) -> Image.Image:
+    """Sprint 22 P0 Fix 2 — apply a deterministic per-variant treatment to the
+    food cutout so the 3 generated flyers are visibly different even when the
+    underlying renderer (agency template / HTML / procedural) ignores the
+    variant index.
+
+    Variants:
+      v0 — pass-through (the canonical "hero" crop)
+      v1 — 15% zoom-in (tighter crop centred on the food)
+      v2 — 8% zoom-out + warm tone shift (wider angle feel)
+
+    Always returns a NEW Image — callers may mutate freely.
+    """
+    if variant_idx <= 0:
+        return food_rgba.copy()
+
+    w, h = food_rgba.size
+    if w == 0 or h == 0:
+        return food_rgba.copy()
+
+    if variant_idx == 1:
+        # v1: zoom in 15% (crop 7.5% from each edge, then resize back to original).
+        zoom = 0.15
+        dx, dy = int(w * zoom / 2), int(h * zoom / 2)
+        cropped = food_rgba.crop((dx, dy, w - dx, h - dy))
+        return cropped.resize((w, h), Image.LANCZOS)
+
+    # v2: zoom out 8% (paste onto a transparent canvas 8% larger, recenter,
+    # then resize back). Then apply a light warm tone shift on the RGB
+    # channels to give a "wider, warmer" feel.
+    zoom = 0.08
+    pad_w, pad_h = int(w * zoom / 2), int(h * zoom / 2)
+    canvas = Image.new("RGBA", (w + pad_w * 2, h + pad_h * 2), (0, 0, 0, 0))
+    canvas.paste(food_rgba, (pad_w, pad_h), food_rgba if food_rgba.mode == "RGBA" else None)
+    canvas = canvas.resize((w, h), Image.LANCZOS)
+
+    # Warm tone shift: nudge R up, B down a touch. Keep alpha untouched.
+    r, g, b, a = canvas.split()
+    r = r.point(lambda v: min(255, int(v * 1.08)))
+    b = b.point(lambda v: max(0, int(v * 0.94)))
+    return Image.merge("RGBA", (r, g, b, a))
+
+
 def _rounded_rect_mask(im: Image.Image, radius_pct: float = 0.08) -> Image.Image:
     """Apply a rounded-rect alpha mask to a photo. Preserves all original food pixels."""
     radius = int(min(im.width, im.height) * radius_pct)
@@ -1124,8 +1167,16 @@ def _draw_branding(canvas: Image.Image, theme: Dict[str, Any]) -> None:
 def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                     item_name: str, features: List[str], price: Optional[str],
                     theme_id: str, layout: str,
+                    variant_idx: int = 0,
                     ) -> Tuple[bytes, Dict[str, Any]]:
     """Composite the final marketing graphic.
+
+    Sprint 22 P0 Fix 2: `variant_idx` (0/1/2) is now propagated through every
+    render path. The food cutout receives a deterministic per-variant
+    transform (`_variant_food_transform`) BEFORE compositing so the 3
+    generated flyers are visibly different — agency-template and HTML paths
+    that ignore the underlying layout permutation still produce 3 distinct
+    PNGs. See `_variant_food_transform` for the per-variant treatment.
 
     Sprint 20 Phase 0: dispatch FIRST to the new agency template slot
     renderer when a matching manifest exists. The procedural engine
@@ -1144,6 +1195,11 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
     families, the new headless-browser HTML renderer is the priority
     path. Falls back through agency template → procedural on any error.
     """
+    # Sprint 22 P0 Fix 2 — per-variant food treatment. Applied ONCE here so
+    # every downstream renderer (HTML, agency template, procedural) inherits
+    # the variation without needing path-specific logic. v0 returns a copy.
+    food_rgba = _variant_food_transform(food_rgba, variant_idx)
+
     # ---- Sprint 20A: HTML/CSS rendering for Cajun + Luxury themes ----
     try:
         import html_renderer as _html
@@ -1239,7 +1295,11 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         bg = bg.resize((CANVAS, CANVAS), Image.LANCZOS)
 
     legacy_to_variant = {"centered": 0, "asym_left": 1, "stacked": 2}
-    variant_idx = legacy_to_variant.get(layout, 0)
+    # Sprint 22 P0 Fix 2 — prefer the explicit `variant_idx` if provided;
+    # fall back to the legacy layout-name → variant_idx mapping so older
+    # callers keep working.
+    derived_variant = legacy_to_variant.get(layout, 0)
+    variant_idx = variant_idx if variant_idx else derived_variant
     layout_override = None
     if layout in LEGACY_LAYOUT_ALIAS:
         layout_override = LEGACY_LAYOUT_ALIAS[layout]
@@ -1408,7 +1468,8 @@ async def _run_design_job(job_id: str, body: GenerateRequest) -> None:
             graphic_bytes, score_info = _compose_design(
                 bg_bytes, food_rgba,
                 body.item_name, body.features, body.price,
-                body.theme, layout)
+                body.theme, layout,
+                variant_idx=idx)
         except Exception as e:  # noqa: BLE001
             variations.append({"theme": body.theme, "variant": variant, "layout": layout,
                                "status": "failed", "error": "Composition failed",

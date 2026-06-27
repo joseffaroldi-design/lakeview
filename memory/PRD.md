@@ -3448,3 +3448,87 @@ exercise it.
 `AiDesigner.jsx` extraction (Phase 2) should wait until after the
 backend split lands and the API contract is stable.
 
+
+---
+
+## Sprint Variant Uniqueness — P0 Fix 2 (Feb 27, 2026)
+
+**Goal:** Fix the confirmed regression where every flyer generation
+returned 3 byte-identical PNGs. P0 Fix 1 ("food missing") was withdrawn
+after the audit confirmed it was caused by placeholder source assets
+(`/app/memory/launch/assets/*.jpg` are abstract graphics, not real food
+photos) — the engine renders real food correctly (9/10 quality on a
+real burger photo).
+
+### Root cause
+
+`_compose_design()` accepted `layout` ("centered" / "asym_left" /
+"stacked") but the agency-template and HTML render paths ignored it —
+they used the template's slot definitions or the HTML template's
+layout, independent of the variant index. The orchestrator called
+`_compose_design` 3 times with different layout strings and got 3
+identical PNGs back.
+
+### Fix (frontend untouched; backend `routers/ai_designer.py` only)
+
+1. **New helper** `_variant_food_transform(food_rgba, variant_idx)` —
+   applies a deterministic per-variant treatment:
+   - v0: pass-through copy (preserves the canonical hero crop).
+   - v1: 15% zoom-in (centred crop → resize back to original; tighter shot).
+   - v2: 8% zoom-out + warm tone shift (paste onto larger canvas →
+     resize back + R×1.08, B×0.94; wider, warmer feel).
+
+2. **New `variant_idx: int = 0` parameter on `_compose_design()`** —
+   applied ONCE at the top of the function so every downstream
+   renderer (HTML, agency template, procedural) inherits the variation
+   without path-specific logic.
+
+3. **Orchestrator passes `variant_idx=idx`** for each of the 3 calls.
+
+4. **Procedural path** now prefers the explicit `variant_idx` (falls
+   back to the legacy layout-name → variant_idx mapping if zero).
+
+### Validation
+
+| Theme                 | Render path     | v0/v1/v2 hashes | Mean pixel diff |
+|-----------------------|-----------------|-----------------|-----------------|
+| `burger_classic`      | agency template | 3 distinct ✓    | 27% changed     |
+| `game_day_scoreboard` | agency template | 3 distinct ✓    | 30% changed     |
+| `distressed_orange`   | agency fallback | 3 distinct ✓    | 26% changed     |
+| `seafood_coastal`     | HTML renderer   | 3 distinct ✓    | 17% changed     |
+
+12/12 hashes unique across all 3 render paths. Vision audit of v1
+confirmed: burger photo prominent, price visible, title + 3 toppings
+all readable.
+
+### Files changed
+
+- `/app/backend/routers/ai_designer.py` (3 small additions: helper,
+  `_compose_design` parameter, orchestrator call).
+
+### Tests added
+
+- `/app/backend/tests/test_variant_uniqueness.py` — 7 tests (6 fast,
+  1 slow):
+  - `test_three_variants_have_distinct_hashes` × 3 themes
+  - `test_three_variants_have_visible_pixel_diff` × 3 themes (>3%
+    pixel-diff floor)
+  - `test_html_path_variants_have_distinct_hashes` (slow-marked)
+
+### Regression
+
+- Fast variant suite: 6/6 pass (15.8s).
+- Broader regression sweep (overlays + render engine + typography +
+  workspace + ai_ads + html_template_routes + variant uniqueness):
+  **99/99 pass** (38.6s).
+- Zero changes to: agency_renderer, html_renderer, render_engine,
+  quality_score, typography_engine, creative_director, design_memory.
+
+### Recommendation
+
+**P0 Fix 2 PASS.** Variant uniqueness restored across all 3 render
+paths. Safe to resume work on Priority 2 (variant count selector),
+Priority 3 (upload page options), and Priority 4 (more customization
+options) — the underlying variation primitive is now real, so
+exposing "1 / 3 / 5 designs" in the UI is now meaningful.
+
