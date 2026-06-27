@@ -199,8 +199,14 @@ class TestThemesEndpoint:
 
 
 class TestNewThemesRenderEndToEnd:
-    """One representative theme per new pack must complete a full job."""
+    """One representative theme per new pack must complete a full job.
 
+    Sprint 22 Phase 5: marked `slow` because each theme triggers a full
+    AI Designer render (~3-5s each) — total ~40-60s for the suite. Run
+    with `pytest -m slow tests/test_theme_packs.py` to exercise.
+    """
+
+    @pytest.mark.slow
     @pytest.mark.parametrize("theme", [
         "burger_classic",
         "seafood_coastal",

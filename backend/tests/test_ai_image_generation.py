@@ -195,6 +195,8 @@ def generated_job(token):
     return job
 
 
+@pytest.mark.slow  # Calls upstream OpenAI gpt-image-1 — ~20-30s, flaky on the
+#                  # shared CI runners. Run via `pytest -m slow`.
 class TestEndToEndPipeline:
     def test_job_completes_with_four_variations(self, generated_job):
         assert generated_job["status"] == "completed", (

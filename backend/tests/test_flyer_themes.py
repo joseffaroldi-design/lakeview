@@ -172,6 +172,7 @@ class TestFlyerThemes:
         for t in LEGACY_THEMES + NEW_FLYER_THEMES:
             assert t in ids, f"Theme {t} missing from /api/ai-designer/themes"
 
+    @pytest.mark.slow  # E2E render per theme (~10-15s each); run via -m slow
     @pytest.mark.parametrize("theme", NEW_FLYER_THEMES)
     def test_each_new_flyer_theme_completes(self, token, source_asset_id, theme):
         r = requests.post(
@@ -274,6 +275,7 @@ class TestFlyerThemes:
 class TestLegacyThemesStillWork:
     """Ensure none of the 5 legacy themes regressed."""
 
+    @pytest.mark.slow  # E2E render per legacy theme (~10-15s each); run via -m slow
     @pytest.mark.parametrize("theme", LEGACY_THEMES)
     def test_legacy_theme_still_completes(self, token, source_asset_id, theme):
         r = requests.post(

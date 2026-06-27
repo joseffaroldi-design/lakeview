@@ -314,6 +314,7 @@ class TestComposeLayered:
 # ---------------------------------------------------------------- regression: all themes still render
 
 class TestAllThemesStillRender:
+    @pytest.mark.slow  # 22 themes × 3 variants = 66 renders (~60s+); run via -m slow
     def test_all_22_themes_render_three_variants(self):
         """The Sprint 16G refactor must not break any of the 22 themes."""
         from routers.ai_designer import (
