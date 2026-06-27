@@ -1,7 +1,21 @@
 """
 Badge Registry
 
-Badge styles and rendering.
-TODO: Extract from typography_engine.py
+Badge style constants and selection logic.
+Technical Debt Reduction Sprint Step 2.3
 """
-pass
+
+# Sprint 18 — Badge style options
+BADGE_STYLES = (
+    "burst",
+    "sticker", 
+    "chalk_circle",
+    "ribbon",
+    "ticket",
+    "distressed_stamp",
+    "paint_splash",
+    "hanging_tag"
+)
+
+# Expose for backward compatibility
+__all__ = ["BADGE_STYLES"]

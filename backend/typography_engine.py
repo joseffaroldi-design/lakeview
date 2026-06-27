@@ -29,6 +29,10 @@ from typing import List, Sequence, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+# Tech Debt Sprint Step 2.3: Import constants from registries
+from ai_designer.registries.badges import BADGE_STYLES as _BADGE_STYLES_NEW
+from ai_designer.registries.typography import TITLE_BACKDROP_STYLES as _TITLE_BACKDROP_STYLES_NEW
+
 
 # ----------------------------------------------------------------- title split
 
@@ -203,9 +207,11 @@ def pick_title_backdrop_style(theme_id: str, variant_idx: int,
 
 # ----------------------------------------------------------------- BADGES
 
-# Sprint 18 — added paint_splash + hanging_tag.
-BADGE_STYLES = ("burst", "sticker", "chalk_circle", "ribbon",
-                "ticket", "distressed_stamp", "paint_splash", "hanging_tag")
+# Tech Debt Sprint Step 2.3: Moved to ai_designer/registries/badges.py
+# Old: BADGE_STYLES = ("burst", "sticker", "chalk_circle", "ribbon",
+#                       "ticket", "distressed_stamp", "paint_splash", "hanging_tag")
+# Use new import:
+BADGE_STYLES = _BADGE_STYLES_NEW
 
 
 def pick_badge_style(theme_id: str, variant_idx: int,
