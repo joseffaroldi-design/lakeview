@@ -11,6 +11,8 @@ module.exports = {
                 serif: ['Playfair Display', 'Georgia', 'serif'],
                 sans: ['Lato', 'system-ui', 'sans-serif'],
                 accent: ['Great Vibes', 'cursive'],
+                display: ['Outfit', 'system-ui', 'sans-serif'],
+                ui: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
             },
             borderRadius: {
                 lg: 'var(--radius)',

@@ -1,0 +1,24 @@
+{
+  "summary": "Sprint 21 — Dashboard UX Refresh frontend visual audit. Verified login → /dashboard, dashboard-shell + dashboard-topbar present, EXACTLY 6 tabs in the order Home/Workspace/Menu/Promote/Library/Customers with NO Analytics tab visible, active tab gets the `is-active` (gold underline pill) class. Home tab renders 'Good to see you.' headline plus all required new testids (home-hero-card, home-quick-actions, home-workspace-summary, qa-menu, qa-promote, qa-library, qa-customers, home-open-workspace). All four quick-action buttons + the 'View all projects →' link route to the correct tab and the destination tab section renders (menu-tab, aiads-tab, library-tab, customers-tab, tab-workspace becomes active). Workspace grid renders search input (workspace-filter), count badge (workspace-count = '60 projects'), 60 unique project cards with workspace-open-btn + workspace-promote-btn on each. Promote tab shows the 'Photo → Flyer' header. Library tab shows the 'Your saved assets' header. Menu tab loads MenuEditor + ContentEditor without errors. Customers tab shows all 4 sub-views (Subscribers/Loyalty/Inquiries/Messages). Logout works → /login. Mobile viewport (390x800) on Home AND Workspace: scrollWidth == clientWidth (NO horizontal scroll). Zero JS page errors, zero console.error from app code (only a 404 on a preloaded asset and a generic preload warning, both benign). Workspace detail-view live click was inconclusive at runtime because the ProjectDetail component renders an internal 'Loading…' string while fetching /api/workspace/projects/{itemKey} and my poll was cut short by the auth rate-limiter (5/15min) hitting on the retry — however code review of WorkspaceTab.jsx confirms ALL required detail testids exist (workspace-detail, workspace-detail-back, workspace-detail-name, workspace-detail-promote, workspace-detail-hero, workspace-detail-tabs, workspace-detail-tab-{overview,designs,videos,captions}) and DETAIL_TABS is hard-coded to exactly those 4 ids — no Schedule/Insights anywhere.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Dashboard.js still lazy-imports AnalyticsTab and keeps the activeTab==='analytics' branch even though it's removed from TABS — fine for now (Sprint 21 intentionally retains the code) but dead-codable once the pilot ships.",
+    "WorkspaceTab ProjectDetail shows a plain text 'Loading…' (no data-testid, no skeleton) while fetching the project; consider a skeleton card + data-testid='workspace-detail-loading' so tests don't false-negative on slow loads.",
+    "The auth login endpoint is aggressively rate-limited (5/15min/IP). Test agents iterating on UI flows can easily exhaust it; consider an env-gated bypass or a longer test-window for non-prod hosts.",
+    "workspace-card-* matches more than the card root (110 elements for 60 unique projects) because nested elements reuse the prefix. Reserve the testid for the card root only, or use an exact-match convention (e.g. workspace-card-root-*) to make selectors deterministic."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped (frontend-only sprint)", "frontend": "100% of in-runtime checks passed; workspace-detail open-click verified via static code review only"},
+  "test_credentials": "Admin password from /app/memory/test_credentials.md (83CeLOZJQbOcopK0yYmNtdRQg4VPii8o) — valid.",
+  "seed_data_creation": "None — read-only UI testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sprint 21 is a pure-visual refresh and looks clean. Login is rate-limited to 5 attempts / 15 min per IP — batch all UI flows behind a single successful login per Playwright run. Workspace has ~60 projects so the workspace card grid is heavy; allow ~2s after clicking tab-workspace before the workspace-open-btn selectors are reliable. The internal ProjectDetail Loading… state shows for ~1-3s before workspace-detail testid appears — poll for it with a 5-10s budget. All other tabs render synchronously after their Suspense bundle resolves (~1s)."
+}

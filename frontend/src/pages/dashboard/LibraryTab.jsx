@@ -12,9 +12,6 @@ import {
   Search, Upload, Video, Loader2, Trash2, Star,
   RotateCcw, Filter, X, Download, Copy as CopyIcon,
 } from "lucide-react";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Card } from "../../components/ui/card";
 import { toast } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -254,15 +251,23 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
   const anyFilter = filterMenuKey || filterTheme || filterDate !== "any" || showFavOnly;
 
   return (
-    <div className="space-y-4" data-testid="library-tab">
+    <div className="space-y-5 ds-fade" data-testid="library-tab">
+      <header className="mb-2">
+        <p className="ds-eyebrow mb-1">Library</p>
+        <h2 className="ds-display text-3xl sm:text-4xl">Your saved assets</h2>
+        <p className="text-sm text-navy/60 mt-2 max-w-xl">
+          Flyers, videos and uploads from every campaign — search, filter, favourite, or remix any item.
+        </p>
+      </header>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-navy/40" />
+          <input
             placeholder="Search by filename, item or tag…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="pl-9"
+            className="ds-input pl-9"
             data-testid="library-search"
           />
         </div>
@@ -273,13 +278,10 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
             onChange={(e) => onUpload(Array.from(e.target.files))}
             data-testid="library-upload-input"
           />
-          <Button asChild className="bg-gold text-navy hover:bg-gold/90"
-                  data-testid="library-upload-btn">
-            <span className="inline-flex items-center gap-2">
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Upload
-            </span>
-          </Button>
+          <span className="ds-btn-gold" data-testid="library-upload-btn">
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Upload
+          </span>
         </label>
       </div>
 
@@ -289,7 +291,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
         <select
           value={filterMenuKey}
           onChange={(e) => setFilterMenuKey(e.target.value)}
-          className="text-xs border border-navy/20 rounded-md px-2 py-1 bg-white"
+          className="text-xs border border-navy/15 rounded-lg px-2.5 py-1.5 bg-white font-medium"
           data-testid="library-filter-menu"
         >
           <option value="">All menu items</option>
@@ -300,7 +302,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
         <select
           value={filterTheme}
           onChange={(e) => setFilterTheme(e.target.value)}
-          className="text-xs border border-navy/20 rounded-md px-2 py-1 bg-white"
+          className="text-xs border border-navy/15 rounded-lg px-2.5 py-1.5 bg-white font-medium"
           data-testid="library-filter-theme"
         >
           <option value="">All themes</option>
@@ -311,7 +313,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
         <select
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
-          className="text-xs border border-navy/20 rounded-md px-2 py-1 bg-white"
+          className="text-xs border border-navy/15 rounded-lg px-2.5 py-1.5 bg-white font-medium"
           data-testid="library-filter-date"
         >
           {DATE_BUCKETS.map((b) => (
@@ -321,10 +323,10 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
         <button
           type="button"
           onClick={() => setShowFavOnly((v) => !v)}
-          className={`text-xs inline-flex items-center gap-1 rounded-md px-2 py-1 border ${
+          className={`text-xs inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 border font-medium transition-colors ${
             showFavOnly
-              ? "bg-amber-100 border-amber-300 text-amber-800"
-              : "bg-white border-navy/20 text-navy/70"
+              ? "bg-amber-50 border-amber-300 text-amber-800"
+              : "bg-white border-navy/15 text-navy/70 hover:border-navy/30"
           }`}
           data-testid="library-filter-favorite"
         >
@@ -333,7 +335,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
         </button>
         {anyFilter ? (
           <button type="button" onClick={clearFilters}
-            className="text-xs text-navy/60 hover:underline inline-flex items-center gap-1"
+            className="text-xs text-navy/60 hover:text-navy underline inline-flex items-center gap-1"
             data-testid="library-filter-clear">
             <X className="h-3 w-3" /> Clear
           </button>
@@ -341,23 +343,25 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Loading assets…
+        <div className="ds-empty">
+          <Loader2 className="h-5 w-5 animate-spin inline mr-2 text-navy/40" />
+          <span className="text-sm text-navy/55">Loading assets…</span>
         </div>
       ) : assets.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground"
-              data-testid="library-empty">
-          {q ? `No assets match "${q}".` :
-            anyFilter ? "No assets match the current filters."
-                      : "No assets yet — upload your first photo above."}
-        </Card>
+        <div className="ds-empty" data-testid="library-empty">
+          <p className="text-sm text-navy/55">
+            {q ? `No assets match "${q}".` :
+              anyFilter ? "No assets match the current filters."
+                        : "No assets yet — upload your first photo above."}
+          </p>
+        </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
              data-testid="library-grid">
           {assets.map((a) => (
-            <Card key={a.id} className="overflow-hidden group"
+            <div key={a.id} className="ds-card ds-card-interactive overflow-hidden"
                   data-testid={`library-asset-${a.id}`}>
-              <div className="aspect-square relative bg-stone-100">
+              <div className="aspect-square relative bg-stone-100 ds-thumb !rounded-none">
                 {a.kind === "image" ? (
                   <img src={`${API}/media/thumb/${a.id}`} alt={a.filename}
                        className="w-full h-full object-cover" loading="lazy" />
@@ -424,7 +428,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
                   </div>
                 </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}

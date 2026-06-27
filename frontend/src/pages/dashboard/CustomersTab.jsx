@@ -11,8 +11,7 @@
  * No data migration. No collection changes.
  */
 import React, { useState } from "react";
-import { Users, Mail, UtensilsCrossed, CreditCard, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Mail, UtensilsCrossed, CreditCard, Send } from "lucide-react";
 import SubscribersTab from "./SubscribersTab";
 import CateringTab from "./CateringTab";
 import { LoyaltyManager, MessagingDashboard } from "@/pages/LoyaltyMessaging";
@@ -28,25 +27,29 @@ const CustomersTab = ({ getAuthHeader, initialFilter }) => {
   const [active, setActive] = useState(initialFilter || "subscribers");
 
   return (
-    <section data-testid="customers-tab">
-      <h2 className="font-serif text-2xl text-navy font-bold mb-2 flex items-center gap-2">
-        <Users className="w-6 h-6 text-gold" /> Customers
-      </h2>
-      <p className="text-sm text-muted-foreground mb-6">Everyone you can talk to — one place.</p>
+    <section data-testid="customers-tab" className="ds-fade">
+      <header className="mb-8">
+        <p className="ds-eyebrow mb-1">Customers</p>
+        <h2 className="ds-display text-3xl sm:text-4xl">Everyone you can talk to</h2>
+        <p className="text-sm text-navy/60 mt-2 max-w-xl">
+          Subscribers, loyalty members, catering leads and your message blasts — all in one place.
+        </p>
+      </header>
 
-      <div className="flex flex-wrap gap-2 mb-6 border-b-2 border-navy/10 pb-3" data-testid="customers-filters">
-        {FILTERS.map((f) => (
-          <Button
-            key={f.id}
-            onClick={() => setActive(f.id)}
-            variant={active === f.id ? "default" : "outline"}
-            size="sm"
-            className={active === f.id ? "bg-navy text-cream hover:bg-navy/90" : "border-navy/20 text-navy hover:bg-navy/5"}
-            data-testid={`customers-filter-${f.id}`}
-          >
-            <f.icon className="w-3.5 h-3.5 mr-1.5" /> {f.label}
-          </Button>
-        ))}
+      <div className="flex flex-wrap gap-1 mb-6 ds-nav-scroll overflow-x-auto" data-testid="customers-filters">
+        {FILTERS.map((f) => {
+          const isActive = active === f.id;
+          return (
+            <button
+              key={f.id}
+              onClick={() => setActive(f.id)}
+              className={`ds-tab whitespace-nowrap ${isActive ? "is-active" : ""}`}
+              data-testid={`customers-filter-${f.id}`}
+            >
+              <f.icon className="w-4 h-4" /> {f.label}
+            </button>
+          );
+        })}
       </div>
 
       {active === "subscribers" && <SubscribersTab getAuthHeader={getAuthHeader} />}

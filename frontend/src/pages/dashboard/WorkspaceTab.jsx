@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
-  Briefcase, Image as ImageIcon, Video, MessageSquare, Star,
+  Image as ImageIcon, Video, MessageSquare, Star,
   ChevronRight, Sparkles, ArrowLeft, Megaphone,
 } from "lucide-react";
 
@@ -57,38 +55,39 @@ export default function WorkspaceTab({ getAuthHeader, onPromote }) {
   }
 
   return (
-    <section data-testid="workspace-tab">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="font-serif text-2xl text-navy font-bold flex items-center gap-2">
-          <Briefcase className="w-6 h-6 text-gold" /> Marketing Workspace
-        </h2>
-        <div className="text-xs text-navy/60" data-testid="workspace-count">
-          {projects ? `${projects.length} projects` : ""}
+    <section data-testid="workspace-tab" className="ds-fade">
+      <header className="mb-8 flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <p className="ds-eyebrow mb-1">Workspace</p>
+          <h2 className="ds-display text-3xl sm:text-4xl">Marketing projects</h2>
+          <p className="text-sm text-navy/60 mt-2 max-w-md">
+            Every menu item gets its own project. Open one to see its flyers,
+            videos, captions, and campaign history.
+          </p>
         </div>
-      </div>
-      <p className="text-sm text-muted-foreground mb-6">
-        Every menu item gets a marketing project. Open one to see its flyers,
-        videos, captions, and campaign history.
-      </p>
+        <div className="ds-stat" data-testid="workspace-count">
+          {projects ? `${projects.length} projects` : "—"}
+        </div>
+      </header>
 
-      <div className="mb-4">
+      <div className="mb-6">
         <input
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search items or categories…"
           data-testid="workspace-filter"
-          className="w-full md:w-96 px-4 py-2 rounded-lg border border-navy/20 focus:border-gold focus:outline-none bg-white text-sm"
+          className="ds-input md:max-w-md"
         />
       </div>
 
       {loading && (
-        <div className="text-center py-12 text-navy/60" data-testid="workspace-loading">
-          Loading projects…
+        <div className="ds-empty" data-testid="workspace-loading">
+          <p className="text-sm text-navy/55">Loading projects…</p>
         </div>
       )}
       {error && (
-        <div className="text-rose-500 text-sm py-2" data-testid="workspace-error">
+        <div className="ds-card p-4 text-rose-600 text-sm" data-testid="workspace-error">
           {error}
         </div>
       )}
@@ -105,8 +104,8 @@ export default function WorkspaceTab({ getAuthHeader, onPromote }) {
             />
           ))}
           {filtered.length === 0 && (
-            <div className="text-navy/40 col-span-full text-center py-12">
-              No projects match “{filter}”.
+            <div className="ds-empty col-span-full">
+              <p className="text-sm text-navy/55">No projects match &ldquo;{filter}&rdquo;.</p>
             </div>
           )}
         </div>
@@ -121,83 +120,80 @@ function ProjectCard({ project, featuredId, onOpen, onPromote }) {
     : null;
   const isFeatured = project.is_featured_today;
   return (
-    <Card
+    <div
       data-testid={`workspace-card-${project.item_key}`}
-      className="p-0 overflow-hidden border-navy/10 hover:border-gold hover:shadow-lg transition cursor-pointer group"
+      className="ds-card ds-card-interactive overflow-hidden group ds-fade"
       onClick={onOpen}
     >
-      <div className="relative aspect-square bg-navy/5 overflow-hidden">
+      <div className="relative aspect-square ds-thumb !rounded-none">
         {hero ? (
           <img
             src={hero}
             alt={project.item_name}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             data-testid="workspace-card-hero"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-navy/30">
-            <ImageIcon className="w-12 h-12" />
+          <div className="w-full h-full flex items-center justify-center text-navy/25 bg-gradient-to-br from-navy/5 to-navy/0">
+            <ImageIcon className="w-14 h-14" />
           </div>
         )}
         {isFeatured && (
-          <div className="absolute top-3 left-3 bg-gold text-navy text-[10px] font-bold tracking-widest uppercase px-2 py-1 rounded-full shadow flex items-center gap-1" data-testid="featured-badge">
-            <Star className="w-3 h-3 fill-navy" /> Featured Today
+          <div className="absolute top-3 left-3 ds-badge-gold shadow-md" data-testid="featured-badge">
+            <Star className="w-3 h-3 fill-white" /> Featured Today
           </div>
         )}
-        <div className="absolute top-3 right-3 bg-navy/80 text-cream text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full">
+        <div className="absolute top-3 right-3 bg-navy/85 backdrop-blur text-cream text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full">
           {project.category}
         </div>
       </div>
-      <div className="p-4">
-        <h3 className="font-serif text-lg font-bold text-navy leading-tight truncate" title={project.item_name}>
+      <div className="p-5">
+        <h3 className="ds-display text-lg leading-tight truncate" title={project.item_name}>
           {project.item_name}
         </h3>
-        <div className="mt-1 text-sm text-gold font-semibold">{project.price || "—"}</div>
-        <div className="mt-3 flex items-center gap-3 text-xs text-navy/60">
-          <span className="flex items-center gap-1" title="Flyers">
-            <ImageIcon className="w-3.5 h-3.5" />{project.flyer_count}
+        <div className="mt-1 text-sm font-semibold text-gold">{project.price || "—"}</div>
+
+        <div className="mt-4 flex items-center gap-1.5 flex-wrap">
+          <span className="ds-stat" title="Flyers">
+            <ImageIcon className="w-3 h-3" /> {project.flyer_count}
           </span>
-          <span className="flex items-center gap-1" title="Videos">
-            <Video className="w-3.5 h-3.5" />{project.video_count}
+          <span className="ds-stat" title="Videos">
+            <Video className="w-3 h-3" /> {project.video_count}
           </span>
-          <span className="flex items-center gap-1" title="Captions">
-            <MessageSquare className="w-3.5 h-3.5" />{project.caption_count}
+          <span className="ds-stat" title="Captions">
+            <MessageSquare className="w-3 h-3" /> {project.caption_count}
           </span>
           {project.favorite_theme && (
-            <span className="ml-auto px-2 py-0.5 rounded-full bg-navy/5 text-navy/70 text-[10px] uppercase tracking-wider">
+            <span className="ds-stat ds-stat-gold ml-auto" title="Favourite theme">
               {project.favorite_theme}
             </span>
           )}
         </div>
-        <div className="mt-4 flex items-center gap-2 pt-3 border-t border-navy/5">
-          <Button
-            size="sm"
-            variant="ghost"
+
+        <div className="mt-5 flex items-center gap-2 pt-4 border-t border-navy/8">
+          <button
             data-testid="workspace-open-btn"
-            className="flex-1 text-navy hover:text-gold text-xs"
+            className="flex-1 text-xs font-semibold text-navy hover:text-gold transition-colors flex items-center justify-center gap-1 py-1"
             onClick={(e) => { e.stopPropagation(); onOpen(); }}
           >
-            Open <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-          </Button>
+            Open project <ChevronRight className="w-3.5 h-3.5" />
+          </button>
           {onPromote && (
-            <Button
-              size="sm"
-              variant="ghost"
+            <button
               data-testid="workspace-promote-btn"
-              className="text-gold hover:bg-gold/10 text-xs"
+              className="ds-btn-gold !py-1.5 !px-3 text-xs"
               onClick={(e) => {
                 e.stopPropagation();
                 onPromote({ name: project.item_name, description: "", price: project.price },
                           { slug: project.category_slug, display_name: project.category });
               }}
             >
-              <Megaphone className="w-3.5 h-3.5 mr-1" /> Promote
-            </Button>
+              <Megaphone className="w-3.5 h-3.5" /> Promote
+            </button>
           )}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -249,73 +245,75 @@ function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
     : null;
 
   return (
-    <section data-testid="workspace-detail">
-      <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="sm" onClick={onBack} data-testid="workspace-detail-back" className="text-navy hover:text-gold">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Workspace
-        </Button>
+    <section data-testid="workspace-detail" className="ds-fade">
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} data-testid="workspace-detail-back"
+          className="ds-btn-secondary !py-1.5 !px-3 text-xs">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Workspace
+        </button>
         {proj.is_featured_today && (
-          <span className="text-[11px] uppercase tracking-widest text-gold font-bold flex items-center gap-1">
-            <Star className="w-4 h-4 fill-gold" /> Featured Today
+          <span className="ds-badge-gold">
+            <Star className="w-3 h-3 fill-white" /> Featured Today
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 mb-6 items-start">
-        <div className="rounded-2xl overflow-hidden bg-navy/5 border border-navy/10 aspect-square">
-          {heroUrl ? (
-            <img src={heroUrl} alt={proj.item_name} className="w-full h-full object-cover" data-testid="workspace-detail-hero" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-navy/30">
-              <ImageIcon className="w-12 h-12" />
-            </div>
-          )}
-        </div>
-        <div>
-          <div className="text-xs uppercase tracking-widest text-gold mb-1">{proj.category}</div>
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-navy" data-testid="workspace-detail-name">
-            {proj.item_name}
-          </h2>
-          <div className="text-xl text-gold font-semibold mt-1">{proj.price || "—"}</div>
-
-          <div className="grid grid-cols-3 gap-3 mt-6 max-w-md">
-            <Stat icon={ImageIcon} label="Flyers"   value={proj.flyer_count} />
-            <Stat icon={Video}     label="Videos"   value={proj.video_count} />
-            <Stat icon={MessageSquare} label="Captions" value={proj.caption_count} />
-          </div>
-
-          <div className="mt-6 flex gap-2 flex-wrap">
-            {onPromote && (
-              <Button onClick={() => onPromote({ name: proj.item_name, description: "", price: proj.price },
-                                               { slug: proj.category_slug, display_name: proj.category })}
-                      data-testid="workspace-detail-promote"
-                      className="bg-gold text-navy hover:bg-gold/90">
-                <Megaphone className="w-4 h-4 mr-1" /> Promote this item
-              </Button>
+      <div className="ds-hero p-6 sm:p-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8 items-start">
+          <div className="ds-thumb aspect-square">
+            {heroUrl ? (
+              <img src={heroUrl} alt={proj.item_name} data-testid="workspace-detail-hero" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-navy/25 bg-gradient-to-br from-navy/5 to-transparent">
+                <ImageIcon className="w-16 h-16" />
+              </div>
             )}
+          </div>
+          <div>
+            <p className="ds-eyebrow mb-2">{proj.category}</p>
+            <h2 className="ds-display text-3xl md:text-4xl leading-tight" data-testid="workspace-detail-name">
+              {proj.item_name}
+            </h2>
+            <div className="text-xl text-gold font-semibold mt-2" style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}>
+              {proj.price || "—"}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mt-6 max-w-md">
+              <DetailStat icon={ImageIcon} label="Flyers"   value={proj.flyer_count} />
+              <DetailStat icon={Video}     label="Videos"   value={proj.video_count} />
+              <DetailStat icon={MessageSquare} label="Captions" value={proj.caption_count} />
+            </div>
+
+            <div className="mt-6">
+              {onPromote && (
+                <button onClick={() => onPromote({ name: proj.item_name, description: "", price: proj.price },
+                                                 { slug: proj.category_slug, display_name: proj.category })}
+                        data-testid="workspace-detail-promote"
+                        className="ds-btn-gold">
+                  <Megaphone className="w-4 h-4" /> Promote this item
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Detail tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-navy/10 mb-6" data-testid="workspace-detail-tabs">
-        {DETAIL_TABS.map((t) => (
-          <button
-            key={t.id}
-            data-testid={`workspace-detail-tab-${t.id}`}
-            onClick={() => setTab(t.id)}
-            className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
-              tab === t.id
-                ? "border-gold text-navy"
-                : "border-transparent text-navy/50 hover:text-navy"
-            }`}
-          >
-            <span className="inline-flex items-center gap-1.5">
+      <div className="flex flex-wrap gap-1 mb-6 ds-nav-scroll overflow-x-auto" data-testid="workspace-detail-tabs">
+        {DETAIL_TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              data-testid={`workspace-detail-tab-${t.id}`}
+              onClick={() => setTab(t.id)}
+              className={`ds-tab whitespace-nowrap ${active ? "is-active" : ""}`}
+            >
               <t.icon className="w-4 h-4" />
               {t.label}
-            </span>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "overview" && <OverviewPane proj={proj} />}
@@ -326,13 +324,13 @@ function ProjectDetail({ itemKey, getAuthHeader, onBack, onPromote }) {
   );
 }
 
-function Stat({ icon: Icon, label, value }) {
+function DetailStat({ icon: Icon, label, value }) {
   return (
-    <div className="bg-navy/5 rounded-lg p-3">
-      <div className="text-xs text-navy/60 mb-1 flex items-center gap-1">
-        <Icon className="w-3.5 h-3.5" /> {label}
+    <div className="ds-card p-3">
+      <div className="text-[10px] text-navy/55 mb-1 flex items-center gap-1 uppercase tracking-wider font-semibold">
+        <Icon className="w-3 h-3" /> {label}
       </div>
-      <div className="text-2xl font-bold text-navy">{value}</div>
+      <div className="text-2xl font-semibold text-navy" style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}>{value}</div>
     </div>
   );
 }

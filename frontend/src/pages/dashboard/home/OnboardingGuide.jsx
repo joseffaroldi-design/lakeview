@@ -14,7 +14,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { ChefHat, Camera, Download, X, Sparkles, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const DISMISS_KEY = "lakeview.onboarding.dismissed.v1";
@@ -94,7 +93,7 @@ const OnboardingGuide = ({ getAuthHeader, onNavigate }) => {
 
   return (
     <div
-      className="mb-6 rounded-xl border-2 border-gold/40 bg-gradient-to-br from-gold/10 via-cream to-cream p-5 relative"
+      className="ds-card p-5 relative"
       data-testid="onboarding-guide"
     >
       <button
@@ -108,12 +107,11 @@ const OnboardingGuide = ({ getAuthHeader, onNavigate }) => {
       </button>
 
       <div className="flex items-center gap-2 mb-1">
-        <Sparkles className="w-5 h-5 text-gold" />
-        <h3 className="font-serif text-lg font-bold text-navy">
-          Welcome — promote your first item in 3 steps
-        </h3>
+        <Sparkles className="w-4 h-4 text-gold" />
+        <p className="ds-eyebrow">Getting started</p>
       </div>
-      <p className="text-xs text-navy/60 mb-4">
+      <h3 className="ds-display text-lg text-navy mb-1">Promote your first dish in 3 steps</h3>
+      <p className="text-xs text-navy/55 mb-4">
         Each step links straight to where you need to go. Skip this guide anytime.
       </p>
 
@@ -121,37 +119,30 @@ const OnboardingGuide = ({ getAuthHeader, onNavigate }) => {
         {STEPS.map((s) => {
           const Icon = s.icon;
           return (
-            <div
+            <button
               key={s.n}
-              className="bg-white border border-navy/10 rounded-lg p-4 flex flex-col gap-2 hover:border-gold/40 hover:shadow-sm transition"
+              onClick={() => onNavigate && onNavigate(s.target)}
+              className="ds-card ds-card-interactive p-3 flex items-start gap-3 text-left"
               data-testid={`onboarding-step-${s.n}`}
             >
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-gold/15 flex items-center justify-center text-gold font-bold text-sm">
-                  {s.n}
-                </div>
-                <Icon className="w-4 h-4 text-navy/70" />
-                <div className="font-semibold text-navy text-sm">{s.title}</div>
+              <div className="w-8 h-8 rounded-lg bg-gold/12 flex items-center justify-center text-gold font-semibold text-xs shrink-0" style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}>
+                {s.n}
               </div>
-              <p className="text-xs text-navy/60 flex-1">{s.body}</p>
-              <Button
-                size="sm"
-                className="bg-navy text-cream hover:bg-navy/90 h-8 text-xs mt-1"
-                onClick={() => onNavigate && onNavigate(s.target)}
-                data-testid={`onboarding-cta-${s.target}`}
-              >
-                {s.cta}
-              </Button>
-            </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="w-3.5 h-3.5 text-navy/55" />
+                  <div className="font-semibold text-navy text-sm truncate" data-testid={`onboarding-cta-${s.target}`}>{s.title}</div>
+                </div>
+                <p className="text-[11px] text-navy/55 mt-0.5">{s.body}</p>
+              </div>
+            </button>
           );
         })}
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-[11px] text-navy/50">
-        <span className="inline-flex items-center gap-1">
-          <CheckCircle2 className="w-3.5 h-3.5 text-gold" />
-          This guide hides automatically once you save your first flyer.
-        </span>
+      <div className="mt-3 flex items-center gap-1.5 text-[10px] text-navy/45">
+        <CheckCircle2 className="w-3 h-3 text-gold" />
+        <span>Hides automatically once you save your first flyer.</span>
       </div>
     </div>
   );

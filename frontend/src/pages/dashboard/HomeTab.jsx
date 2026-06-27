@@ -13,11 +13,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
-  AlertTriangle, BarChart3, Calendar as CalendarIcon, ChefHat, Gift, Image as ImageIcon,
+  AlertTriangle, BarChart3, Calendar as CalendarIcon, ChefHat, Image as ImageIcon,
   Loader2, Megaphone, Sparkles, TrendingUp, UserPlus, Utensils, Users,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 // Sprint 16J reverted — Today's Pick + BillingCard kept; image error
 // handling fixed + Minor-issues pill made clickable.
 import BillingCard from "./BillingCard";
@@ -33,34 +31,34 @@ const todayYMD = () => {
 };
 
 const Stat = ({ label, value, icon: Icon, tone = "navy", testId }) => (
-  <Card className="bg-card border-2 border-navy/10 hover:border-gold/40 transition-colors" data-testid={testId}>
-    <CardContent className="py-4 px-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tone === "gold" ? "bg-gold/15" : tone === "red" ? "bg-red-100" : "bg-navy/10"}`}>
-        {Icon ? <Icon className={`w-5 h-5 ${tone === "gold" ? "text-gold" : tone === "red" ? "text-red-700" : "text-navy"}`} /> : null}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className={`text-2xl font-serif font-bold ${tone === "red" ? "text-red-700" : "text-navy"}`}>{value}</p>
-      </div>
-    </CardContent>
-  </Card>
+  <div className="ds-card p-4 flex items-center gap-3" data-testid={testId}>
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tone === "gold" ? "bg-gold/12 text-gold" : tone === "red" ? "bg-red-50 text-red-700" : "bg-navy/8 text-navy"}`}>
+      {Icon ? <Icon className="w-5 h-5" /> : null}
+    </div>
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wider text-navy/55 font-semibold">{label}</p>
+      <p className={`text-2xl font-display font-semibold leading-tight ${tone === "red" ? "text-red-700" : "text-navy"}`} style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}>{value}</p>
+    </div>
+  </div>
 );
 
 const Suggestion = ({ icon: Icon, title, body, cta, onClick, tone = "navy", testId }) => (
   <div
-    className={`border-2 rounded-lg p-3 flex items-start gap-3 ${tone === "gold" ? "border-gold/40 bg-gold/5" : "border-navy/10 bg-card"}`}
+    className={`ds-card p-4 flex items-start gap-3 ${tone === "gold" ? "ring-1 ring-gold/25" : ""}`}
     data-testid={testId}
   >
-    <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${tone === "gold" ? "bg-gold/20" : "bg-navy/10"}`}>
-      <Icon className={`w-4 h-4 ${tone === "gold" ? "text-gold" : "text-navy"}`} />
+    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tone === "gold" ? "bg-gold/15 text-gold" : "bg-navy/8 text-navy"}`}>
+      <Icon className="w-4 h-4" />
     </div>
     <div className="flex-1 min-w-0">
       <p className="font-semibold text-navy text-sm">{title}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{body}</p>
+      <p className="text-xs text-navy/60 mt-0.5">{body}</p>
       {cta && onClick ? (
-        <Button onClick={onClick} size="sm" className="mt-2 bg-gold text-navy hover:bg-gold/90 h-7 text-xs" data-testid={`${testId}-cta`}>
-          {cta}
-        </Button>
+        <button onClick={onClick}
+          className="mt-2 text-xs font-semibold text-navy hover:text-gold transition-colors inline-flex items-center gap-1"
+          data-testid={`${testId}-cta`}>
+          {cta} →
+        </button>
       ) : null}
     </div>
   </div>
@@ -202,6 +200,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
 
   // Featured = first top-3 item (fallback null)
   const featuredItem = topItems[0] || null;
+  void featuredItem;
   void menuItems; // legacy state, no longer rendered
 
   const HEALTH_TONES = {
@@ -212,37 +211,41 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
   const healthTone = HEALTH_TONES[health.level] || HEALTH_TONES.green;
 
   return (
-    <section data-testid="home-tab">
-      <div className="flex items-center justify-between mb-6">
+    <section data-testid="home-tab" className="ds-fade">
+      {/* HEADER */}
+      <header className="flex items-start justify-between gap-4 mb-8">
         <div>
-          <h2 className="font-serif text-2xl text-navy font-bold flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-gold" /> Home
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">Your 10-minute morning check-in.</p>
+          <p className="ds-eyebrow mb-2">Studio</p>
+          <h1 className="ds-display text-3xl sm:text-4xl leading-tight">
+            Good to see you<span className="text-gold">.</span>
+          </h1>
+          <p className="text-sm text-navy/60 mt-2 max-w-md">
+            Your morning check-in. Today&apos;s pick is ready below, plus everything that needs your attention.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           {loading ? <Loader2 className="w-4 h-4 animate-spin text-navy/40" /> : null}
           <button type="button"
             onClick={() => setIssuesOpen((o) => !o)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-colors hover:opacity-80 ${health.level === "red" ? "border-red-300 bg-red-50" : health.level === "yellow" ? "border-gold/40 bg-gold/10" : "border-forest/30 bg-forest/5"}`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all hover:shadow-sm ${health.level === "red" ? "border-red-200 bg-red-50" : health.level === "yellow" ? "border-gold/30 bg-gold/8" : "border-forest/20 bg-forest/5"}`}
             title={(health.issues || []).length ? "Click to see details" : "All systems healthy"}
             data-testid="home-health-pill" data-health-level={health.level}
             aria-expanded={issuesOpen}>
             <span className={`w-2 h-2 rounded-full ${healthTone.dot}`} />
             <span className="text-xs font-semibold text-navy">{healthTone.text}</span>
             {(health.issues || []).length > 0 ? (
-              <span className="text-[10px] font-bold text-navy/60 bg-white/60 rounded-full px-1.5 py-0.5">
+              <span className="text-[10px] font-bold text-navy/60 bg-white/70 rounded-full px-1.5 py-0.5">
                 {(health.issues || []).length}
               </span>
             ) : null}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Sprint 16J — clickable issues panel; collapsed by default */}
+      {/* HEALTH ISSUES PANEL */}
       {issuesOpen ? (
         <div
-          className={`mb-6 rounded-lg border p-4 ${health.level === "red" ? "border-red-300 bg-red-50/50" : health.level === "yellow" ? "border-gold/40 bg-gold/10" : "border-forest/30 bg-forest/5"}`}
+          className={`mb-6 ds-card p-4 ${health.level === "red" ? "border-red-200 bg-red-50/40" : health.level === "yellow" ? "border-gold/30 bg-gold/5" : "border-forest/20 bg-forest/5"}`}
           data-testid="home-health-issues-panel"
         >
           <div className="flex items-center justify-between mb-2">
@@ -251,9 +254,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
             </p>
             <button type="button" onClick={() => setIssuesOpen(false)}
               className="text-[11px] font-semibold text-navy/60 hover:text-navy underline"
-              data-testid="home-health-issues-close">
-              Hide
-            </button>
+              data-testid="home-health-issues-close">Hide</button>
           </div>
           {(health.issues || []).length === 0 ? (
             <p className="text-xs text-navy/70">Nothing needs your attention right now.</p>
@@ -274,49 +275,94 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         </div>
       ) : null}
 
-      {/* ONBOARDING — auto-hides once owner has any saved flyer */}
-      <OnboardingGuide getAuthHeader={getAuthHeader} onNavigate={onNavigate} />
+      {/* TODAY'S PICK — Hero */}
+      <div className="ds-hero p-6 sm:p-8 mb-8" data-testid="home-hero-card">
+        <TodaysPick pick={todaysPick} onRefresh={refreshTodaysPick} getAuthHeader={getAuthHeader} />
+      </div>
 
-      {/* TODAY'S PICK — Full-width hero at top */}
-      <TodaysPick
-        pick={todaysPick}
-        onRefresh={refreshTodaysPick}
-        getAuthHeader={getAuthHeader}
-      />
+      {/* QUICK ACTIONS */}
+      <div className="mb-8" data-testid="home-quick-actions">
+        <p className="ds-eyebrow mb-3">Quick actions</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <QuickAction icon={Utensils} label="Open Menu"
+            sub="Edit dishes & prices"
+            onClick={() => onNavigate && onNavigate("menu")}
+            testId="qa-menu" />
+          <QuickAction icon={Megaphone} label="Promote a dish"
+            sub="Photo → Flyer in 60s"
+            tone="gold"
+            onClick={() => onNavigate && onNavigate("promotions")}
+            testId="qa-promote" />
+          <QuickAction icon={ImageIcon} label="Library"
+            sub="Saved flyers & videos"
+            onClick={() => onNavigate && onNavigate("library")}
+            testId="qa-library" />
+          <QuickAction icon={UserPlus} label="Customers"
+            sub="Subscribers & leads"
+            onClick={() => onNavigate && onNavigate("customers")}
+            testId="qa-customers" />
+        </div>
+      </div>
 
-      {/* BILLING CARD */}
-      <BillingCard getAuthHeader={getAuthHeader} />
-
-      {/* TODAY — KPIs (REDUCED FROM 7 TO 4) */}
-      <div className="mb-6">
-        <h3 className="font-serif text-lg text-navy font-semibold mb-3 flex items-center gap-2">
-          <CalendarIcon className="w-5 h-5 text-navy" />
-          Today&apos;s Snapshot
-        </h3>
+      {/* WORKSPACE SUMMARY */}
+      <div className="mb-8" data-testid="home-workspace-summary">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <p className="ds-eyebrow">Workspace</p>
+            <h3 className="ds-display text-lg sm:text-xl">Today at a glance</h3>
+          </div>
+          <button onClick={() => onNavigate && onNavigate("workspace")}
+            className="text-xs text-navy/60 hover:text-navy font-semibold"
+            data-testid="home-open-workspace">
+            View all projects →
+          </button>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Stat label="Active Promos" value={today.activePromos} icon={Megaphone} tone="navy" testId="home-active-promos" />
           <Stat label="New Inquiries" value={today.newInquiries} icon={Users} tone={today.newInquiries > 0 ? "gold" : "navy"} testId="home-new-inquiries" />
-          <Stat label="This Week" value={topItems.length > 0 ? `${topItems.length} items` : "—"} icon={TrendingUp} tone="navy" testId="home-week-summary" />
+          <Stat label="Items in queue" value={topItems.length > 0 ? topItems.length : "—"} icon={TrendingUp} tone="navy" testId="home-week-summary" />
           <Stat label="View Analytics" value="→" icon={BarChart3} tone="navy" testId="home-analytics-link" />
         </div>
       </div>
 
-      {/* SUGGESTIONS */}
+      {/* BILLING */}
+      <div className="mb-8">
+        <p className="ds-eyebrow mb-3">Budget</p>
+        <BillingCard getAuthHeader={getAuthHeader} />
+      </div>
+
+      {/* RECENT ACTIVITY / SUGGESTIONS */}
       {suggestions.length > 0 && (
-        <div className="mb-6">
-          <h3 className="font-serif text-lg text-navy font-semibold mb-3 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-gold" />
-            Suggested Actions
-          </h3>
-          <div className="space-y-2">
-            {suggestions.slice(0, 3).map((s) => (
+        <div className="mb-8" data-testid="home-suggestions">
+          <p className="ds-eyebrow mb-3">Recent activity</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {suggestions.slice(0, 4).map((s) => (
               <Suggestion key={s.id} {...s} />
             ))}
           </div>
         </div>
       )}
+
+      {/* ONBOARDING — subtle, last */}
+      <OnboardingGuide getAuthHeader={getAuthHeader} onNavigate={onNavigate} />
     </section>
   );
 };
+
+const QuickAction = ({ icon: Icon, label, sub, onClick, tone = "navy", testId }) => (
+  <button
+    onClick={onClick}
+    className={`ds-card ds-card-interactive p-4 text-left flex flex-col gap-2 ${tone === "gold" ? "ring-1 ring-gold/30" : ""}`}
+    data-testid={testId}
+  >
+    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tone === "gold" ? "bg-gold/15 text-gold" : "bg-navy/8 text-navy"}`}>
+      <Icon className="w-5 h-5" />
+    </div>
+    <div>
+      <div className="text-sm font-semibold text-navy">{label}</div>
+      <div className="text-xs text-navy/55 mt-0.5">{sub}</div>
+    </div>
+  </button>
+);
 
 export default HomeTab;
