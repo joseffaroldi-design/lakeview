@@ -311,7 +311,112 @@ __all__ = [
     "_draw_bullets",
     # Chunk 7 — theme background dispatcher
     "_pil_background",
+    # Chunk 8 — title rendering
+    "_draw_title",
 ]
+
+
+def _draw_title(canvas: Image.Image, theme: dict, item_name: str,
+                x: int, y: int, max_w: int, align: str = "center") -> int:
+    """Draw the item title; returns the y after the title block.
+
+    Chunk 8: extracted verbatim from routers/ai_designer.py. All typography,
+    split-line logic, backdrop dispatch, personality oversizing, shadow,
+    stroke, letter-spacing, marketing-goal / tone preserved.
+
+    Sprint 16A.1 — stroke / shadow / letter_spacing support.
+    Sprint 16I — split-line headlines for 2- or 3-word titles ("Smash
+    Burger" → SMASH \\n BURGER) and a deterministic per-variant title
+    backdrop (ribbon / swash / distressed_rect / none).
+    """
+    from typography_engine import split_title_lines, draw_title_backdrop, pick_title_backdrop_style
+    from ai_designer.utils import load_font, wrap_text
+    import random
+
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    t = theme["title"]
+
+    # Sprint 16I — decide whether to stack the title.
+    # Sprint 18 — apply personality.title_oversize to scale fonts further.
+    personality = theme.get("personality") or {}
+    oversize = float(personality.get("title_oversize", 1.0))
+    forced_lines = split_title_lines(item_name)
+    if len(forced_lines) > 1:
+        # Bump the per-line size since each line is much shorter.
+        f = load_font(t["font"], int(t["size"] * 1.12 * oversize))
+        lines = forced_lines
+    else:
+        f = load_font(t["font"], int(t["size"] * oversize))
+        lines = wrap_text(draw, item_name, f, max_w)
+
+    stroke_w = t.get("stroke_width", 0)
+    stroke_fill = t.get("stroke_fill")
+    shadow = t.get("shadow")
+    letter_spacing = t.get("letter_spacing", 0)
+
+    # Sprint 16I — backdrop behind each title line (optional, theme-locked
+    # variant). Drawn BEFORE the text so it sits behind glyphs.
+    # Sprint 18 — personality-driven backdrop pool when available.
+    backdrop_style = theme.get("_title_backdrop") or pick_title_backdrop_style(
+        theme.get("_theme_id", "x"), theme.get("_variant_idx", 0),
+        personality=theme.get("personality"),
+    )
+    # Disable backdrop entirely if the theme opts out.
+    if theme.get("disable_title_backdrop"):
+        backdrop_style = "none"
+
+    cur_y = y
+    line_height_px = (f.size if hasattr(f, "size") else t["size"]) + 8
+    rng = random.Random(hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0))) & 0xFFFFFFFF)
+
+    for line in lines:
+        if letter_spacing:
+            glyph_widths = [draw.textbbox((0, 0), ch, font=f)[2] for ch in line]
+            lw = sum(glyph_widths) + letter_spacing * max(0, len(line) - 1)
+        else:
+            bbox = draw.textbbox((0, 0), line, font=f)
+            lw = bbox[2] - bbox[0]
+        if align == "center":
+            lx = x + (max_w - lw) // 2
+        elif align == "right":
+            lx = x + (max_w - lw)
+        else:
+            lx = x
+
+        # Sprint 16I — Draw backdrop behind the line. Slightly wider than the
+        # text bounds so it reads as an intentional banner.
+        if backdrop_style != "none":
+            pad_x = max(18, line_height_px // 3)
+            pad_y = max(8, line_height_px // 6)
+            backdrop_color = stroke_fill if stroke_fill else theme.get("price", {}).get("bg", (40, 40, 40))
+            draw_title_backdrop(
+                canvas,
+                x=lx - pad_x, y=cur_y - pad_y // 2,
+                w=lw + pad_x * 2, h=line_height_px,
+                style=backdrop_style, color=backdrop_color, rng=rng,
+            )
+
+        # Shadow (offset down-right, behind the stroke).
+        if shadow:
+            sx, sy = lx + 4, cur_y + 5
+            if letter_spacing:
+                _draw_spaced(draw, line, f, sx, sy, letter_spacing, fill=shadow)
+            else:
+                draw.text((sx, sy), line, fill=shadow, font=f)
+
+        # Main glyph pass — with optional stroke for chunky headlines.
+        if letter_spacing:
+            _draw_spaced(draw, line, f, lx, cur_y, letter_spacing,
+                         fill=t["color"], stroke_width=stroke_w,
+                         stroke_fill=stroke_fill)
+        else:
+            kwargs = {"fill": t["color"], "font": f}
+            if stroke_w and stroke_fill:
+                kwargs["stroke_width"] = stroke_w
+                kwargs["stroke_fill"] = stroke_fill
+            draw.text((lx, cur_y), line, **kwargs)
+        cur_y += line_height_px
+    return cur_y
 
 
 def _pil_background(theme_id: str, variant_idx: int) -> bytes:
