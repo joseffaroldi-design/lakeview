@@ -3587,3 +3587,80 @@ container's memory ceiling was breached → 520 + restart.
 change. No env var changes needed unless tuning concurrency further
 (`AI_DESIGNER_MAX_CONCURRENCY=1` for very low-memory containers,
 `=3` for larger ones).
+
+---
+
+## Sprint 22C — Homepage Layout Editor (Feb 28, 2026)
+
+### Request
+
+User: "allow me to edit the front end like moving sections around".
+Confirmed scope: public homepage; separate "Layout" settings page with
+sortable list; reorder + show/hide + rename title + edit body inline;
+admin-only editor; explicit Save button.
+
+### Backend
+
+New endpoints in `/app/backend/routers/cms.py`:
+
+- `GET /api/homepage/layout` — public read. Returns the 9 sections
+  in saved order with their canonical labels, visibility, optional
+  title/body overrides, and editor metadata (supports_title/body/note).
+- `PUT /api/homepage/layout` — admin write. Validates: no duplicate
+  keys, no unknown keys; auto-appends any missing sections so a deploy
+  that adds a new section never blanks the homepage.
+- `POST /api/homepage/layout/reset` — restores canonical default
+  order and clears all overrides.
+
+New default in `/app/backend/seed_data.py`:
+
+- `DEFAULT_HOMEPAGE_LAYOUT_SECTIONS` (9 sections in canonical order).
+- `HOMEPAGE_SECTION_META` (per-section supports_title/supports_body/note).
+- `seed_defaults()` now idempotently seeds the `homepage_layout`
+  collection.
+
+### Frontend
+
+New tab in the Studio dashboard:
+
+- `/app/frontend/src/pages/dashboard/LayoutTab.jsx` — sortable list
+  with up/down arrows, visibility toggle, expand-to-edit copy fields,
+  dirty-state indicator, Save / Discard / Reset to defaults buttons,
+  success toast. Lazy-loaded from `Dashboard.js` under the new
+  "Layout" tab (icon: `LayoutTemplate`).
+
+Public homepage rewrite in `/app/frontend/src/App.js`:
+
+- `Home` component fetches `/api/homepage/layout` in parallel with
+  `/content` and `/menu`, then maps over `layoutSections` through a
+  `SECTION_COMPONENTS` registry, skipping any `visible: false` row.
+- Each section component (`Hero`, `About`, `Specials`, `Menu`,
+  `EmailSignup`, `LoyaltyCard`, `CateringForm`, `Contact`,
+  `TodaysFeatured`) now accepts `titleOverride` / `bodyOverride`
+  props. Empty string = use the component's default copy.
+- Falls back to the canonical order if the layout endpoint is
+  unreachable — the public site never blanks.
+
+### Verification
+
+- **Backend** (curl): GET public, PUT requires auth (401 without),
+  reorder persists, duplicate/unknown-key validation returns 400,
+  reset endpoint works.
+- **End-to-end**: Setting About title="Our Family Story" + body="Three
+  generations of Faroldi cooking. Nothing fancier than that." on the
+  Layout tab updated the public homepage's About section
+  immediately; hiding Specials removed `[data-testid='specials-section']`
+  from the DOM entirely.
+- **Test suite**: 402 passed / 4 skipped / 0 regressions (153s).
+- **Testing agent v3** (iteration_27): full pass, zero action items,
+  zero regressions.
+
+### Files changed
+
+- `backend/routers/cms.py` (+~110 lines)
+- `backend/seed_data.py` (+~50 lines)
+- `frontend/src/pages/dashboard/LayoutTab.jsx` (new, ~285 lines)
+- `frontend/src/pages/Dashboard.js` (+5 lines)
+- `frontend/src/App.js` (~50 lines edited across 8 section components
+  and the `Home` orchestrator)
+- `frontend/src/components/TodaysFeatured.jsx` (+~5 lines)
