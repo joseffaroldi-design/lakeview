@@ -3532,3 +3532,58 @@ Priority 3 (upload page options), and Priority 4 (more customization
 options) — the underlying variation primitive is now real, so
 exposing "1 / 3 / 5 designs" in the UI is now meaningful.
 
+
+---
+
+## Sprint 22B — Production Stability Hardening (Feb 28, 2026)
+
+### Problem
+
+User reported "running into error codes" on the production deployment.
+Preview was 100% healthy (96+ tests passing, pixel-perfect output) but
+production returned intermittent 502/520s during heavy AI Designer
+multi-variant generation.
+
+### Root cause
+
+`ai_designer/generation.py` invoked the sync PIL pipeline
+(`prepare_food_cutout`, `pil_background`, `compose_design`) directly
+inside the event loop. While a job ran, the event loop was blocked
+for the full composition window (~20s per variant for high-res
+output × 3-5 variants). The production ingress timed polling
+requests out at 30s → 502/504. If two jobs collided in time, the
+container's memory ceiling was breached → 520 + restart.
+
+### Fix
+
+`/app/backend/ai_designer/generation.py`:
+
+1. All three heavy sync calls are now wrapped in `asyncio.to_thread(...)`
+   so PIL work runs on a worker thread and the event loop keeps
+   serving `/api/ai-designer/job/{id}` polls.
+2. A process-wide `asyncio.Semaphore(AI_DESIGNER_MAX_CONCURRENCY)`
+   (default 2) gates each variant's composition. Two simultaneous
+   user jobs no longer fight for memory — the third waits its turn.
+3. `AI_DESIGNER_MAX_CONCURRENCY` is an env override so production can
+   be tuned without a redeploy if needed.
+
+### Verification
+
+- Full test suite: **408 passed, 4 skipped, 0 regressions** (166s).
+- End-to-end smoke (`/tmp/test_ai_designer_concurrency.py`):
+  3-variant job completed in ~85s with polling latency
+  **median 76ms, p95 195ms, max 446ms** — well below the 30s
+  ingress timeout that was causing 502s.
+- Pixel-perfect determinism preserved (composition module untouched).
+
+### Files changed
+
+- `/app/backend/ai_designer/generation.py` (+~30 lines of concurrency
+  guard, no behavioural change to output bytes).
+
+### Deployment
+
+**Action required from user**: redeploy production to push this
+change. No env var changes needed unless tuning concurrency further
+(`AI_DESIGNER_MAX_CONCURRENCY=1` for very low-memory containers,
+`=3` for larger ones).

@@ -17,7 +17,9 @@ remain in the router. This module only owns the orchestration loop.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from fastapi import HTTPException
@@ -29,6 +31,30 @@ from ai_designer.registries.themes import THEME_STYLES
 logger = logging.getLogger("uvicorn.error")
 
 VARIATION_LABELS = ["A", "B", "C", "D", "E"]  # Support up to 5 variants
+
+# Sprint 22B — Production stability hardening.
+# Heavy PIL composition is CPU-bound and synchronous. Two failure modes
+# were observed on the production container:
+#   1. Event loop starvation — the running job blocks `/api/ai-designer/jobs/{id}`
+#      polling requests long enough for the ingress to return 502/504.
+#   2. Concurrent compositions — multiple jobs in flight simultaneously can
+#      blow past the production memory ceiling, triggering container restarts
+#      and 520 errors.
+# Fix: route every sync PIL call through `asyncio.to_thread` so the event loop
+# stays responsive, and gate composition behind a module-level semaphore so
+# at most `AI_DESIGNER_MAX_CONCURRENCY` heavy renders run at once across the
+# whole process. Default is intentionally conservative (2) — overridable via
+# env so we can tune without a redeploy.
+_MAX_CONCURRENCY = max(1, int(os.environ.get("AI_DESIGNER_MAX_CONCURRENCY", "2")))
+_compose_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    # Lazy-init so we bind to the running event loop, not import-time loop.
+    global _compose_semaphore
+    if _compose_semaphore is None:
+        _compose_semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
+    return _compose_semaphore
 
 
 async def run_design_job(
@@ -83,8 +109,11 @@ async def run_design_job(
 
     # Pre-process food cutout ONCE — same cutout used in all variants.
     # Sprint 15B.3: only run rembg if the user explicitly opted in.
+    # Sprint 22B: offload to thread — `prepare_food_cutout` is sync PIL +
+    # optional rembg (very heavy). Running it inline blocks the event loop.
     try:
-        food_rgba = prepare_food_cutout(
+        food_rgba = await asyncio.to_thread(
+            prepare_food_cutout,
             food_bytes,
             target_max=int(canvas_max * 0.65),
             use_rembg=bool(getattr(body, "remove_background", False)),
@@ -98,29 +127,36 @@ async def run_design_job(
     variations: List[Dict[str, Any]] = []
     variant_count = min(5, max(1, body.variations))  # Clamp to 1-5
     total = variant_count
+    sem = _get_semaphore()
     for idx in range(variant_count):
         variant = VARIATION_LABELS[idx]
         layout = LAYOUTS[idx % len(LAYOUTS)]  # Cycle through layouts if more than 3
         try:
-            bg_bytes = pil_background(body.theme, idx)
-            graphic_bytes, score_info = compose_design(
-                bg_bytes,
-                food_rgba,
-                body.item_name,
-                body.features,
-                body.price,
-                body.theme,
-                layout,
-                variant_idx=idx,
-                cta=body.cta,
-                include_price=body.include_price,
-                include_description=body.include_description,
-                platform=body.platform or "instagram_post",
-                tone=body.tone,
-                logo_url=body.logo_url,
-                logo_placement=body.logo_placement,
-                logo_size=body.logo_size,
-            )
+            # Sprint 22B: gate heavy PIL work behind a process-wide semaphore
+            # so at most _MAX_CONCURRENCY variants render at once across all
+            # in-flight jobs. Offload to a worker thread so the event loop
+            # keeps serving `/jobs/{id}` polling requests in the meantime.
+            async with sem:
+                bg_bytes = await asyncio.to_thread(pil_background, body.theme, idx)
+                graphic_bytes, score_info = await asyncio.to_thread(
+                    compose_design,
+                    bg_bytes,
+                    food_rgba,
+                    body.item_name,
+                    body.features,
+                    body.price,
+                    body.theme,
+                    layout,
+                    variant_idx=idx,
+                    cta=body.cta,
+                    include_price=body.include_price,
+                    include_description=body.include_description,
+                    platform=body.platform or "instagram_post",
+                    tone=body.tone,
+                    logo_url=body.logo_url,
+                    logo_placement=body.logo_placement,
+                    logo_size=body.logo_size,
+                )
         except Exception as e:  # noqa: BLE001
             variations.append(
                 {
