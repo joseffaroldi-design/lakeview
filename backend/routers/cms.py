@@ -1,10 +1,19 @@
-"""CMS: site content (hero/about/contact) + menu categories."""
+"""CMS: site content (hero/about/contact) + menu categories + homepage layout."""
 import uuid
+from datetime import datetime, timezone
+from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException, Header, Cookie, Response
+from pydantic import BaseModel, ConfigDict
 
 from config import db
 from auth import verify_session
-from seed_data import DEFAULT_SITE_CONTENT, DEFAULT_MENU_CATEGORIES
+from seed_data import (
+    DEFAULT_SITE_CONTENT,
+    DEFAULT_MENU_CATEGORIES,
+    DEFAULT_HOMEPAGE_LAYOUT_SECTIONS,
+    HOMEPAGE_SECTION_META,
+)
 
 router = APIRouter()
 
@@ -90,3 +99,140 @@ async def delete_menu_category(category_id: str, authorization: str = Header(Non
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Category not found")
     return {"message": "Category deleted"}
+
+
+# ----- Homepage Layout (Sprint 22C) -----
+#
+# Admin reorders / shows / hides homepage sections from the Studio
+# "Layout" tab. Public GET is unauthenticated so the public site can
+# render the saved order without a token; PUT requires session.
+#
+# The data model is intentionally a single doc with an ordered
+# `sections[]` array — order is implicit in array index so the client
+# only needs to ship the new order, not per-row sort keys.
+
+# Whitelist guards against arbitrary keys being injected via PUT.
+_ALLOWED_SECTION_KEYS = {s["key"] for s in DEFAULT_HOMEPAGE_LAYOUT_SECTIONS}
+
+
+class LayoutSectionIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    key: str
+    visible: bool = True
+    title: Optional[str] = ""
+    body: Optional[str] = ""
+    # `label` is editor-only; we always re-source it from defaults below
+    # so admins can't rename the editor row out from under future
+    # migrations (the public site doesn't read it anyway).
+    label: Optional[str] = None
+
+
+class LayoutPutIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    sections: List[LayoutSectionIn]
+
+
+def _layout_with_meta(sections: list) -> list:
+    """Re-attach the canonical editor label + meta to every section so
+    the FE can render the editor without a separate fetch."""
+    defaults_by_key = {s["key"]: s for s in DEFAULT_HOMEPAGE_LAYOUT_SECTIONS}
+    out = []
+    for s in sections:
+        d = defaults_by_key.get(s["key"], {})
+        meta = HOMEPAGE_SECTION_META.get(s["key"], {})
+        out.append({
+            "key": s["key"],
+            "label": d.get("label", s["key"]),
+            "visible": bool(s.get("visible", True)),
+            "title": (s.get("title") or "").strip(),
+            "body": (s.get("body") or "").strip(),
+            "supports_title": meta.get("supports_title", True),
+            "supports_body": meta.get("supports_body", True),
+            "note": meta.get("note", ""),
+        })
+    return out
+
+
+@router.get("/homepage/layout")
+async def get_homepage_layout(response: Response):
+    """Public read — returns the saved section order + visibility + overrides."""
+    response.headers["Cache-Control"] = _PUBLIC_CACHE
+    doc = await db.homepage_layout.find_one({"id": "main"}, {"_id": 0})
+    sections = doc["sections"] if doc and doc.get("sections") else DEFAULT_HOMEPAGE_LAYOUT_SECTIONS
+    return {
+        "id": "main",
+        "sections": _layout_with_meta(sections),
+        "updated_at": (doc or {}).get("updated_at"),
+    }
+
+
+@router.put("/homepage/layout")
+async def update_homepage_layout(
+    body: LayoutPutIn,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Admin write — replaces sections[] atomically.
+
+    The submitted list must mention every default section exactly once.
+    This prevents admins from accidentally deleting a section row (use
+    the visibility toggle instead) and protects against future-section
+    drift when a deploy adds a new section but the editor was loaded
+    against the older schema.
+    """
+    await verify_session(authorization, session_token)
+
+    submitted_keys = [s.key for s in body.sections]
+    seen = set()
+    duplicates = [k for k in submitted_keys if k in seen or seen.add(k)]
+    if duplicates:
+        raise HTTPException(status_code=400, detail=f"Duplicate section keys: {duplicates}")
+
+    unknown = [k for k in submitted_keys if k not in _ALLOWED_SECTION_KEYS]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown section keys: {unknown}")
+
+    missing = [k for k in _ALLOWED_SECTION_KEYS if k not in submitted_keys]
+    if missing:
+        # Auto-append missing sections at the end as visible=True so a
+        # newer deploy that adds a section never blanks the homepage.
+        for k in missing:
+            body.sections.append(LayoutSectionIn(key=k, visible=True))
+
+    sections = [
+        {
+            "key": s.key,
+            "visible": bool(s.visible),
+            "title": (s.title or "").strip(),
+            "body": (s.body or "").strip(),
+        }
+        for s in body.sections
+    ]
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.homepage_layout.update_one(
+        {"id": "main"},
+        {"$set": {"sections": sections, "updated_at": now}},
+        upsert=True,
+    )
+    return {"id": "main", "sections": _layout_with_meta(sections), "updated_at": now}
+
+
+@router.post("/homepage/layout/reset")
+async def reset_homepage_layout(
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Restore the default section order + clear all overrides."""
+    await verify_session(authorization, session_token)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.homepage_layout.update_one(
+        {"id": "main"},
+        {"$set": {"sections": DEFAULT_HOMEPAGE_LAYOUT_SECTIONS, "updated_at": now}},
+        upsert=True,
+    )
+    return {
+        "id": "main",
+        "sections": _layout_with_meta(DEFAULT_HOMEPAGE_LAYOUT_SECTIONS),
+        "updated_at": now,
+    }

@@ -190,7 +190,7 @@ const Navbar = () => {
 };
 
 // Hero Section
-const Hero = ({ content }) => {
+const Hero = ({ content, titleOverride, bodyOverride }) => {
   const scrollToMenu = () => {
     trackButtonClick("view_menu");
     const element = document.getElementById("menu");
@@ -233,11 +233,11 @@ const Hero = ({ content }) => {
         </h1>
         
         <p className="font-accent text-2xl md:text-3xl text-gold mb-1 md:mb-2 animate-fade-in-up animation-delay-200">
-          {content?.tagline || "Lakeview"}
+          {titleOverride || content?.tagline || "Lakeview"}
         </p>
         
         <p className="font-sans text-sm md:text-base text-cream/90 mb-4 md:mb-5 max-w-2xl mx-auto animate-fade-in-up animation-delay-400">
-          {content?.subtitle || "Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 2015"}
+          {bodyOverride || content?.subtitle || "Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 2015"}
         </p>
         
         {/* Action Buttons */}
@@ -278,7 +278,7 @@ const Hero = ({ content }) => {
 };
 
 // About Section
-const About = ({ content }) => {
+const About = ({ content, titleOverride, bodyOverride }) => {
   return (
     <section 
       id="about" 
@@ -304,14 +304,14 @@ const About = ({ content }) => {
             <div>
               <p className="font-accent text-3xl text-gold mb-2">{content?.accent_text || "Our Story"}</p>
               <h2 className="font-serif text-4xl md:text-5xl text-navy font-bold tracking-tight">
-                {content?.heading || "A New Orleans Tradition"}
+                {titleOverride || content?.heading || "A New Orleans Tradition"}
               </h2>
             </div>
             
             <div className="section-divider !mx-0"></div>
             
             <div className="space-y-6 font-sans text-muted-foreground leading-relaxed">
-              <p>{content?.paragraph1 || "Founded by Chef Joseph Faroldi in 2015, Lakeview Burgers & Seafood has become a beloved fixture in the charming Lakeview neighborhood. What started as a dream to bring quality burgers and fresh Gulf seafood to the community has grown into a true family affair."}</p>
+              <p>{bodyOverride || content?.paragraph1 || "Founded by Chef Joseph Faroldi in 2015, Lakeview Burgers & Seafood has become a beloved fixture in the charming Lakeview neighborhood. What started as a dream to bring quality burgers and fresh Gulf seafood to the community has grown into a true family affair."}</p>
               <p>{content?.paragraph2 || "Today, Chef Joseph works alongside his son Josef, passing down culinary traditions and a passion for great food to the next generation. Together, they take pride in sourcing the freshest Gulf seafood daily and crafting each dish with care and expertise."}</p>
               <p>{content?.paragraph3 || "Whether you're craving a perfectly charred burger or authentic Louisiana seafood, the Faroldi family invites you to experience the taste of the Crescent City at Lakeview Burgers & Seafood."}</p>
             </div>
@@ -329,7 +329,7 @@ const About = ({ content }) => {
 };
 
 // Specials Section
-const Specials = () => {
+const Specials = ({ titleOverride, bodyOverride }) => {
   const [specials, setSpecials] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -361,8 +361,11 @@ const Specials = () => {
         <div className="text-center mb-16">
           <p className="font-accent text-3xl text-gold mb-2">Don&apos;t Miss</p>
           <h2 className="font-serif text-4xl md:text-5xl text-cream font-bold tracking-tight mb-4">
-            Today&apos;s Specials
+            {titleOverride || "Today\u2019s Specials"}
           </h2>
+          {bodyOverride ? (
+            <p className="font-sans text-cream/80 max-w-2xl mx-auto mb-4 text-sm md:text-base">{bodyOverride}</p>
+          ) : null}
           <div className="w-24 h-1 mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #a5935b, transparent)' }}></div>
         </div>
         
@@ -416,7 +419,7 @@ const MenuItem = ({ name, description, price, index }) => (
 );
 
 // Menu Section
-const Menu = ({ categories }) => {
+const Menu = ({ categories, titleOverride, bodyOverride }) => {
   const getGridCols = (cols) => {
     if (cols === 4) return "grid-cols-2 md:grid-cols-4 gap-x-12";
     if (cols === 3) return "grid-cols-1 md:grid-cols-3 gap-x-12";
@@ -433,8 +436,11 @@ const Menu = ({ categories }) => {
         <div className="text-center mb-16">
           <p className="font-accent text-3xl text-gold mb-2">Delicious</p>
           <h2 className="font-serif text-4xl md:text-5xl text-navy font-bold tracking-tight mb-4">
-            Our Menu
+            {titleOverride || "Our Menu"}
           </h2>
+          {bodyOverride ? (
+            <p className="font-sans text-muted-foreground max-w-2xl mx-auto mb-4 text-sm md:text-base">{bodyOverride}</p>
+          ) : null}
           <div className="section-divider"></div>
         </div>
         
@@ -469,7 +475,7 @@ const Menu = ({ categories }) => {
 };
 
 // Contact Section
-const Contact = ({ content }) => {
+const Contact = ({ content, titleOverride, bodyOverride }) => {
   const phone = content?.phone || "(504) 289-1032";
   const phoneHref = `tel:+1${phone.replace(/\D/g, '')}`;
   
@@ -483,8 +489,11 @@ const Contact = ({ content }) => {
         <div className="text-center mb-16">
           <p className="font-accent text-3xl text-gold mb-2">Get in Touch</p>
           <h2 className="font-serif text-4xl md:text-5xl font-bold tracking-tight mb-4">
-            Visit Us Today
+            {titleOverride || "Visit Us Today"}
           </h2>
+          {bodyOverride ? (
+            <p className="font-sans text-cream/80 max-w-2xl mx-auto mb-4 text-sm md:text-base">{bodyOverride}</p>
+          ) : null}
           <div className="w-24 h-1 mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #a5935b, transparent)' }}></div>
         </div>
         
@@ -694,7 +703,7 @@ const StickyOrderBar = () => {
 };
 
 // Email Signup Section
-const EmailSignup = () => {
+const EmailSignup = ({ titleOverride, bodyOverride }) => {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState(null); // 'success' | 'already' | 'error'
   const [submitting, setSubmitting] = useState(false);
@@ -722,10 +731,10 @@ const EmailSignup = () => {
       <div className="relative max-w-2xl mx-auto px-4 sm:px-6 text-center">
         <span className="text-gold text-2xl">⚜</span>
         <h2 className="font-serif text-3xl md:text-4xl text-cream font-bold mt-3 mb-3">
-          Join the Lakeview Family
+          {titleOverride || "Join the Lakeview Family"}
         </h2>
         <p className="font-sans text-cream/80 mb-8 text-sm md:text-base">
-          Get exclusive deals, new menu items, and event invites delivered straight to your inbox.
+          {bodyOverride || "Get exclusive deals, new menu items, and event invites delivered straight to your inbox."}
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
@@ -776,7 +785,7 @@ const EmailSignup = () => {
 };
 
 // Loyalty Punch Card Section
-const LoyaltyCard = () => {
+const LoyaltyCard = ({ titleOverride, bodyOverride }) => {
   const [step, setStep] = useState("join"); // join | lookup | result
   const [formData, setFormData] = useState({ name: "", phone: "" });
   const [lookupPhone, setLookupPhone] = useState("");
@@ -818,10 +827,12 @@ const LoyaltyCard = () => {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
         <span className="text-gold text-2xl">⚜</span>
         <h2 className="font-serif text-3xl md:text-4xl text-cream font-bold mt-3 mb-2">
-          Lakeview Loyalty Club
+          {titleOverride || "Lakeview Loyalty Club"}
         </h2>
         <p className="font-sans text-cream/80 mb-8 text-sm md:text-base">
-          Earn a <strong className="text-gold">free meal</strong> after 10 visits. Sign up with your phone number!
+          {bodyOverride ? bodyOverride : (
+            <>Earn a <strong className="text-gold">free meal</strong> after 10 visits. Sign up with your phone number!</>
+          )}
         </p>
 
         {step === "result" && result ? (
@@ -885,7 +896,7 @@ const LoyaltyCard = () => {
 };
 
 // Catering Section
-const CateringForm = () => {
+const CateringForm = ({ titleOverride, bodyOverride }) => {
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", event_date: "", guest_count: "", message: ""
   });
@@ -921,8 +932,11 @@ const CateringForm = () => {
             <div>
               <p className="font-accent text-3xl text-gold mb-2">Private Events</p>
               <h2 className="font-serif text-4xl md:text-5xl text-navy font-bold tracking-tight">
-                Let Us Cater Your Event
+                {titleOverride || "Let Us Cater Your Event"}
               </h2>
+              {bodyOverride ? (
+                <p className="font-sans text-muted-foreground mt-3 leading-relaxed">{bodyOverride}</p>
+              ) : null}
             </div>
             <div className="section-divider !mx-0"></div>
             <div className="space-y-6 font-sans text-muted-foreground leading-relaxed">
@@ -1074,20 +1088,51 @@ const CateringForm = () => {
 };
 
 // Home Page Component
+const SECTION_COMPONENTS = {
+  hero:             ({ content, ...p }) => <Hero content={content?.hero} {...p} />,
+  todays_featured:  (p) => <TodaysFeatured {...p} />,
+  specials:         (p) => <Specials {...p} />,
+  about:            ({ content, ...p }) => <About content={content?.about} {...p} />,
+  menu:             ({ menuCategories, ...p }) => <Menu categories={menuCategories} {...p} />,
+  email_signup:     (p) => <EmailSignup {...p} />,
+  loyalty:          (p) => <LoyaltyCard {...p} />,
+  catering:         (p) => <CateringForm {...p} />,
+  contact:          ({ content, ...p }) => <Contact content={content?.contact} {...p} />,
+};
+
+// Fallback if /api/homepage/layout is unreachable — keeps the public
+// site usable even if a deploy was missed.
+const FALLBACK_LAYOUT = [
+  { key: "hero", visible: true },
+  { key: "todays_featured", visible: true },
+  { key: "specials", visible: true },
+  { key: "about", visible: true },
+  { key: "menu", visible: true },
+  { key: "email_signup", visible: true },
+  { key: "loyalty", visible: true },
+  { key: "catering", visible: true },
+  { key: "contact", visible: true },
+];
+
 const Home = () => {
   const [content, setContent] = useState(null);
   const [menuCategories, setMenuCategories] = useState([]);
+  const [layoutSections, setLayoutSections] = useState(FALLBACK_LAYOUT);
 
   useEffect(() => {
     trackPageView("home");
     const fetchContent = async () => {
       try {
-        const [contentRes, menuRes] = await Promise.all([
+        const [contentRes, menuRes, layoutRes] = await Promise.all([
           axios.get(`${API}/content`),
-          axios.get(`${API}/menu`)
+          axios.get(`${API}/menu`),
+          axios.get(`${API}/homepage/layout`),
         ]);
         setContent(contentRes.data);
         setMenuCategories(menuRes.data);
+        if (Array.isArray(layoutRes.data?.sections) && layoutRes.data.sections.length) {
+          setLayoutSections(layoutRes.data.sections);
+        }
       } catch (error) {
         console.error("Error fetching site content:", error);
       }
@@ -1099,15 +1144,20 @@ const Home = () => {
     <div data-testid="home-page">
       <Navbar />
       <main>
-        <Hero content={content?.hero} />
-        <TodaysFeatured />
-        <Specials />
-        <About content={content?.about} />
-        <Menu categories={menuCategories} />
-        <EmailSignup />
-        <LoyaltyCard />
-        <CateringForm />
-        <Contact content={content?.contact} />
+        {layoutSections
+          .filter((s) => s.visible !== false && SECTION_COMPONENTS[s.key])
+          .map((s) => {
+            const Render = SECTION_COMPONENTS[s.key];
+            return (
+              <Render
+                key={s.key}
+                content={content}
+                menuCategories={menuCategories}
+                titleOverride={s.title || ""}
+                bodyOverride={s.body || ""}
+              />
+            );
+          })}
       </main>
       <Footer />
       <StickyOrderBar />

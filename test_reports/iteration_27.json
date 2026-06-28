@@ -1,0 +1,37 @@
+{
+  "summary": "Sprint 22C — Homepage Layout Editor — full regression sweep. 13/13 backend pytest cases passed (GET public/no-auth, PUT auth-required, PUT reorder+override persistence, validation for duplicates/unknown/missing keys with auto-append, POST reset, regression on /api/content and /api/menu). Full frontend end-to-end exercise passed: public homepage renders all 9 default sections in canonical order, Layout tab renders 9 rows with correct Up/Down disabled states on first/last, edit-copy reveals title+body inputs, Save persists + emits success toast, reorder marks editor dirty + Discard restores state, hiding a section (specials) removes its <section> from public DOM, title/body overrides on About reflect verbatim on public site. Layout reset to canonical state after testing — DB confirmed clean.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sprint22c_layout.py",
+    "/app/test_reports/pytest/pytest_sprint22c.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "cms.py — `_layout_with_meta()` always re-sources `label`/`supports_*`/`note` from the seed module, which is the right call (admins can't drift the schema). Good defensive design.",
+    "cms.py PUT — duplicate detection uses `seen.add(k)` inside a list-comp side effect; works but is slightly tricky. Consider `from collections import Counter; dupes=[k for k,c in Counter(submitted_keys).items() if c>1]` for readability. Non-blocking.",
+    "cms.py PUT — auto-append for missing keys uses set iteration order (`_ALLOWED_SECTION_KEYS` is a set), so appended order is not deterministic. Verified that submitted keys preserve order but the auto-appended tail order varies run-to-run. Not user-visible since admin would never intentionally submit a partial list, but for stability consider iterating `DEFAULT_HOMEPAGE_LAYOUT_SECTIONS` when computing missing.",
+    "seed_data.py — `seed_defaults` is idempotent for homepage_layout (only inserts when doc missing). Good.",
+    "LayoutTab.jsx — verified all required data-testids present (layout-section-list, layout-row-{key}-{up|down|toggle-visible|edit-toggle|title-input|body-input}, layout-save-btn, layout-reset-btn, layout-discard-btn, layout-dirty-flag, layout-toast). No issues."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sprint22c_layout.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13)",
+    "frontend": "100% (all flows in scope passed)"
+  },
+  "test_credentials": "Admin password from /app/memory/test_credentials.md (83CeLOZJQbOcopK0yYmNtdRQg4VPii8o) — used once via API to mint a token, then reused; no rate-limit issues.",
+  "seed_data_creation": "None — pure layout doc mutations, all rolled back via POST /api/homepage/layout/reset at end of run. Confirmed clean state in DB: canonical order, all sections visible, no title/body overrides.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The pytest module test_sprint22c_layout.py is module-scoped for auth and runs a teardown reset at end; safe to re-run anytime. Public GET, PUT auth, PUT validation (duplicates / unknown / auto-append missing), title/body strip, visibility persistence, reset, regression on /content + /menu all covered. Frontend testids list in critical_code_review_comments. Note: the Promote dashboard tab uses id='promotions' (testid='tab-promotions', not 'tab-promote') — common gotcha when scripting regression checks on the tab bar.",
+  "rca of the issue": "N/A — no defects found. Both manual verification by E1 and this independent cross-cutting sweep confirm Sprint 22C behaves as specified."
+}

@@ -171,6 +171,40 @@ DEFAULT_GIVEAWAY_SETTINGS = {
 }
 
 
+# Sprint 22C — Homepage Layout Editor.
+# Single doc in `homepage_layout` controls the order, visibility, and
+# optional title/body overrides of every public-site section. The Home
+# component fetches this and renders sections in `sections[]` order,
+# skipping any with `visible: false`. Empty `title`/`body` = use the
+# component's hardcoded default copy.
+DEFAULT_HOMEPAGE_LAYOUT_SECTIONS = [
+    {"key": "hero",            "label": "Hero",                "visible": True, "title": "", "body": ""},
+    {"key": "todays_featured", "label": "Today's Featured",    "visible": True, "title": "", "body": ""},
+    {"key": "specials",        "label": "Specials & Promos",   "visible": True, "title": "", "body": ""},
+    {"key": "about",           "label": "About",               "visible": True, "title": "", "body": ""},
+    {"key": "menu",            "label": "Menu",                "visible": True, "title": "", "body": ""},
+    {"key": "email_signup",    "label": "Email Signup",        "visible": True, "title": "", "body": ""},
+    {"key": "loyalty",         "label": "Loyalty Card",        "visible": True, "title": "", "body": ""},
+    {"key": "catering",        "label": "Catering Inquiry",    "visible": True, "title": "", "body": ""},
+    {"key": "contact",         "label": "Contact / Map",       "visible": True, "title": "", "body": ""},
+]
+
+# Friendly editor metadata — describes which fields each section supports
+# in the Layout Editor so the UI can hide irrelevant fields (e.g. body
+# override on the auto-rendered Menu grid is pointless).
+HOMEPAGE_SECTION_META = {
+    "hero":            {"supports_title": True,  "supports_body": True,  "note": "Top banner. Full copy edited in Site Content."},
+    "todays_featured": {"supports_title": True,  "supports_body": True,  "note": "Today's auto-picked dish."},
+    "specials":        {"supports_title": True,  "supports_body": True,  "note": "Active specials from the dashboard."},
+    "about":           {"supports_title": True,  "supports_body": True,  "note": "Restaurant story. Full copy in Site Content."},
+    "menu":            {"supports_title": True,  "supports_body": True,  "note": "Full dish list."},
+    "email_signup":    {"supports_title": True,  "supports_body": True,  "note": "Newsletter signup."},
+    "loyalty":         {"supports_title": True,  "supports_body": True,  "note": "Loyalty punch card."},
+    "catering":        {"supports_title": True,  "supports_body": True,  "note": "Catering inquiry form."},
+    "contact":         {"supports_title": True,  "supports_body": True,  "note": "Hours, map, address. Full copy in Site Content."},
+}
+
+
 async def seed_defaults(db):
     """Seed default site content, menu categories, and giveaway settings if missing."""
     existing = await db.site_content.find_one({}, {"_id": 0})
@@ -182,5 +216,15 @@ async def seed_defaults(db):
     if existing_menu == 0:
         await db.menu_categories.insert_many(DEFAULT_MENU_CATEGORIES)
         logger.info("Seeded default menu categories")
+
+    # Sprint 22C — Homepage Layout default. Idempotent: only seeds when
+    # the collection is empty; never overwrites an admin's saved layout.
+    existing_layout = await db.homepage_layout.find_one({"id": "main"}, {"_id": 0})
+    if not existing_layout:
+        await db.homepage_layout.insert_one({
+            "id": "main",
+            "sections": DEFAULT_HOMEPAGE_LAYOUT_SECTIONS,
+        })
+        logger.info("Seeded default homepage layout")
 
     # Sprint 12D: giveaway feature retired — seed removed

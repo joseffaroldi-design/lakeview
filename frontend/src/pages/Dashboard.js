@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import {
   ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon,
-  Briefcase,
+  Briefcase, LayoutTemplate,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -15,6 +15,7 @@ const CustomersTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/das
 const LibraryTab    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LibraryTab"));
 const AnalyticsTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AnalyticsTab"));
 const WorkspaceTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/WorkspaceTab"));
+const LayoutTab     = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LayoutTab"));
 const PromoteThisItem = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/aiads/PromoteThisItem"));
 
 const TabFallback = () => (
@@ -32,6 +33,7 @@ const TABS = [
   { id: "menu",        label: "Menu",       icon: Pencil },
   { id: "promotions",  label: "Promote",    icon: Megaphone },
   { id: "library",     label: "Library",    icon: ImageIcon },
+  { id: "layout",      label: "Layout",     icon: LayoutTemplate },
   { id: "customers",   label: "Customers",  icon: Users },
 ];
 
@@ -179,6 +181,11 @@ const Dashboard = () => {
           <Suspense fallback={<TabFallback />}>
             <LibraryTab getAuthHeader={getAuthHeader}
               onRequestNavigate={(tab) => setActiveTab(tab === "promote" ? "promotions" : tab)} />
+          </Suspense>
+        )}
+        {activeTab === "layout" && (
+          <Suspense fallback={<TabFallback />}>
+            <LayoutTab getAuthHeader={getAuthHeader} />
           </Suspense>
         )}
         {activeTab === "customers" && (

@@ -6,7 +6,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Sprint 20A — Today's Special hero band.
 // Surfaces the daily-rotated bulk-rendered flyer to the homepage.
 // Renders nothing if there are no bulk flyers in the library yet.
-export default function TodaysFeatured() {
+export default function TodaysFeatured({ titleOverride, bodyOverride }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export default function TodaysFeatured() {
           {/* Left — copy block */}
           <div className="text-center md:text-left">
             <p className="font-accent text-gold text-base tracking-[0.4em] uppercase mb-3">
-              Today's Special
+              {titleOverride || "Today's Special"}
             </p>
             <h2
               data-testid="todays-featured-name"
@@ -40,8 +40,7 @@ export default function TodaysFeatured() {
               {data.item_name}
             </h2>
             <p className="text-cream/80 text-base md:text-lg max-w-md mx-auto md:mx-0 mb-6">
-              Hand-picked from the kitchen — fresh today, gone tomorrow.
-              Visit the menu for tonight's full lineup.
+              {bodyOverride || "Hand-picked from the kitchen — fresh today, gone tomorrow. Visit the menu for tonight's full lineup."}
             </p>
             <a
               href="#menu"
