@@ -32,6 +32,7 @@ import logging
 import os
 import random
 import tempfile
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image
@@ -48,6 +49,86 @@ from ai_designer.registries.themes import THEME_STYLES
 from ai_designer.utils import FONT_SANS_BOLD
 
 logger = logging.getLogger("uvicorn.error")
+
+
+# ─── Sprint 22D Option B — Chromium-presence guard ────────────────────
+#
+# Production crashed during Luxury/Cajun renders because Playwright's
+# expected Chromium binary was missing (revision mismatch between the
+# installed `chromium_headless_shell-1208` and the `-1223` Playwright
+# 1.60 expects). Each render attempt re-spawned the worker thread,
+# re-tried `chromium.launch()`, and leaked enough resources to OOM-kill
+# the container — taking the whole site down for ~60-90s per attempt.
+#
+# This guard checks ONCE (cached) whether the Chromium headless_shell
+# binary actually exists on disk. We rely on Playwright's own
+# `executable_path` PROPERTY (no subprocess, no launch) to learn the
+# expected location, then check the file system. If it's missing,
+# every render falls through to the PIL agency/procedural path. No
+# launch attempt, no leaked subprocess, no container restart.
+#
+# The check is single-call cached for the lifetime of the process via
+# `_chromium_lock`; concurrent calls during the first probe are safe.
+
+_chromium_lock = threading.Lock()
+_chromium_available: Optional[bool] = None
+
+
+def _is_chromium_available() -> bool:
+    """Return True iff Playwright Chromium headless shell is installed.
+
+    Cached for the lifetime of the process. Uses Playwright's
+    `executable_path` PROPERTY (no subprocess, no launch) to determine
+    the expected binary path, then performs a single os.path.exists().
+    Returns False on any error — fail-closed so a broken Playwright
+    install never blocks the PIL fallback.
+    """
+    global _chromium_available
+    if _chromium_available is not None:
+        return _chromium_available
+    with _chromium_lock:
+        if _chromium_available is not None:
+            return _chromium_available
+        try:
+            from playwright.sync_api import sync_playwright
+
+            pw = sync_playwright().start()
+            try:
+                # Property — does not launch the browser.
+                expected = pw.chromium.executable_path
+            finally:
+                try:
+                    pw.stop()
+                except Exception:  # noqa: BLE001
+                    pass
+            # html_renderer launches headless=True which requires
+            # `chromium_headless_shell-<rev>/chrome-linux/headless_shell`,
+            # not the full chrome binary. Derive it from `expected`:
+            #   /pw-browsers/chromium-1223/chrome-linux/chrome
+            #   -> /pw-browsers/chromium_headless_shell-1223/chrome-linux/headless_shell
+            derived = expected.replace(
+                "/chromium-", "/chromium_headless_shell-", 1
+            )
+            shell_path = os.path.join(os.path.dirname(derived), "headless_shell")
+            ok = os.path.exists(shell_path)
+            if not ok:
+                logger.warning(
+                    "[ai_designer] Playwright Chromium headless shell missing "
+                    f"at {shell_path!r}; HTML/CSS renderer disabled for this "
+                    "process — Cajun + Luxury jobs will silently fall back to "
+                    "the PIL agency/procedural renderer. Run "
+                    "`playwright install chromium` to restore HTML rendering."
+                )
+            _chromium_available = bool(ok)
+            return _chromium_available
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "[ai_designer] Could not probe Playwright Chromium "
+                f"availability ({type(e).__name__}: {e}); HTML renderer "
+                "disabled. PIL fallback still active."
+            )
+            _chromium_available = False
+            return False
 
 
 def compose_design(
@@ -88,9 +169,13 @@ def compose_design(
     food_rgba = _variant_food_transform(food_rgba, variant_idx)
 
     # ---- Sprint 20A: HTML/CSS rendering for Cajun + Luxury themes ----
+    # Sprint 22D Option B: only attempt the HTML path if Chromium is
+    # actually installed. The cached check is a single os.path.exists()
+    # and never invokes Playwright launch — so a missing browser can
+    # no longer crash the container.
     try:
         import html_renderer as _html
-        if _html.is_supported(theme_id):
+        if _html.is_supported(theme_id) and _is_chromium_available():
             food_rgb = food_rgba.convert("RGB")
             with tempfile.NamedTemporaryFile(
                 suffix=".jpg", delete=False, prefix="htmlflyer_food_"
