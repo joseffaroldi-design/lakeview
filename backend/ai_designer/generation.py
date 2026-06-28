@@ -124,16 +124,17 @@ async def run_design_job(
 
     await update(status="processing", progress=5)
 
-    # Sprint 22F — variation diversity.
-    # Generate a fresh random nonce per JOB so two regenerations of the
-    # same dish/theme/variant still produce visibly different micro-
-    # details (overlay particle placement, badge highlight angles, title
-    # backdrop jitter). Set it on the thread-local before each
-    # variant's compose_design so concurrent jobs never read each
-    # other's nonce.
+    # Sprint 22F → 22G — variation diversity via RenderContext.
+    # `job_nonce` is generated once per JOB so two regenerations of the
+    # same dish/theme/variant produce visibly different design choices
+    # (photo offset, badge corner, feature order, overlay subset, bg
+    # tint, title alignment, halftone overlay placement). Variation
+    # within a job (A vs B vs C) is preserved via `variant_index`.
     import random as _r
-    job_nonce = _r.SystemRandom().randint(1, 2**31 - 1)
+    from ai_designer.render_context import RenderContext
     from ai_designer.registries.theme_packs._overlays import set_job_nonce
+    job_nonce = _r.SystemRandom().randint(1, 2**31 - 1)
+    logger.info(f"[ai-designer 22G] job_nonce={job_nonce} theme={body.theme} variations={body.variations}")
 
     variations: List[Dict[str, Any]] = []
     variant_count = min(5, max(1, body.variations))  # Clamp to 1-5
@@ -142,19 +143,31 @@ async def run_design_job(
     for idx in range(variant_count):
         variant = VARIATION_LABELS[idx]
         layout = LAYOUTS[idx % len(LAYOUTS)]  # Cycle through layouts if more than 3
-        # Distinct nonce per variant so A/B/C don't share the same
-        # randomness within a single job either.
+        # Distinct nonce per variant so A/B/C don't share design choices
+        # within a single job either. Also seeds the overlay TLS for
+        # `_overlays._rng()` callers (procedural fallback path).
         variant_nonce = (job_nonce ^ (idx * 2654435761)) & 0xFFFFFFFF
+        ctx = RenderContext(
+            job_nonce=job_nonce,
+            variant_index=idx,
+            theme_id=body.theme,
+            layout=layout,
+            platform=body.platform or "instagram_post",
+            item_name=body.item_name,
+            features=tuple(body.features or ()),
+            price=body.price or "",
+            cta=body.cta or "",
+            brand=os.environ.get("AI_DESIGNER_BRAND", "LAKEVIEW BURGERS & SEAFOOD"),
+        )
         try:
             # Sprint 22B: gate heavy PIL work behind a process-wide semaphore
             # so at most _MAX_CONCURRENCY variants render at once across all
             # in-flight jobs. Offload to a worker thread so the event loop
             # keeps serving `/jobs/{id}` polling requests in the meantime.
             async with sem:
-                # Sprint 22F — bind the nonce on the worker thread that
-                # actually runs compose_design. asyncio.to_thread uses a
-                # fresh thread per call, so we wrap a tiny helper that
-                # sets the TLS, calls the work, and returns the result.
+                # Sprint 22F/G — bind the overlay TLS nonce + pass ctx
+                # explicitly on the worker thread that actually runs
+                # compose_design.
                 def _render() -> Any:  # noqa: ANN401
                     set_job_nonce(variant_nonce)
                     bg = pil_background(body.theme, idx)
@@ -175,6 +188,7 @@ async def run_design_job(
                         logo_url=body.logo_url,
                         logo_placement=body.logo_placement,
                         logo_size=body.logo_size,
+                        ctx=ctx,
                     )
 
                 _bg_bytes, compose_out = await asyncio.to_thread(_render)

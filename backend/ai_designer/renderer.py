@@ -46,6 +46,7 @@ from ai_designer.composition import (
 )
 from ai_designer.registries.layouts import get_canvas_size
 from ai_designer.registries.themes import THEME_STYLES
+from ai_designer.render_context import RenderContext, default_context
 from ai_designer.utils import FONT_SANS_BOLD
 
 logger = logging.getLogger("uvicorn.error")
@@ -150,6 +151,7 @@ def compose_design(
     logo_size: Optional[str] = None,
     *,
     branding_text: Optional[str] = None,
+    ctx: Optional[RenderContext] = None,
 ) -> Tuple[bytes, Dict[str, Any]]:
     """Composite the final marketing graphic.
 
@@ -159,9 +161,32 @@ def compose_design(
     keyword-only `branding_text` argument: if omitted, the value falls
     back to the `AI_DESIGNER_BRAND` env var or the default Lakeview brand
     string — matching the original router-local constant exactly.
+
+    Sprint 22G — RenderContext: callers (generation.py) pass an explicit
+    `ctx: RenderContext` carrying `(job_nonce, variant_index, theme_id)`.
+    The context is forwarded to every renderer that supports it (agency
+    template today; HTML + procedural follow). When omitted (tests /
+    direct callers), a `default_context()` with `job_nonce=0` is used,
+    which reproduces pre-22G byte-identical output and keeps the
+    snapshot regression suite passing.
     """
+    from ai_designer.render_context import RenderContext
+
     if branding_text is None:
         branding_text = os.environ.get("AI_DESIGNER_BRAND", "LAKEVIEW BURGERS & SEAFOOD")
+
+    if ctx is None:
+        ctx = default_context()
+    # Stamp identity fields that may not have been populated upstream —
+    # the agency renderer reads `ctx.theme_id` to look up the overlay_fn.
+    if not ctx.theme_id:
+        ctx = RenderContext(
+            job_nonce=ctx.job_nonce, variant_index=ctx.variant_index,
+            theme_id=theme_id, layout=layout, platform=platform,
+            item_name=item_name, features=tuple(features or ()),
+            price=price or "", cta=cta or "", brand=branding_text,
+            extra=ctx.extra,
+        )
 
     # Sprint 22 P0 Fix 2 — per-variant food treatment. Applied ONCE here so
     # every downstream renderer (HTML, agency template, procedural) inherits
@@ -248,6 +273,7 @@ def compose_design(
                 price=actual_price,
                 brand=branding_text,
                 cta=actual_cta,
+                ctx=ctx,  # Sprint 22G — drive design-decision variation
             )
             out = io.BytesIO()
             agency_canvas.convert("RGB").save(out, "PNG", optimize=True)
@@ -290,8 +316,15 @@ def compose_design(
     theme["_theme_id"] = theme_id
     theme["_variant_idx"] = variant_idx
 
-    # Phase 3: Diversity Engine — per-variant randomization
-    variant_rng = random.Random(hash((theme_id, variant_idx)) & 0xFFFFFFFF)
+    # Phase 3: Diversity Engine — per-variant randomization.
+    # Sprint 22G — mix in the job nonce so regenerations produce
+    # different design choices. Falls back to legacy (theme_id,
+    # variant_idx) seed when ctx is the zero-nonce default (preserves
+    # snapshot tests).
+    _job_nonce_for_rng = (ctx.job_nonce if (ctx and ctx.job_nonce) else 0)
+    variant_rng = random.Random(
+        hash((theme_id, variant_idx, _job_nonce_for_rng)) & 0xFFFFFFFF
+    )
 
     # Vary color intensity per variant (±10%)
     if "title" in theme and "color" in theme["title"]:

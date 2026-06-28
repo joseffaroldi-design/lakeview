@@ -445,11 +445,18 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
                     logo_url: Optional[str] = None,
                     logo_placement: Optional[str] = None,
                     logo_size: Optional[str] = None,
+                    *,
+                    ctx: Any = None,
                     ) -> Tuple[bytes, Dict[str, Any]]:
     """Tech Debt Sprint Step 6 / Chunk 9: delegates to
     ai_designer.renderer.compose_design. Signature/return value unchanged.
     The router injects `RESTAURANT_BRANDING` so the renderer stays free of
     env access at call time.
+
+    Sprint 22G — forwards an optional `ctx: RenderContext` so the live
+    generation pipeline can drive design-decision variation through the
+    agency template. When omitted (legacy tests), the renderer falls
+    back to a zero-nonce context = pre-22G byte-identical behaviour.
     """
     from ai_designer.renderer import compose_design
     return compose_design(
@@ -458,6 +465,7 @@ def _compose_design(bg_bytes: bytes, food_rgba: Image.Image,
         include_price=include_price, include_description=include_description,
         platform=platform, tone=tone,
         logo_url=logo_url, logo_placement=logo_placement, logo_size=logo_size,
+        ctx=ctx,
         branding_text=RESTAURANT_BRANDING,
     )
 

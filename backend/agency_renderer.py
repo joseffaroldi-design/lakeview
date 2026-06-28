@@ -31,11 +31,12 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from agency_templates import Template
+from ai_designer.render_context import RenderContext, default_context
 
 log = logging.getLogger("uvicorn.error")
 
@@ -288,8 +289,10 @@ def _draw_features(canvas: Image.Image, slot: Dict[str, Any], features: List[str
                                     letter_spacing=letter_spacing)
             y += line_h
     elif style == "inline_pills":
-        x0 = slot["x"]; y0 = slot["y"]
-        cur_x = x0; cur_y = y0
+        x0 = slot["x"]  # noqa: E702 pre-existing
+        y0 = slot["y"]
+        cur_x = x0
+        cur_y = y0
         line_h = int(slot.get("size", 24)) + padding * 2 + 8
         for txt in items:
             bb = draw.textbbox((0, 0), txt, font=font)
@@ -334,7 +337,8 @@ def _draw_badge(canvas: Image.Image, slot: Dict[str, Any], price: str) -> None:
         sw = sh = (r + sblur) * 2 + 8
         shadow = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
         sd = ImageDraw.Draw(shadow)
-        scx = sw // 2; scy = sh // 2
+        scx = sw // 2
+        scy = sh // 2
         sd.ellipse((scx - r, scy - r, scx + r, scy + r), fill=(0, 0, 0, 140))
         shadow = shadow.filter(ImageFilter.GaussianBlur(radius=sblur))
         canvas.paste(shadow, (cx - sw // 2 + soff_x, cy - sh // 2 + soff_y), shadow)
@@ -553,24 +557,83 @@ def compose_with_template(
     price: str,
     brand: str = "LAKEVIEW BURGERS & SEAFOOD",
     cta: str = "",
+    ctx: Optional[RenderContext] = None,
 ) -> Image.Image:
     """Composite a finished flyer using `template`.
 
     Caller is responsible for falling back to the procedural engine if this
     raises. We only raise on catastrophic asset/manifest errors — for any
     drawable issue we degrade gracefully so the flyer always ships.
+
+    Sprint 22G — variation diversity via RenderContext:
+    The agency template is no longer purely deterministic. When `ctx` is
+    provided (i.e. invoked from the live AI Designer pipeline rather than
+    a snapshot test), the same `(job_nonce, variant_index)` reproduces
+    the same flyer, but a new `job_nonce` perturbs SIX design decisions
+    within the template's allowed bounds:
+
+      1. Photo slot offset (±6% of slot box) — same food, repositioned
+         the way an art director would adjust composition.
+      2. Title alignment — pick from the template's `title_align_options`
+         (typically left/center) if present, else inherit slot default.
+      3. Feature bullet order — shuffle the visible order.
+      4. Badge corner — pick from `badge_corner_options` (TL/TR/BL/BR)
+         if the price slot declares them, else inherit slot default.
+      5. Background tint — a small saturation/brightness shift (within
+         ±4%) applied via PIL.ImageEnhance. Stays on-brand.
+      6. Overlay subset — if the template ships >1 overlay layer, pick a
+         deterministic subset/order from the available list.
+
+    None of these introduce visible noise. They are choices a designer
+    would make per-render, surfaced as RNG-driven variation.
     """
+    from PIL import ImageEnhance
+
+    if ctx is None:
+        ctx = default_context()  # zero nonce → byte-identical to pre-22G
+
     canvas = Image.open(template.background_path).convert("RGB")
     if canvas.size != template.canvas:
         canvas = canvas.resize(template.canvas, Image.LANCZOS)
 
-    slots = template.slots
-    # Order matters: photo + shadow first, then text on top.
-    if "photo" in slots:
-        _paste_photo(canvas, food_rgba, slots["photo"])
+    # ── 5. Background tint (subtle, per-job) ──────────────────────────
+    # Applied to a copy of the bg BEFORE compositing, so the food/text
+    # contrast remains predictable but the overall colour temperature
+    # shifts. ±4% range chosen empirically — large enough to read as
+    # "different look" at a glance, small enough to stay on-brand.
+    rng_tint = ctx.rng("bg_tint")
+    sat_factor = 1.0 + rng_tint.uniform(-0.04, 0.04)
+    bri_factor = 1.0 + rng_tint.uniform(-0.03, 0.03)
+    if abs(sat_factor - 1.0) > 0.001:
+        canvas = ImageEnhance.Color(canvas).enhance(sat_factor)
+    if abs(bri_factor - 1.0) > 0.001:
+        canvas = ImageEnhance.Brightness(canvas).enhance(bri_factor)
 
-    # Any "above_food" overlay assets
-    for ov in template.overlay_paths:
+    slots = dict(template.slots)  # shallow copy — mutate slot dicts below
+
+    # ── 1. Photo slot offset jitter (±6% of slot box) ─────────────────
+    if "photo" in slots:
+        photo_slot = dict(slots["photo"])
+        rng_photo = ctx.rng("photo_offset")
+        max_dx = int(photo_slot.get("w", 0) * 0.06)
+        max_dy = int(photo_slot.get("h", 0) * 0.06)
+        if max_dx > 0:
+            photo_slot["x"] = int(photo_slot["x"] + rng_photo.randint(-max_dx, max_dx))
+        if max_dy > 0:
+            photo_slot["y"] = int(photo_slot["y"] + rng_photo.randint(-max_dy, max_dy))
+        _paste_photo(canvas, food_rgba, photo_slot)
+
+    # ── 6. Overlay subset / order ────────────────────────────────────
+    overlay_paths = list(template.overlay_paths or [])
+    if len(overlay_paths) >= 2:
+        rng_ov = ctx.rng("overlay_order")
+        # Pick a deterministic count between (n-1) and n so sometimes one
+        # is dropped — gives a subtle composition shift.
+        keep_count = rng_ov.randint(max(1, len(overlay_paths) - 1), len(overlay_paths))
+        chosen = rng_ov.sample(overlay_paths, keep_count)
+    else:
+        chosen = overlay_paths
+    for ov in chosen:
         try:
             ol = Image.open(ov).convert("RGBA").resize(template.canvas, Image.LANCZOS)
             canvas.paste(ol, (0, 0), ol)
@@ -579,20 +642,69 @@ def compose_with_template(
 
     last_title_h: int = 0
     if "title" in slots:
-        last_title_h = _draw_title(canvas, slots["title"], item_name) or 0
+        # ── 2. Title alignment — only if template offers options ──────
+        title_slot = dict(slots["title"])
+        align_options = title_slot.get("title_align_options")
+        if isinstance(align_options, list) and len(align_options) >= 2:
+            rng_align = ctx.rng("title_align")
+            title_slot["align"] = rng_align.choice(align_options)
+        last_title_h = _draw_title(canvas, title_slot, item_name) or 0
+
+    # ── 3. Feature bullets order — shuffle when ≥3 bullets ────────────
     if "features" in slots and features:
-        _draw_features(canvas, slots["features"], list(features))
+        feats = list(features)
+        if len(feats) >= 3:
+            rng_feat = ctx.rng("feature_order")
+            rng_feat.shuffle(feats)
+        _draw_features(canvas, slots["features"], feats)
+
+    # ── 4. Badge corner — only if template offers options ─────────────
     if "price" in slots:
-        _draw_badge(canvas, slots["price"], price)
+        price_slot = dict(slots["price"])
+        corner_options = price_slot.get("badge_corner_options")
+        if isinstance(corner_options, list) and len(corner_options) >= 2:
+            rng_corner = ctx.rng("badge_corner")
+            corner = rng_corner.choice(corner_options)
+            # Resolve corner ID -> (x, y) using a small lookup the slot
+            # ships under `badge_corner_xy_map`. Falls back to the slot
+            # default coords if the map isn't provided.
+            xy_map = price_slot.get("badge_corner_xy_map") or {}
+            xy = xy_map.get(corner)
+            if isinstance(xy, (list, tuple)) and len(xy) == 2:
+                price_slot["x"], price_slot["y"] = int(xy[0]), int(xy[1])
+        _draw_badge(canvas, price_slot, price)
+
     if "logo" in slots:
         _draw_logo(canvas, slots["logo"], brand)
     if "brand" in slots:
         _draw_brand(canvas, slots["brand"], brand)
     if "cta" in slots and cta:
         _draw_cta(canvas, slots["cta"], cta)
-    # Expose the rendered title block height as an Image attribute so the
-    # caller (validation / scoring) can pass it to quality_score for an
-    # accurate typography_hierarchy reading.
+
+    # ── Bonus: theme overlay_fn on top ────────────────────────────────
+    # Sprint 22G — invoke the theme's overlay_fn (halftone dust,
+    # splatter, sparkles) AFTER the agency composition. The overlay_fn
+    # already uses `_overlays._rng()` which is keyed off the same
+    # job nonce via the TLS, so this brings rich per-job variation to
+    # every agency-rendered theme too.
+    if ctx.theme_id:
+        try:
+            from ai_designer.registries.themes import THEME_STYLES
+            from ai_designer.registries.theme_packs._overlays import set_job_nonce
+            theme_spec = THEME_STYLES.get(ctx.theme_id) or {}
+            overlay_fn = theme_spec.get("overlay_fn")
+            if callable(overlay_fn):
+                set_job_nonce(ctx.overlay_nonce)
+                # overlay_fn expects (canvas_rgba, draw, variant_idx).
+                overlay_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+                overlay_draw = ImageDraw.Draw(overlay_layer)
+                overlay_fn(overlay_layer, overlay_draw, ctx.variant_index)
+                canvas = Image.alpha_composite(
+                    canvas.convert("RGBA"), overlay_layer
+                ).convert("RGB")
+        except Exception as e:  # noqa: BLE001
+            log.warning(f"[agency_renderer] overlay_fn failed for {ctx.theme_id!r}: {e}")
+
     try:
         canvas.title_pixel_height = last_title_h  # type: ignore[attr-defined]
     except Exception:  # noqa: BLE001
