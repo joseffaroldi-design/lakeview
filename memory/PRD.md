@@ -3664,3 +3664,59 @@ Public homepage rewrite in `/app/frontend/src/App.js`:
 - `frontend/src/App.js` (~50 lines edited across 8 section components
   and the `Home` orchestrator)
 - `frontend/src/components/TodaysFeatured.jsx` (+~5 lines)
+
+---
+
+## Sprint 22D Option B — Production Stability Hotfix (Feb 28, 2026)
+
+### Problem
+
+Sprint 22D production verification (after the 22B + 22C redeploy)
+revealed that **Luxury + Cajun** themes (the two HTML/CSS Playwright
+themes) crashed the production container on every render attempt — 53
+5xx errors during a single 3-variant job, container restarts, orphaned
+jobs. Root cause: Playwright 1.60 expected `chromium_headless_shell-1223`
+but only `-1208` was installed. Each render re-spawned the worker,
+re-tried `chromium.launch()`, and leaked enough resources to OOM-kill
+the production container.
+
+### Fix
+
+`/app/backend/ai_designer/renderer.py` (+86 lines):
+
+- Added `_is_chromium_available()` — cached, thread-safe probe using
+  Playwright's `executable_path` **property** (no subprocess, no
+  launch). Derives the headless_shell binary path and calls
+  `os.path.exists()`.
+- Gated the existing HTML render block with
+  `_html.is_supported(theme) and _is_chromium_available()`. When
+  Chromium is missing, every Luxury/Cajun job silently falls through
+  to the PIL agency/procedural renderer with one WARNING log line.
+- No worker thread spin-up, no Playwright launch attempt, no leaked
+  subprocess, no container restart.
+
+### Verification (Sprint 22E — final production verification)
+
+48/48 checks pass. Zero 5xx during the full 5-job matrix. Compared to
+22D:
+
+| Metric | 22D | 22E |
+|---|---:|---:|
+| 5xx during AI Designer flow | 53 | **0** |
+| Container restarts | ≥1 | **0** |
+| Luxury 3V | 126s never completed | **25.7s ✅** |
+| Max polling latency | 15998ms (gateway timeout) | **410ms** |
+| Recommendation | 🔴 DO NOT SHIP | 🟢 **APPROVED FOR PRODUCTION** |
+
+### Files changed
+
+- `/app/backend/ai_designer/renderer.py` (+86 / -1 lines)
+
+### Follow-up — Sprint 22F (Option A, deferred non-blocking)
+
+Schedule `playwright install chromium` in the production build/deploy
+step to restore the intended premium HTML/CSS rendering for Luxury +
+Cajun themes. Currently those themes use the PIL fallback which
+produces presentable 1024×1024 PNG flyers but lacks the HTML-renderer's
+typographic polish. **Not required to ship — current production
+output is valid and stable.**
