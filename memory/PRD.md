@@ -3720,3 +3720,72 @@ Cajun themes. Currently those themes use the PIL fallback which
 produces presentable 1024×1024 PNG flyers but lacks the HTML-renderer's
 typographic polish. **Not required to ship — current production
 output is valid and stable.**
+
+---
+
+## Sprint 22F — Variation Diversity + Dashboard Cleanup (Feb 28, 2026)
+
+### Request
+
+User: "I need more themes and I want different designs each time. Please
+move today's pick and clean up dashboard home."
+
+### Decisions
+
+- **More themes**: deferred. 22 carefully crafted themes already exist
+  (Classic, Flyer-grade poster, Burger, Seafood, Game Day, Seasonal).
+  The user's real pain was repetition — same inputs deterministically
+  produced identical outputs. Variation diversity solves that without
+  adding theme maintenance load.
+- **Different designs each time**: shipped per-job random nonce.
+- **Move Today's Pick**: shipped — moved from Home → Menu tab.
+- **Clean dashboard Home**: shipped — removed the giant Today's Pick
+  hero, kept tight quick-actions + budget + recent activity.
+
+### Variation diversity implementation
+
+`ai_designer/registries/theme_packs/_overlays.py`:
+- New thread-local `_tls.nonce` + `set_job_nonce(int)` / `get_job_nonce()`.
+- Extended `_rng()` to mix the nonce into its seed:
+  `random.Random(hash((theme_id, variant_idx, get_job_nonce())) & 0xFFFFFFFF)`.
+- Defaults to 0 → snapshot regression tests still pass.
+
+`ai_designer/composition.py`:
+- Both inline RNG seeds at lines 376 and 638 now mix in `get_job_nonce()`.
+
+`ai_designer/generation.py`:
+- Per-job `job_nonce = SystemRandom().randint(1, 2**31-1)`.
+- Per-variant `variant_nonce = (job_nonce ^ (idx * 2654435761)) & 0xFFFFFFFF`.
+- Each variant render wraps `set_job_nonce(variant_nonce)` + the actual
+  PIL work inside a tiny closure passed to `asyncio.to_thread` so the
+  TLS binds on the worker thread that runs the composition.
+
+### Dashboard cleanup
+
+- New `frontend/src/pages/dashboard/home/TodaysPickCard.jsx` —
+  self-contained wrapper (owns its fetch + refresh).
+- `frontend/src/pages/Dashboard.js` — Menu tab now renders
+  `<TodaysPickCard>` above the menu editor.
+- `frontend/src/pages/dashboard/HomeTab.jsx` — removed TodaysPick
+  rendering, fetch, and the `PickDifferentModal` import. Quick actions
+  now lead with "Promote a dish" (gold accent) + "Menu & Today's Pick".
+
+### Verification
+
+- Backend: 415 tests pass, 0 regressions (nonce defaults to 0 keeps
+  snapshot determinism intact).
+- Diversity end-to-end: 5 themes × 3 variants × 2 back-to-back runs
+  with identical inputs = **30 unique PNG hashes** (100% diversity).
+- Frontend: home-hero-card count = 0, home-quick-actions count = 1,
+  menu-todays-pick-card present and rendering full dish data.
+
+### Files changed
+
+- `backend/ai_designer/registries/theme_packs/_overlays.py` (+27/-3)
+- `backend/ai_designer/composition.py` (+12/-2)
+- `backend/ai_designer/generation.py` (+38/-22)
+- `frontend/src/pages/dashboard/home/TodaysPickCard.jsx` (new, 38 lines)
+- `frontend/src/pages/Dashboard.js` (+5)
+- `frontend/src/pages/dashboard/HomeTab.jsx` (-26 effective LOC: removed
+  TodaysPick rendering + fetch + unused imports; quick actions reordered
+  to lead with Promote)

@@ -9,11 +9,18 @@ All primitives draw IN FRONT of the food (the router calls
 atmosphere/particles around the dish.
 
 Naming convention: `<style>(canvas, draw, variant_idx, **opts)`.
+
+Sprint 22F — variation diversity: `_rng()` now also mixes in a
+process-wide `_job_nonce` set by `set_job_nonce()` before each job.
+Same theme + variant + nonce → identical output (still reproducible
+for debugging). New job → new nonce → fresh overlays. Thread-local
+storage so concurrent renders don't race on the value.
 """
 from __future__ import annotations
 
 import math
 import random
+import threading
 from typing import Tuple
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -22,9 +29,35 @@ from ._shared import CANVAS
 
 # ----------------------------------------------------------------- helpers
 
+# Thread-local nonce. Default 0 = legacy deterministic behaviour
+# (matches pre-22F output exactly, which the regression suite asserts).
+_tls = threading.local()
+
+
+def set_job_nonce(nonce: int) -> None:
+    """Set the per-job randomness nonce for the current render thread.
+
+    Called by `ai_designer/generation.py` before each variant's
+    `compose_design()` so every regeneration of the same dish + theme
+    + variant produces a fresh look. Pass `0` to restore deterministic
+    legacy behaviour (used by the snapshot regression tests).
+    """
+    _tls.nonce = int(nonce) & 0xFFFFFFFF
+
+
+def get_job_nonce() -> int:
+    return int(getattr(_tls, "nonce", 0))
+
+
 def _rng(theme_id: str, variant_idx: int) -> random.Random:
-    """Reproducible per-(theme, variant) RNG so each render is consistent."""
-    return random.Random(hash((theme_id, variant_idx)) & 0xFFFFFFFF)
+    """Reproducible per-(theme, variant, job-nonce) RNG.
+
+    The nonce defaults to 0 → identical seed to pre-22F → snapshot
+    tests continue to pass. When `set_job_nonce()` is called before a
+    render, every overlay flavoured by `_rng` (smoke wisps, splatter,
+    sparkles, scatter dots, etc.) lands in a different place.
+    """
+    return random.Random(hash((theme_id, variant_idx, get_job_nonce())) & 0xFFFFFFFF)
 
 
 def _scatter(draw: ImageDraw.ImageDraw, rng: random.Random, color, count: int,

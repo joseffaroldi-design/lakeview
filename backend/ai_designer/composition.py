@@ -367,7 +367,13 @@ def _draw_title(canvas: Image.Image, theme: dict, item_name: str,
 
     cur_y = y
     line_height_px = (f.size if hasattr(f, "size") else t["size"]) + 8
-    rng = random.Random(hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0))) & 0xFFFFFFFF)
+    # Sprint 22F — mix in the per-job nonce so every regeneration of
+    # the same dish + theme + variant produces fresh micro-jitter.
+    from ai_designer.registries.theme_packs._overlays import get_job_nonce
+    rng = random.Random(
+        hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0), get_job_nonce()))
+        & 0xFFFFFFFF
+    )
 
     for line in lines:
         if letter_spacing:
@@ -628,7 +634,12 @@ def _draw_price_badge(canvas: Image.Image, theme: dict, price_text: str,
     bg = p["bg"] if (isinstance(p["bg"], tuple) and len(p["bg"]) == 4) else (p["bg"] + (255,) if isinstance(p["bg"], tuple) else p["bg"])
     fg = p["fg"]
     ring = p["ring"] if (isinstance(p["ring"], tuple) and len(p["ring"]) == 4) else (p["ring"] + (255,) if isinstance(p["ring"], tuple) else p["ring"])
-    rng = random.Random(hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0))) & 0xFFFFFFFF)
+    # Sprint 22F — mix per-job nonce into badge RNG.
+    from ai_designer.registries.theme_packs._overlays import get_job_nonce
+    rng = random.Random(
+        hash((theme.get("_theme_id", "x"), theme.get("_variant_idx", 0), get_job_nonce()))
+        & 0xFFFFFFFF
+    )
     draw_premium_badge(canvas, cx=cx, cy=cy, radius=radius,
                        price_text=price_text, bg=bg, fg=fg, ring=ring,
                        font=f, style=style, rng=rng)

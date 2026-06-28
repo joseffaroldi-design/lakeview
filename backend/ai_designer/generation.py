@@ -124,6 +124,17 @@ async def run_design_job(
 
     await update(status="processing", progress=5)
 
+    # Sprint 22F — variation diversity.
+    # Generate a fresh random nonce per JOB so two regenerations of the
+    # same dish/theme/variant still produce visibly different micro-
+    # details (overlay particle placement, badge highlight angles, title
+    # backdrop jitter). Set it on the thread-local before each
+    # variant's compose_design so concurrent jobs never read each
+    # other's nonce.
+    import random as _r
+    job_nonce = _r.SystemRandom().randint(1, 2**31 - 1)
+    from ai_designer.registries.theme_packs._overlays import set_job_nonce
+
     variations: List[Dict[str, Any]] = []
     variant_count = min(5, max(1, body.variations))  # Clamp to 1-5
     total = variant_count
@@ -131,32 +142,44 @@ async def run_design_job(
     for idx in range(variant_count):
         variant = VARIATION_LABELS[idx]
         layout = LAYOUTS[idx % len(LAYOUTS)]  # Cycle through layouts if more than 3
+        # Distinct nonce per variant so A/B/C don't share the same
+        # randomness within a single job either.
+        variant_nonce = (job_nonce ^ (idx * 2654435761)) & 0xFFFFFFFF
         try:
             # Sprint 22B: gate heavy PIL work behind a process-wide semaphore
             # so at most _MAX_CONCURRENCY variants render at once across all
             # in-flight jobs. Offload to a worker thread so the event loop
             # keeps serving `/jobs/{id}` polling requests in the meantime.
             async with sem:
-                bg_bytes = await asyncio.to_thread(pil_background, body.theme, idx)
-                graphic_bytes, score_info = await asyncio.to_thread(
-                    compose_design,
-                    bg_bytes,
-                    food_rgba,
-                    body.item_name,
-                    body.features,
-                    body.price,
-                    body.theme,
-                    layout,
-                    variant_idx=idx,
-                    cta=body.cta,
-                    include_price=body.include_price,
-                    include_description=body.include_description,
-                    platform=body.platform or "instagram_post",
-                    tone=body.tone,
-                    logo_url=body.logo_url,
-                    logo_placement=body.logo_placement,
-                    logo_size=body.logo_size,
-                )
+                # Sprint 22F — bind the nonce on the worker thread that
+                # actually runs compose_design. asyncio.to_thread uses a
+                # fresh thread per call, so we wrap a tiny helper that
+                # sets the TLS, calls the work, and returns the result.
+                def _render() -> Any:  # noqa: ANN401
+                    set_job_nonce(variant_nonce)
+                    bg = pil_background(body.theme, idx)
+                    return bg, compose_design(
+                        bg,
+                        food_rgba,
+                        body.item_name,
+                        body.features,
+                        body.price,
+                        body.theme,
+                        layout,
+                        variant_idx=idx,
+                        cta=body.cta,
+                        include_price=body.include_price,
+                        include_description=body.include_description,
+                        platform=body.platform or "instagram_post",
+                        tone=body.tone,
+                        logo_url=body.logo_url,
+                        logo_placement=body.logo_placement,
+                        logo_size=body.logo_size,
+                    )
+
+                _bg_bytes, compose_out = await asyncio.to_thread(_render)
+                graphic_bytes, score_info = compose_out
+                del _bg_bytes  # bg is consumed inside compose_design; we don't need to retain it
         except Exception as e:  # noqa: BLE001
             variations.append(
                 {

@@ -16,6 +16,7 @@ const LibraryTab    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/das
 const AnalyticsTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AnalyticsTab"));
 const WorkspaceTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/WorkspaceTab"));
 const LayoutTab     = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LayoutTab"));
+const TodaysPickCard = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/home/TodaysPickCard"));
 const PromoteThisItem = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/aiads/PromoteThisItem"));
 
 const TabFallback = () => (
@@ -153,6 +154,10 @@ const Dashboard = () => {
                   Update dishes, hero copy, gallery, and page content. Use the sparkle ✨ button on any dish to launch a flyer in one click.
                 </p>
               </header>
+              {/* Sprint 22F — Today's Pick moved here from Home tab. */}
+              <div className="mb-10">
+                <TodaysPickCard getAuthHeader={getAuthHeader} />
+              </div>
               <div className="space-y-10">
                 <MenuEditor
                   getAuthHeader={getAuthHeader}
