@@ -85,6 +85,48 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 28, 2026 — Sprint 22G: Variation Diversity (HTML Renderer) — Complete
+
+**Problem:** `luxury` and `cajun` themes produced byte-identical outputs across regenerations (3/9 unique hashes per theme). The procedural and agency-template paths already consumed `RenderContext.rng` for design diversity, but the HTML/CSS renderer (used for luxury + cajun + seafood themes when Chromium is available) had no diversity hooks — it rendered the same Jinja template the same way every time, regardless of `job_nonce`.
+
+**Fix:** Plumbed `RenderContext` into the HTML/CSS engine. Each render now derives six deterministic design levers from `ctx.rng(salt)`:
+
+| Lever          | Salt                  | Options                                                         |
+|----------------|-----------------------|-----------------------------------------------------------------|
+| title_align    | `html_title_align`    | center / left (luxury); left / center (cajun)                   |
+| features_side  | `html_features_side`  | swap features ↔ price plaque (luxury); chip parity flip (cajun) |
+| kicker         | `html_kicker`         | 4 thematic labels per theme (e.g. "Chef's Selection", "Bayou Classic") |
+| accent         | `html_accent`         | 3 on-brand `--gold` hex variants                                |
+| brand_spacing  | `html_brand_spacing`  | 3 letter-spacing values for the brand mark                      |
+| corner_style   | `html_corner_style`   | brackets / dots / diamonds on price plaque (luxury); rule width variants (cajun) |
+
+Each lever is salted independently so a change in one stage cannot cascade into another. Same `(job_nonce, variant_index)` → byte-identical output (reproducible). Different `job_nonce` → visibly different designer-quality flyer.
+
+**Files changed:**
+- `/app/backend/html_renderer/engine.py` — `render_flyer(..., ctx)` derives 6 levers; `_RenderJob.design_levers` carries them to the Playwright worker; `_do_render` passes them as Jinja context.
+- `/app/backend/html_renderer/templates/luxury.html` — consumes 6 levers via small `{% if %}` blocks.
+- `/app/backend/html_renderer/templates/cajun.html` — same.
+- `/app/backend/ai_designer/renderer.py` — forwards `ctx=ctx` to `_html.render_flyer(...)`.
+
+**No changes to:** APIs, request/response schemas, frontend, theme registry, Playwright/Chromium infra.
+
+**Verification — `/tmp/test_22g_e2e_diversity.py` (5 themes × 3 variants × 3 regenerations):**
+
+| Theme            | Before | After |
+|------------------|-------:|------:|
+| modern           |   9/9  |   9/9 |
+| vintage          |   9/9  |   9/9 |
+| burger_classic   |   9/9  |   9/9 |
+| **luxury**       | **3/9**| **9/9** |
+| **cajun**        | **3/9**| **9/9** |
+| **TOTAL**        | 33/45  | **45/45** |
+
+Backend regression: `401 passed, 4 skipped` (full pytest sweep, ~3 min). Frontend smoke: site renders cleanly.
+
+**Production recommendation:** Ship to production. The fix is pure HTML/CSS lever plumbing — no schema changes, no infra changes, no breaking changes. Snapshot regressions stay green (default-context renders are byte-identical to pre-22G). To deploy: redeploy from `lakeview-grill.emergent.host` Settings → Deployments → Redeploy from latest preview.
+
+---
+
 ### Feb 10, 2026 — Sprint 12D: Demolition & Truth-Telling — Complete
 
 **Removed entirely:**

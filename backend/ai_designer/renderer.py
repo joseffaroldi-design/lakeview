@@ -224,6 +224,7 @@ def compose_design(
                     output_height=canvas_h,
                     render_width=render_w,
                     render_height=render_h,
+                    ctx=ctx,  # Sprint 22G — drive design-decision variation
                 )
             finally:
                 try:

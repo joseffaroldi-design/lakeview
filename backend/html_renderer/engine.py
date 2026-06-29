@@ -28,7 +28,7 @@ import io
 import os
 import threading
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image
@@ -155,6 +155,12 @@ class _RenderJob:
     render_width: int
     render_height: int
     return_format: str
+    # Sprint 22G — deterministic design-decision variation. Each lever is
+    # an integer index into a per-template choice table (see luxury.html
+    # / cajun.html). When the host supplies a `RenderContext`, the levers
+    # are derived from `ctx.rng(...)`. Otherwise they default to 0 →
+    # byte-identical to pre-22G output (snapshot regressions stay green).
+    design_levers: Optional[Dict[str, int]] = None
 
 
 def _worker_loop() -> None:
@@ -203,6 +209,11 @@ def _do_render(browser, job: _RenderJob) -> bytes:
     feats: List[str] = [str(f) for f in job.features if f]
     template_name = _resolve_template(job.theme)
     template = _jinja.get_template(template_name)
+    # Sprint 22G — pass design-decision levers to the template. Templates
+    # consume them via small conditional blocks (alignment / side /
+    # accent / kicker / brand-spacing). All levers default to 0 when
+    # absent → byte-identical to pre-22G snapshot output.
+    levers = job.design_levers or {}
     html = template.render(
         item_name=job.item_name or "",
         features=feats,
@@ -212,6 +223,12 @@ def _do_render(browser, job: _RenderJob) -> bytes:
         food_image=_food_image_data_url(job.food_image_path, job.food_image_url),
         font_face_block=_FONT_FACE_BLOCK,
         theme=(job.theme or "").lower(),
+        lever_title_align=int(levers.get("title_align", 0)),
+        lever_features_side=int(levers.get("features_side", 0)),
+        lever_kicker=int(levers.get("kicker", 0)),
+        lever_accent=int(levers.get("accent", 0)),
+        lever_brand_spacing=int(levers.get("brand_spacing", 0)),
+        lever_corner_style=int(levers.get("corner_style", 0)),
     )
 
     context = browser.new_context(
@@ -276,6 +293,7 @@ def render_flyer(
     render_width: int = 2048,
     render_height: int = 2048,
     return_format: str = "PNG",
+    ctx: Any = None,
 ) -> bytes:
     """Render a flyer to bytes.
 
@@ -284,9 +302,28 @@ def render_flyer(
     thread (sync code, asyncio handlers, pytest, etc.).
     
     Supports non-square dimensions for different platforms.
+
+    Sprint 22G — variation diversity:
+    Pass a `RenderContext` to drive deterministic design-decision
+    variation (title alignment, features side, kicker label, accent
+    shift, brand letter-spacing, plaque corner style). Each `ctx` lever
+    is salted independently so a new `job_nonce` perturbs every choice
+    while the same `(job_nonce, variant_index)` reproduces byte-for-byte.
     """
     _ensure_worker()
     fut: Future = Future()
+    design_levers: Optional[Dict[str, int]] = None
+    if ctx is not None and hasattr(ctx, "rng"):
+        # Each design choice gets an independent RNG salt so changes to
+        # one lever's range don't perturb the others (Sprint 22G principle).
+        design_levers = {
+            "title_align":    ctx.rng("html_title_align").randrange(2),
+            "features_side":  ctx.rng("html_features_side").randrange(2),
+            "kicker":         ctx.rng("html_kicker").randrange(4),
+            "accent":         ctx.rng("html_accent").randrange(3),
+            "brand_spacing":  ctx.rng("html_brand_spacing").randrange(3),
+            "corner_style":   ctx.rng("html_corner_style").randrange(3),
+        }
     job_dict = {
         "theme": theme,
         "item_name": item_name,
@@ -301,6 +338,7 @@ def render_flyer(
         "render_width": int(render_width),
         "render_height": int(render_height),
         "return_format": return_format,
+        "design_levers": design_levers,
     }
     _RENDER_QUEUE.put((job_dict, fut))
     return fut.result(timeout=30)

@@ -7,13 +7,21 @@
   {{ font_face_block|safe }}
 
   /* ------ Cajun theme — warm spice palette, hand-cut feel ------ */
+  /* Sprint 22G: accent shift via `--gold` chooses one of three on-brand
+     mustard/amber tones. Each option stays within the Cajun palette. */
   :root {
     --ink:        #1a0e08;
     --paper:      #f7eedd;
     --cream:      #fbf3e0;
     --spice:      #c43a1a;        /* cayenne red */
     --spice-deep: #8b2310;
+{%- if lever_accent == 1 %}
+    --gold:       #c98a2d;        /* amber */
+{%- elif lever_accent == 2 %}
+    --gold:       #e0b450;        /* honey */
+{%- else %}
     --gold:       #d6a23a;        /* hot mustard */
+{%- endif %}
     --bayou:      #3a5a2a;        /* swamp green */
     --shadow:     rgba(26, 14, 8, .35);
   }
@@ -60,14 +68,26 @@
     font-family: "Playfair Display", serif;
     font-weight: 900;
     font-size: 88px;
+{%- if lever_brand_spacing == 1 %}
+    letter-spacing: 18px;
+{%- elif lever_brand_spacing == 2 %}
+    letter-spacing: 26px;
+{%- else %}
     letter-spacing: 22px;
+{%- endif %}
     color: var(--spice-deep);
     text-transform: uppercase;
     padding-left: 22px;
   }
   .brand .rule {
     display: inline-block;
+{%- if lever_corner_style == 1 %}
+    width: 160px; height: 4px;
+{%- elif lever_corner_style == 2 %}
+    width: 280px; height: 3px;
+{%- else %}
     width: 220px; height: 5px;
+{%- endif %}
     margin: 26px 14px 26px;
     background: var(--gold);
     transform: translateY(-12px);
@@ -82,9 +102,15 @@
   }
 
   /* ----- title block ----- */
+  /* Sprint 22G: left-aligned (default) or centered. */
   .title-block {
     position: absolute;
     top: 380px; left: 120px; right: 120px;
+{%- if lever_title_align == 1 %}
+    text-align: center;
+{%- else %}
+    text-align: left;
+{%- endif %}
     z-index: 4;
   }
   .title-block .kicker {
@@ -162,11 +188,21 @@
     align-self: flex-start;
     max-width: 540px;
   }
+  /* Sprint 22G: chip palette pattern — `features_side` toggles which
+     chip uses the spice background vs. the ink/gold inverse. */
+{%- if lever_features_side == 1 %}
+  .features .chip:nth-child(even) {
+    background: var(--ink);
+    color: var(--gold);
+    border-color: var(--spice);
+  }
+{%- else %}
   .features .chip:nth-child(odd) {
     background: var(--ink);
     color: var(--gold);
     border-color: var(--spice);
   }
+{%- endif %}
 
   /* ----- price seal — gold ribbon stamp (post-polish) ----- */
   .price-seal {
@@ -253,7 +289,17 @@
 
     <!-- Title block -->
     <div class="title-block {% if item_name|length > 22 %}xlong{% elif item_name|length > 14 %}long{% endif %}">
-      <div class="kicker">House Favourite</div>
+      <div class="kicker">
+        {%- if lever_kicker == 1 -%}
+          Bayou Classic
+        {%- elif lever_kicker == 2 -%}
+          Today's Catch
+        {%- elif lever_kicker == 3 -%}
+          Smoke & Spice
+        {%- else -%}
+          House Favourite
+        {%- endif -%}
+      </div>
       <h1>{{ item_name }}</h1>
     </div>
 

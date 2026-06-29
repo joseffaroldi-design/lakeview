@@ -7,12 +7,25 @@
   {{ font_face_block|safe }}
 
   /* ------ Luxury Dark — black + champagne gold, fine-dining ------ */
+  /* Sprint 22G: accent shift via `--gold-shift` chooses one of three
+     on-brand gold tones (champagne / 24k / antique). Each lever choice
+     stays within the luxury palette — never neon, never desaturated. */
   :root {
     --ink:        #0a0a0c;
     --ink-soft:   #18181d;
+{%- if lever_accent == 1 %}
+    --gold:       #c89933;        /* antique gold */
+    --gold-soft:  #a87724;
+    --champagne:  #e0c98a;
+{%- elif lever_accent == 2 %}
+    --gold:       #e0bf4a;        /* bright champagne */
+    --gold-soft:  #c69d34;
+    --champagne:  #f0db9c;
+{%- else %}
     --gold:       #d4af37;        /* 24k */
     --gold-soft:  #b88a2a;
     --champagne:  #e8d49a;
+{%- endif %}
     --paper:      #f5ecd0;
     --shadow:     rgba(0, 0, 0, .6);
   }
@@ -69,7 +82,13 @@
     font-family: "Cinzel", serif;
     font-weight: 900;
     font-size: 92px;
+{%- if lever_brand_spacing == 1 %}
+    letter-spacing: 22px;
+{%- elif lever_brand_spacing == 2 %}
+    letter-spacing: 30px;
+{%- else %}
     letter-spacing: 26px;
+{%- endif %}
     color: var(--gold);
     text-transform: uppercase;
     padding-left: 26px;
@@ -106,7 +125,13 @@
   .title-block {
     position: absolute;
     top: 460px; left: 0; right: 0;
+{%- if lever_title_align == 1 %}
+    text-align: left;
+    padding-left: 200px;
+    padding-right: 200px;
+{%- else %}
     text-align: center;
+{%- endif %}
     z-index: 4;
   }
   .title-block .kicker {
@@ -162,10 +187,17 @@
     pointer-events: none;
   }
 
-  /* ----- features: floating gold pill list, left side ----- */
+  /* ----- features: floating gold pill list ----- */
+  /* Sprint 22G: features may sit on the left (default) or right; the
+     price plaque always takes the opposite corner. */
   .features {
     position: absolute;
-    left: 160px; top: 1080px;
+{%- if lever_features_side == 1 %}
+    right: 160px;
+{%- else %}
+    left: 160px;
+{%- endif %}
+    top: 1080px;
     width: 320px;
     display: flex; flex-direction: column;
     gap: 28px;
@@ -189,7 +221,12 @@
   /* ----- price plaque: classic gold rectangle with corner accents ----- */
   .price-plaque {
     position: absolute;
-    right: 160px; top: 1300px;
+{%- if lever_features_side == 1 %}
+    left: 160px;
+{%- else %}
+    right: 160px;
+{%- endif %}
+    top: 1300px;
     width: 360px; height: 360px;
     z-index: 7;
     border: 3px solid var(--gold);
@@ -208,7 +245,32 @@
   }
   .price-plaque::before { top: 26px; }
   .price-plaque::after { bottom: 26px; }
-  /* gold corner brackets */
+  /* gold corner brackets / dots / squares (Sprint 22G design lever) */
+{%- if lever_corner_style == 1 %}
+  .price-plaque .corner {
+    position: absolute;
+    width: 14px; height: 14px;
+    background: var(--gold);
+    border-radius: 50%;
+    border: none;
+  }
+  .price-plaque .corner.tl { top: 18px; left: 18px; }
+  .price-plaque .corner.tr { top: 18px; right: 18px; }
+  .price-plaque .corner.bl { bottom: 18px; left: 18px; }
+  .price-plaque .corner.br { bottom: 18px; right: 18px; }
+{%- elif lever_corner_style == 2 %}
+  .price-plaque .corner {
+    position: absolute;
+    width: 18px; height: 18px;
+    background: var(--gold);
+    border: none;
+    transform: rotate(45deg);
+  }
+  .price-plaque .corner.tl { top: 16px; left: 16px; }
+  .price-plaque .corner.tr { top: 16px; right: 16px; }
+  .price-plaque .corner.bl { bottom: 16px; left: 16px; }
+  .price-plaque .corner.br { bottom: 16px; right: 16px; }
+{%- else %}
   .price-plaque .corner {
     position: absolute;
     width: 28px; height: 28px;
@@ -218,6 +280,7 @@
   .price-plaque .corner.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
   .price-plaque .corner.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
   .price-plaque .corner.br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+{%- endif %}
   .price-plaque .label {
     font-family: "Inter", sans-serif;
     font-weight: 400;
@@ -303,7 +366,17 @@
 
     <!-- Title -->
     <div class="title-block {% if item_name|length > 22 %}xlong{% elif item_name|length > 14 %}long{% endif %}">
-      <div class="kicker">Chef's Selection</div>
+      <div class="kicker">
+        {%- if lever_kicker == 1 -%}
+          Tonight's Feature
+        {%- elif lever_kicker == 2 -%}
+          House Specialty
+        {%- elif lever_kicker == 3 -%}
+          Limited Reserve
+        {%- else -%}
+          Chef's Selection
+        {%- endif -%}
+      </div>
       <h1>{{ item_name }}</h1>
     </div>
 

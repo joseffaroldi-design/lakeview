@@ -1,0 +1,37 @@
+{
+  "summary": "Sprint 22G — Variation Diversity for AI Designer — backend-only verification. Built /app/backend/tests/test_sprint22g_diversity.py (pytest, 5 parametrized cases). Hit the public REACT_APP_BACKEND_URL (https://upload-stage-two.preview.emergentagent.com) end-to-end: POST /api/auth/login → GET /api/media/assets (picked first source='upload' asset_id=859d6add-2df8-4c5e-86df-167d5a58e49d) → for each theme [luxury, cajun, modern, vintage, burger_classic] ran 3× POST /api/ai-designer/generate (variations=3) and polled GET /api/ai-designer/job/{id} to 'completed', then sha256-hashed every PNG fetched from GET /api/media/file/{asset_id}. Result: 5/5 themes produced 9/9 byte-unique PNGs each (45/45 total unique hashes). Total runtime 160.94s for 45 renders. POST /generate latency well under 2s (assertion present). Job polling returned 3 completed variations with asset_id, variant label (A/B/C), and status='completed' as specified. All PNG bytes validated via magic-bytes check (89 50 4E 47 0D 0A 1A 0A).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sprint22g_diversity.py",
+    "/app/test_reports/pytest/pytest_sprint22g.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "engine.py — render_flyer now takes ctx kwarg and derives 6 design levers (title_align, features_side, kicker, accent, brand_spacing, corner_style) via ctx.rng(salt). Clean separation; salts make per-lever streams independent, which is exactly what's needed to avoid lever-coupling. Verified empirically: 9/9 unique hashes for both luxury and cajun across 3×3 runs.",
+    "render_context.py — RenderContext.rng(salt) seeds via hash((job_nonce, variant_index, salt)). Note: Python's built-in hash() of a tuple is salted per-interpreter via PYTHONHASHSEED for str members, which is fine for diversity but technically NON-DETERMINISTIC across pod restarts. The contract claims reproducibility for the same (job_nonce, variant_index) — that holds inside a single process, but a pod restart will produce different bytes for the SAME nonce+variant pair. If true cross-process reproducibility is required (e.g., for regression image-diff tests), switch to hashlib.sha256(...) -> int and seed random.Random with it. Non-blocking for the diversity goal but worth flagging.",
+    "ai_designer/generation.py — per-job nonce + per-variant ctx is the right shape and matches the rendering contract.",
+    "Test ran cleanly with no transient failures; semaphore-2 throttling kept the wall clock at ~3.5s/render in the steady state — acceptable for a synchronous regression run.",
+    "Generated 45 net-new ai-designer assets during testing — these are stored under media_assets with kind='image' and tags including 'ai-designer'. No automated cleanup added; consider whether the existing media-orphans sweep handles these or if a TEST_ prefix opt-in cleanup is warranted for future regression sweeps."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sprint22g_diversity.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (5/5 parametrized themes, 45/45 unique hashes)",
+    "frontend": "skipped per request"
+  },
+  "test_credentials": "Read from /app/memory/test_credentials.md — admin password 83CeLOZJQbOcopK0yYmNtdRQg4VPii8o used to mint a JWT against POST /api/auth/login. One auth round-trip for the entire module (module-scoped fixture).",
+  "seed_data_creation": "45 new media_assets rows created (5 themes × 3 jobs × 3 variants), each with tags including 'ai-designer', source 'ai-designer'. Not cleaned up — these are real generated artifacts. The original upload source asset (859d6add-2df8-4c5e-86df-167d5a58e49d) was untouched.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest /app/backend/tests/test_sprint22g_diversity.py -v -s reproduces the 45-render sweep (~160s wall clock). The fixtures auto-discover the first source='upload' image asset, so they're robust as long as at least one such asset exists. If the asset list endpoint contract changes (currently returns {'assets': [...]}), update _gather_theme_hashes' fixture key accordingly. The test asserts byte-equality of /api/media/file/{asset_id} responses — any future change to media-pipeline post-processing (e.g., metadata stripping, recompression) that introduces nondeterminism in PNG encoding could mask render-level diversity regressions; in that case, hash decoded pixel bytes instead of raw file bytes.",
+  "rca of the issue": "N/A — Sprint 22G fix verified working. The patch in html_renderer/engine.py to consume ctx.rng() for 6 design levers, combined with the existing per-variant RenderContext from ai_designer/generation.py, is sufficient to produce byte-different luxury and cajun PNGs on identical inputs. The previous 3/9 luxury+cajun problem (template was deterministic w.r.t. inputs; ctx was being passed but not consumed) is resolved."
+}
