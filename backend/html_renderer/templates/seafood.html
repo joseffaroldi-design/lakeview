@@ -300,6 +300,29 @@
     letter-spacing: 5px;
     color: var(--foam);
   }
+
+  /* ===== Sprint 22I — STRUCTURAL ARCHETYPES (seafood) ===== */
+{%- if lever_archetype == 1 %}
+  .food-wrap { left: 80px; top: 240px; width: 1888px; height: 1240px; }
+  .title-block { top: 1560px; left: 100px; right: 100px; text-align: center; }
+  .title-block .kicker { font-size: 26px; letter-spacing: 14px; }
+  .title-block h1 { font-size: 144px; }
+  .title-block.long h1 { font-size: 118px; }
+  .title-block.xlong h1 { font-size: 96px; }
+  .price-seal { left: 1520px; top: 230px; right: auto; width: 360px; height: 360px; }
+  .features { top: 1860px; left: 100px; right: auto; width: 1848px;
+    flex-direction: row; flex-wrap: wrap; gap: 14px; justify-content: center; }
+  .features .chip { padding: 12px 22px; }
+{%- elif lever_archetype == 2 %}
+  .food-wrap { left: 1024px; top: 0; width: 1024px; height: 2048px; }
+  .title-block { top: 380px; left: 80px; right: auto; width: 880px; text-align: left; }
+  .title-block .kicker { font-size: 26px; letter-spacing: 14px; }
+  .title-block h1 { font-size: 152px; }
+  .title-block.long h1 { font-size: 122px; }
+  .title-block.xlong h1 { font-size: 96px; line-height: 1.0; }
+  .price-seal { left: 80px; top: 1100px; right: auto; width: 340px; height: 340px; }
+  .features { top: 1500px; left: 80px; right: auto; width: 880px; }
+{%- endif %}
 </style>
 </head>
 <body>

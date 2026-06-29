@@ -229,6 +229,7 @@ def _do_render(browser, job: _RenderJob) -> bytes:
         lever_accent=int(levers.get("accent", 0)),
         lever_brand_spacing=int(levers.get("brand_spacing", 0)),
         lever_corner_style=int(levers.get("corner_style", 0)),
+        lever_archetype=int(levers.get("archetype", 0)),
     )
 
     context = browser.new_context(
@@ -316,6 +317,8 @@ def render_flyer(
     if ctx is not None and hasattr(ctx, "rng"):
         # Each design choice gets an independent RNG salt so changes to
         # one lever's range don't perturb the others (Sprint 22G principle).
+        # Sprint 22I — also derives a structural `archetype` (0/1/2) from
+        # variant_index so within-job A/B/C take 3 different layouts.
         design_levers = {
             "title_align":    ctx.rng("html_title_align").randrange(2),
             "features_side":  ctx.rng("html_features_side").randrange(2),
@@ -323,6 +326,7 @@ def render_flyer(
             "accent":         ctx.rng("html_accent").randrange(3),
             "brand_spacing":  ctx.rng("html_brand_spacing").randrange(3),
             "corner_style":   ctx.rng("html_corner_style").randrange(3),
+            "archetype":      int(getattr(ctx, "variant_index", 0)) % 3,
         }
     job_dict = {
         "theme": theme,

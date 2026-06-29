@@ -548,6 +548,94 @@ def _draw_logo(canvas: Image.Image, slot: Dict[str, Any],
                                 letter_spacing=tagline_ls)
 
 
+def _apply_archetype(slots: Dict[str, Dict[str, Any]],
+                     canvas_w: int, canvas_h: int,
+                     archetype: int) -> Dict[str, Dict[str, Any]]:
+    """Sprint 22I — STRUCTURAL variant archetypes.
+
+    Mutates slot geometry so within-job variants A/B/C look like
+    genuinely different design directions, not three nudges of one
+    template. Each archetype rewrites the photo + title + price slot
+    positions, ratios, and alignment. Features/brand/logo stay where the
+    manifest puts them so the template's identity is preserved.
+
+    archetype 0 → "Anchor" — manifest defaults (preserves originals)
+    archetype 1 → "Hero Photo" — photo dominates top 70%, title across
+                  a band at the bottom, big price stamp top-right
+    archetype 2 → "Editorial Split" — photo right half full-bleed,
+                  title block left half stacked, price below title
+    """
+    if archetype == 0 or not slots:
+        return slots  # no change — manifest defaults
+
+    out = {k: dict(v) for k, v in slots.items()}
+
+    if archetype == 1 and "photo" in out:
+        # Hero Photo — photo across top 70%, with safe-zone for top bar
+        ph = out["photo"]
+        margin = int(canvas_w * 0.05)
+        ph["x"] = margin
+        ph["y"] = int(canvas_h * 0.06)
+        ph["w"] = canvas_w - 2 * margin
+        ph["h"] = int(canvas_h * 0.58)
+        ph["feather"] = max(40, int(ph.get("feather", 32) * 1.6))
+        if "title" in out:
+            t = out["title"]
+            t["x"] = margin
+            t["y"] = int(canvas_h * 0.70)
+            t["w"] = canvas_w - 2 * margin
+            t["h"] = int(canvas_h * 0.16)
+            t["align"] = "center"
+            t["size"] = int(t.get("size", 96) * 1.15)
+        if "price" in out:
+            p = out["price"]
+            p["x"] = int(canvas_w * 0.72)
+            p["y"] = int(canvas_h * 0.06)
+            p["w"] = int(canvas_w * 0.22)
+            p["h"] = int(canvas_w * 0.22)
+        if "features" in out:
+            f = out["features"]
+            f["x"] = margin
+            f["y"] = int(canvas_h * 0.87)
+            f["w"] = canvas_w - 2 * margin
+            f["h"] = int(canvas_h * 0.10)
+            f["style"] = "inline_pills"  # horizontal strip
+        return out
+
+    if archetype == 2 and "photo" in out:
+        # Editorial Split — right half is full-bleed photo, left half is text
+        ph = out["photo"]
+        ph["x"] = int(canvas_w * 0.50)
+        ph["y"] = 0
+        ph["w"] = int(canvas_w * 0.50)
+        ph["h"] = canvas_h
+        ph["feather"] = 24
+        if "title" in out:
+            t = out["title"]
+            t["x"] = int(canvas_w * 0.05)
+            t["y"] = int(canvas_h * 0.18)
+            t["w"] = int(canvas_w * 0.42)
+            t["h"] = int(canvas_h * 0.35)
+            t["align"] = "left"
+            t["size"] = int(t.get("size", 96) * 0.92)
+        if "price" in out:
+            p = out["price"]
+            p["x"] = int(canvas_w * 0.05)
+            p["y"] = int(canvas_h * 0.58)
+            p["w"] = int(canvas_w * 0.22)
+            p["h"] = int(canvas_w * 0.22)
+        if "features" in out:
+            f = out["features"]
+            f["x"] = int(canvas_w * 0.05)
+            f["y"] = int(canvas_h * 0.84)
+            f["w"] = int(canvas_w * 0.42)
+            f["h"] = int(canvas_h * 0.12)
+            f["style"] = "stacked_chips"
+        return out
+
+    return slots
+
+
 def compose_with_template(
     template: Template,
     *,
@@ -610,6 +698,15 @@ def compose_with_template(
         canvas = ImageEnhance.Brightness(canvas).enhance(bri_factor)
 
     slots = dict(template.slots)  # shallow copy — mutate slot dicts below
+
+    # ── Sprint 22I: structural archetype per variant ──────────────────
+    # Picks archetype 0/1/2 based on variant_index so within-job A/B/C
+    # always span 3 *different* archetypes (not 3 random samples from
+    # the same one). Cross-regeneration variation still comes from the
+    # other six ctx levers below (photo offset, tint, etc.).
+    archetype = ctx.variant_index % 3
+    canvas_w, canvas_h = template.canvas
+    slots = _apply_archetype(slots, canvas_w, canvas_h, archetype)
 
     # ── 1. Photo slot offset jitter (±6% of slot box) ─────────────────
     if "photo" in slots:

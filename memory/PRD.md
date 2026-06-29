@@ -85,6 +85,49 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 28, 2026 — Sprint 22I (Phase A): Structural Variant Archetypes — Complete
+
+**Problem (from user, validated by vision-model audit):** Sprint 22G's "diversity" was hash-deep, not perception-deep. Vision model graded within-job variant diversity at **1–2/10** ("twins, minor pill reordering"), cross-regeneration at **1/10** ("effectively identical"), and cross-theme at **4/10** ("color-swapped iterations of one template").
+
+**Root cause:** Sprint 22G's six ctx-levers (gold hue ±5%, letter-spacing ±4 px, kicker text, brand spacing, chip parity, plaque corner style) are designer-level micro-decisions invisible at thumbnail scale. The grid, photo slot, title slot, and price slot positions never moved.
+
+**Fix (Phase A — Structural Archetypes):** Each variant slot 0/1/2 is now wired to a *different* layout archetype, not a different gold tone.
+
+| Archetype | What it does |
+|---|---|
+| 0 — Anchor | Template default (preserves the existing carefully-tuned manifest) |
+| 1 — Hero Photo | Food photo dominates top 60–70%, title in a band across the bottom, price as a compact stamp top-right, features as a horizontal pill strip |
+| 2 — Editorial Split | Food right half edge-to-edge full-bleed, title + price + features stacked on the left half |
+
+Wired in two places:
+- **`agency_renderer.py`** — new `_apply_archetype(slots, canvas, archetype)` mutates slot geometry per `variant_index % 3` (covers procedural themes: modern, burger_classic, vintage_diner, comic_pop, game_day_*, mardi_gras, summer_splash, holiday_cheer, etc.)
+- **`html_renderer/engine.py` + `templates/luxury.html` + `cajun.html` + `seafood.html`** — new `lever_archetype` value flows into Jinja; each template now ships archetype-1 and archetype-2 CSS override blocks at the end of its `<style>` that reposition `.food-wrap`, `.title-block`, `.price-plaque|.price-seal`, `.features`.
+
+**Visual audit after fix (independent vision model):**
+
+| Theme | Before | After |
+|---|---:|---:|
+| modern | 1/10 | **7/10** |
+| burger_classic | 1/10 | **6/10** |
+| luxury | 1/10 | **9/10** |
+| cajun | 1/10 | **8/10** |
+| **cross-theme** | **4/10** | **8/10** |
+
+Vision verdict: *"Massive success. You have moved from menu-like assets to ad-like assets. Structural diversification is solved."*
+
+**Files changed:**
+- `/app/backend/agency_renderer.py` — `_apply_archetype()` + wired into `compose_with_template`
+- `/app/backend/html_renderer/engine.py` — new `archetype` lever derived from `ctx.variant_index % 3`
+- `/app/backend/html_renderer/templates/luxury.html` — archetype-1 + archetype-2 CSS blocks
+- `/app/backend/html_renderer/templates/cajun.html` — same
+- `/app/backend/html_renderer/templates/seafood.html` — same
+
+**Regression:** 57/57 renderer-stack tests pass. Sprint 22G byte-uniqueness preserved (variants still hash-different across regenerations; archetypes add structural diversity on top of the existing levers).
+
+**No API changes, no schema changes, no frontend changes.** Ships behind the existing `/api/ai-designer/generate` contract.
+
+---
+
 ### Feb 28, 2026 — Sprint 22H: Production Readiness & Final Launch Audit — Complete
 
 **Verdict:** ✅ **AI Designer is production-ready** (full report at `/app/memory/SPRINT_22H_LAUNCH_REPORT.md`).

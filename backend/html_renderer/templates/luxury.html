@@ -349,6 +349,96 @@
     height: 1px;
     background: var(--gold);
   }
+
+  /* ===== Sprint 22I — STRUCTURAL ARCHETYPES =====
+     Each archetype dramatically rewrites the canvas so within-job
+     variants A/B/C span 3 different design directions, not 3 nudges
+     of the same template. Triggered by lever_archetype 0/1/2. */
+{%- if lever_archetype == 1 %}
+  /* Archetype 1 — Hero Photo: food dominates top, title is a band
+     across the bottom, price is a compact stamp top-right. */
+  .food-wrap {
+    left: 80px; top: 240px;
+    transform: none;
+    width: 1888px; height: 1240px;
+  }
+  .food-disc {
+    border-radius: 24px;
+    border: 6px solid var(--gold);
+  }
+  .title-block {
+    top: 1560px; left: 100px; right: 100px;
+    text-align: center;
+    padding: 0;
+  }
+  .title-block .kicker {
+    font-size: 26px; letter-spacing: 18px; margin-bottom: 14px;
+  }
+  .title-block h1 { font-size: 144px; }
+  .title-block.long h1 { font-size: 118px; }
+  .title-block.xlong h1 { font-size: 96px; }
+  .price-plaque {
+    left: 1500px; top: 230px;
+    right: auto;
+    width: 380px; height: 380px;
+  }
+  .features {
+    top: 1820px; left: 100px;
+    right: auto;
+    width: 1848px;
+    flex-direction: row;
+    gap: 18px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .features .chip {
+    flex: 0 1 auto;
+    padding: 14px 26px;
+  }
+{%- elif lever_archetype == 2 %}
+  /* Archetype 2 — Editorial Split: food fills the right half edge-to-
+     edge, all text+price stack on the left half. */
+  .food-wrap {
+    left: 1024px; top: 0;
+    transform: none;
+    width: 1024px; height: 2048px;
+    filter: none;
+  }
+  .food-disc {
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+  .title-block {
+    top: 380px; left: 100px; right: auto;
+    width: 880px;
+    text-align: left;
+    padding: 0;
+  }
+  .title-block .kicker {
+    font-size: 26px; letter-spacing: 16px; margin-bottom: 24px;
+    padding-left: 0;
+  }
+  .title-block h1 { font-size: 158px; }
+  .title-block.long h1 { font-size: 124px; }
+  .title-block.xlong h1 { font-size: 96px; line-height: 1.0; }
+  .price-plaque {
+    left: 100px; top: 1100px;
+    right: auto;
+    width: 360px; height: 360px;
+  }
+  .features {
+    top: 1500px; left: 100px;
+    right: auto;
+    width: 880px;
+  }
+  .frame {
+    border-right: 4px solid var(--gold);
+    border-top: none; border-bottom: none; border-left: none;
+    inset: 0;
+    width: 1028px;
+  }
+{%- endif %}
 </style>
 </head>
 <body>
