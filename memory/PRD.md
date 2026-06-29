@@ -85,6 +85,30 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 28, 2026 — Sprint 22I (Phase B): UX Clarity — Lock Variant + Context-Aware Actions
+
+**Problem (from user):** "I cannot clearly tell what regenerates the whole job vs one variant vs copy only" and "I want to keep the one I like and tweak price/copy without losing the design." The existing Review screen had one ambiguous "Design another" button next to "Generate Marketing Pack Copy" — no way to communicate "this is the design I want, just iterate text."
+
+**Fix (frontend-only, no API changes):** Per-variant Lock toggle + context-aware bottom action labels in `pages/dashboard/aiads/AiDesigner.jsx`.
+
+| Element | Default | After locking a variant |
+|---|---|---|
+| Section header | "Your 3 designs are ready" | "Design locked — keep tweaking copy" |
+| Top banner | (none) | Gold bar: *"Design locked. Use 'Edit copy' below to tweak text — the design stays put."* with **Unlock** action |
+| Locked card | Plain border | 2 px gold border + 4 px gold halo + "LOCKED" badge |
+| Other cards | Plain border | Dimmed to 50% opacity |
+| Primary CTA | "Regenerate all 3 designs" | "Try 3 more (keeps locked design)" |
+| Secondary CTA | "Generate Marketing Pack Copy" | "Edit copy (design stays locked)" |
+
+The whole flow stays on the existing `POST /api/ai-designer/generate` API — the lock is pure client-side state. Any flyer locked into the design has already been saved to Library by the underlying job, so "Try 3 more" never destroys the locked design.
+
+**Files changed:**
+- `/app/frontend/src/pages/dashboard/aiads/AiDesigner.jsx` — added `lockedIdx` state, Lock banner, per-card Lock button, dim/halo styling, context-aware action labels and tooltips. New data-testids: `designer-lock-banner`, `designer-unlock`, `designer-lock-<variant>`, `designer-locked-badge-<variant>`, `designer-bottom-actions`.
+
+**Regression:** No backend changes, 49 renderer-stack tests pass. ESLint clean. Frontend hot-reloaded successfully, dashboard renders, no console errors.
+
+---
+
 ### Feb 28, 2026 — Sprint 22I (Phase A): Structural Variant Archetypes — Complete
 
 **Problem (from user, validated by vision-model audit):** Sprint 22G's "diversity" was hash-deep, not perception-deep. Vision model graded within-job variant diversity at **1–2/10** ("twins, minor pill reordering"), cross-regeneration at **1/10** ("effectively identical"), and cross-theme at **4/10** ("color-swapped iterations of one template").
