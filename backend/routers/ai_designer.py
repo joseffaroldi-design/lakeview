@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Cookie, Header, HTTPException
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel, ConfigDict, Field, constr
 
 from auth import verify_session
@@ -64,7 +64,6 @@ from ai_designer.utils import (
     wrap_text as _wrap_text_new,
     map_food_to_theme as _map_food_to_theme_new,
     normalize_theme as _normalize_theme_new,
-    fit_text_to_box as _fit_text_to_box_new,
 )
 
 logger = logging.getLogger("uvicorn.error")
@@ -267,7 +266,7 @@ from ai_designer.composition import _pil_background
 # `routers.ai_designer`. Keeping the public import surface identical is the
 # whole point of the re-export.
 
-from ai_designer.composition import (
+from ai_designer.composition import (  # noqa: F401 — re-exported for theme_packs/* imports
     _halftone_dots,
     _lightning_bolt,
     _speed_lines,
@@ -362,7 +361,7 @@ def _drop_shadow(im: Image.Image, blur: int = 18, opacity: int = 110, offset: Tu
 # router only re-exports the icon dispatch surface used by `_draw_bullets`.
 
 # Tech Debt Sprint Step 6: imports replace ~145 lines of inlined helpers.
-from ai_designer.composition import (
+from ai_designer.composition import (  # noqa: F401 — re-exported for test imports
     ICON_KEYWORDS,
     icon_for_feature as _icon_for_feature,
     rgba as _rgba,
@@ -377,7 +376,7 @@ from ai_designer.composition import (
     icon_drink as _icon_drink,
     icon_lettuce as _icon_lettuce,
     draw_ingredient_icon as _draw_ingredient_icon,
-    _ICON_DRAWERS,  # re-exported for backward compatibility with tests that import it
+    _ICON_DRAWERS,
 )
 
 

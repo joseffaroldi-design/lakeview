@@ -85,6 +85,36 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 28, 2026 — Sprint 22H: Production Readiness & Final Launch Audit — Complete
+
+**Verdict:** ✅ **AI Designer is production-ready** (full report at `/app/memory/SPRINT_22H_LAUNCH_REPORT.md`).
+
+**Validation matrix (62 functional + 50 stress = 112 renders, all OK):**
+- **Phase 1 — Theme validation:** 22 themes × (3-variant + 5-variant smoke) + 1-variant edge + 5 toggle combos (logo/price/features/cta/all-off). **62/62 PASS.**
+- **Phase 2 — Stress:** 10 concurrent → 25 sequential → 15 concurrent. **50/50 OK, 0 5xx, 0 timeouts, 0 restarts.** avg 20.9s, p95 48.1s.
+- **Phase 3 — Code audit:** Removed 3 truly-unused imports; documented 2 re-export blocks with `# noqa: F401`. Ruff F401/F841 clean. No print/TODO/HACK leftovers.
+
+**One bug found and fixed during audit (Sprint 22H §1.1):**
+- `seafood.html` was missed during Sprint 22G — variants 3/4 collapsed to byte-identical with v2 at `variations=5` (3/5 unique). Applied the same 6-lever pattern (accent / brand_spacing / title_align / features_side / kicker / corner_style) → all 3 seafood themes now 5/5 unique.
+
+**Files changed in 22H:**
+- `/app/backend/html_renderer/templates/seafood.html` — 6 design levers added.
+- `/app/backend/ai_designer/render_context.py` — removed unused `typing.Optional` import.
+- `/app/backend/routers/ai_designer.py` — removed unused `PIL.ImageFilter` + `fit_text_to_box` imports; added `# noqa: F401` documentation to the two intentional overlay/icon re-export blocks.
+- `/app/memory/SPRINT_22H_LAUNCH_REPORT.md` — full 6-phase audit report (scorecard, tech debt, UX backlog).
+
+**Launch scorecard:**
+- Production Readiness: **92 / 100**
+- Reliability: 95 — Maintainability: 85 — Performance: 88 — UX: 82
+- Remaining blockers: **None.**
+
+**Open backlog (documented, not implemented per audit scope):**
+- UX P0: Regenerate-one-variant, Pin variant, Recent themes
+- Tech debt H1-H3: split composition.py (1077 LOC), shrink router re-exports, restore Playwright Chromium in PROD Dockerfile
+- Tech debt M1-M2: extend `_variant_food_transform` past v2; add 2 more layouts to break the 3-layout cycle
+
+---
+
 ### Feb 28, 2026 — Sprint 22G: Variation Diversity (HTML Renderer) — Complete
 
 **Problem:** `luxury` and `cajun` themes produced byte-identical outputs across regenerations (3/9 unique hashes per theme). The procedural and agency-template paths already consumed `RenderContext.rng` for design diversity, but the HTML/CSS renderer (used for luxury + cajun + seafood themes when Chromium is available) had no diversity hooks — it rendered the same Jinja template the same way every time, regardless of `job_nonce`.

@@ -7,13 +7,23 @@
   {{ font_face_block|safe }}
 
   /* ------ Seafood Coastal — Gulf-side / Po-Boy / oyster night ------ */
+  /* Sprint 22H: accent shift via `--citrus` chooses one of three on-brand
+     coastal yellows (lemon / saffron / honey). All stay on-palette. */
   :root {
     --deep:       #0d2a3d;        /* deep navy */
     --tide:       #1d4862;        /* mid-tide blue */
     --foam:       #cfe1e0;        /* sea foam */
     --sand:       #f6efdb;        /* sun-bleached sand */
+{%- if lever_accent == 1 %}
+    --citrus:     #e8b840;        /* saffron */
+    --citrus-deep:#c08a14;
+{%- elif lever_accent == 2 %}
+    --citrus:     #f0d168;        /* honey */
+    --citrus-deep:#cba62d;
+{%- else %}
     --citrus:     #f6c44b;        /* lemon */
     --citrus-deep:#d49a1c;
+{%- endif %}
     --coral:      #d75944;        /* boiled-shrimp coral */
     --paper:      #fff8e6;
     --shadow:     rgba(13, 42, 61, .45);
@@ -69,7 +79,13 @@
     font-family: "Playfair Display", serif;
     font-weight: 900;
     font-size: 88px;
+{%- if lever_brand_spacing == 1 %}
+    letter-spacing: 18px;
+{%- elif lever_brand_spacing == 2 %}
+    letter-spacing: 26px;
+{%- else %}
     letter-spacing: 22px;
+{%- endif %}
     color: var(--citrus);
     text-transform: uppercase;
     padding-left: 22px;
@@ -101,7 +117,13 @@
   .title-block {
     position: absolute;
     top: 460px; left: 0; right: 0;
+{%- if lever_title_align == 1 %}
+    text-align: left;
+    padding-left: 200px;
+    padding-right: 200px;
+{%- else %}
     text-align: center;
+{%- endif %}
     z-index: 4;
   }
   .title-block .kicker {
@@ -155,10 +177,15 @@
     pointer-events: none;
   }
 
-  /* ----- features: stacked on the right ----- */
+  /* ----- features: stacked on the right (default) or left ----- */
   .features {
     position: absolute;
-    right: 110px; top: 1030px;
+{%- if lever_features_side == 1 %}
+    left: 110px;
+{%- else %}
+    right: 110px;
+{%- endif %}
+    top: 1030px;
     width: 460px;
     display: flex; flex-direction: column;
     gap: 26px;
@@ -179,16 +206,37 @@
     align-self: flex-start;
     max-width: 460px;
   }
+  /* Sprint 22H: chip parity flip — corner_style toggles which chip gets
+     the citrus background vs the paper background. */
+{%- if lever_corner_style == 1 %}
+  .features .chip:nth-child(odd) {
+    background: var(--citrus);
+    color: var(--deep);
+    border-left-color: var(--coral);
+  }
+{%- elif lever_corner_style == 2 %}
+  .features .chip:nth-child(even) {
+    background: var(--coral);
+    color: var(--paper);
+    border-left-color: var(--citrus);
+  }
+{%- else %}
   .features .chip:nth-child(even) {
     background: var(--citrus);
     color: var(--deep);
     border-left-color: var(--coral);
   }
+{%- endif %}
 
   /* ----- price seal: nautical compass rose ----- */
   .price-seal {
     position: absolute;
-    right: 140px; top: 1500px;
+{%- if lever_features_side == 1 %}
+    left: 140px;
+{%- else %}
+    right: 140px;
+{%- endif %}
+    top: 1500px;
     width: 380px; height: 380px;
     z-index: 7;
     filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .55));
@@ -282,7 +330,17 @@
 
     <!-- Title -->
     <div class="title-block {% if item_name|length > 22 %}xlong{% elif item_name|length > 14 %}long{% endif %}">
-      <div class="kicker">From the Gulf</div>
+      <div class="kicker">
+        {%- if lever_kicker == 1 -%}
+          Today's Catch
+        {%- elif lever_kicker == 2 -%}
+          Dockside Special
+        {%- elif lever_kicker == 3 -%}
+          Captain's Pick
+        {%- else -%}
+          From the Gulf
+        {%- endif -%}
+      </div>
       <h1>{{ item_name }}</h1>
     </div>
 
