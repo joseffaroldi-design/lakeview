@@ -155,15 +155,17 @@ def list_templates(category: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 def pick_template_for(category: Optional[str], theme_hint: Optional[str] = None) -> Optional[Template]:
-    """Pick a template best matching the inferred category. Returns None if
-    none match — caller should fall back to procedural compose.
+    """Pick a template best matching the theme. Returns None if no template
+    explicitly claims this theme via `fallback_theme` — caller should fall
+    back to procedural compose (which has rich theme-specific art).
 
-    Selection rule (priority order):
-      1. theme_hint match against `fallback_theme` (exact)
-      2. category match
-      3. category == 'general'
+    Selection rule (Sprint 22J — STRICT for theme routing):
+      1. If `theme_hint` is provided: EXACT match against `fallback_theme`
+         only. Returns None if no exact match (this prevents 7 themes from
+         silently inheriting the first manifest in the directory).
+      2. If only `category` is provided (legacy callers / tests): match
+         category, falling back to 'general'.
     """
-    # Walk all valid manifests.
     valid: List[Template] = []
     for tid in [fn[:-5] for fn in os.listdir(MANIFESTS_DIR) if fn.endswith(".json")] if os.path.isdir(MANIFESTS_DIR) else []:
         try:
@@ -176,6 +178,8 @@ def pick_template_for(category: Optional[str], theme_hint: Optional[str] = None)
         for t in valid:
             if t.fallback_theme == theme_hint:
                 return t
+        return None  # STRICT — no silent inheritance from another theme
+    # Legacy category-only path (pre-Sprint-22J callers, including tests).
     if category:
         for t in valid:
             if t.category == category:

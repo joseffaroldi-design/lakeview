@@ -85,6 +85,44 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 28, 2026 — Sprint 22J: Theme Routing — Stop Silent Template Inheritance
+
+**Problem (from user):** *"Themes are not just labels. A theme must visibly change the final PNG. If theme changes from Burger Classic to Luxury, the output should look like a totally different restaurant brand."*
+
+**Root cause found in audit:** `agency_templates.pick_template_for(theme_hint=X)` had a 3-tier fallback (theme_hint → category → first 'general' template → valid[0]). Only 6 manifests exist for 22 themes, so 7 themes (modern, vintage, vintage_diner, comic_pop, cajun, burger_neon_diner, burger_grill_smoke) silently inherited the SAME `classic-diner-01.json` template. That's why every theme looked like the same flyer with a color filter — *they literally were the same template.*
+
+**Fix:** When `theme_hint` is provided, `pick_template_for` now does an **exact match only**. No silent inheritance. Themes without a dedicated agency manifest route to the procedural fallback (`render_engine.compose_layered_with_score` + `_pil_background()`), which already had theme-specific generators (checker strips + stars for vintage_diner, halftones + lightning bolts for comic_pop, distressed grain + brush stamps for distressed_orange, etc.).
+
+**Routing table after fix:**
+| Theme(s) | Route |
+|---|---|
+| `burger_classic` | agency `burger-poster-01` |
+| `luxury` | HTML `luxury.html` (PIL fallback → `luxury-dark-01`) |
+| `seafood_*` | HTML `seafood.html` (PIL fallback → `seafood-special-01`) |
+| `cajun` | HTML `cajun.html` (PIL fallback → procedural with theme-specific cypress/bay-leaf art) |
+| `modern` | agency `classic-diner-01` |
+| `game_day_scoreboard` | agency `game-day-promo-01` |
+| Everything else (`vintage_diner`, `comic_pop`, `distressed_orange`, `bold_purple_pop`, `casual_teal`, `social`, `mardi_gras`, `summer_splash`, `holiday_cheer`, `burger_neon_diner`, `burger_grill_smoke`, `vintage`, `game_day_tailgate`, `game_day_locker`, `seafood_lagoon`, `seafood_dockside`) | **Procedural** — uses each theme's own `_pil_background()` branch with distinct art |
+
+**Visual audit after fix (independent vision model, user's headline themes from spec):**
+
+| Theme | Before 22I | Before 22J (post-Phase-A) | After 22J |
+|---|---:|---:|---:|
+| burger_classic | 1/10 | 6/10 | **7-8/10** ("dark wood, bold typography, rugged price badge") |
+| luxury | 1/10 | 9/10 | **7-8/10** ("black/gold, elegant, premium feel") |
+| vintage_diner | 1/10 | inherits classic-diner | **5/10** ("checker present, retro red/cream — typography next gap") |
+| comic_pop | 1/10 | inherits classic-diner | **6-7/10** ("halftones + lightning bolts visible, on-theme yellow") |
+| cross-theme | 4/10 | 8/10 (phase-A grid) | 4/10 in this audit (typography is the next bottleneck per vision) |
+
+**Honest read:** This change unblocked the themes that had been hidden behind the silent fallback. Vintage_diner and comic_pop now show their own visual identity (5/10 and 7/10 from 1/10). Cross-theme distinctiveness is still bottlenecked on **typography** — every theme already declares its own font (Bungee for comic_pop, Cinzel for luxury, etc.) but at thumbnail scale the title weight reads similarly. That's the next sprint, not this one.
+
+**Files changed:**
+- `/app/backend/agency_templates/__init__.py` — `pick_template_for` now strict when `theme_hint` provided; preserves legacy category-only path for tests.
+
+**Regression:** 64/64 tests pass (renderer-stack + agency-templates + workspace). Lint clean. No API/schema/frontend changes.
+
+---
+
 ### Feb 28, 2026 — Sprint 22I (Phase B): UX Clarity — Lock Variant + Context-Aware Actions
 
 **Problem (from user):** "I cannot clearly tell what regenerates the whole job vs one variant vs copy only" and "I want to keep the one I like and tweak price/copy without losing the design." The existing Review screen had one ambiguous "Design another" button next to "Generate Marketing Pack Copy" — no way to communicate "this is the design I want, just iterate text."
