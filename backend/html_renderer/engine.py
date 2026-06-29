@@ -166,10 +166,20 @@ class _RenderJob:
 def _worker_loop() -> None:
     """Owns the Playwright instance + browser for the process lifetime."""
     pw = sync_playwright().start()
-    browser = pw.chromium.launch(
-        headless=True,
-        args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    # Sprint 22K — prefer the host-supplied Chrome at /usr/bin/chromium
+    # (declared via $PLAYWRIGHT_CHROME_EXECUTABLE_PATH) so HTML rendering
+    # works on both preview and production without infra changes.
+    launch_kwargs = {
+        "headless": True,
+        "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    }
+    exe_path = (
+        os.environ.get("PLAYWRIGHT_CHROME_EXECUTABLE_PATH")
+        or os.environ.get("AGENT_BROWSER_EXECUTABLE_PATH")
     )
+    if exe_path and os.path.exists(exe_path):
+        launch_kwargs["executable_path"] = exe_path
+    browser = pw.chromium.launch(**launch_kwargs)
     while True:
         job_dict, future = _RENDER_QUEUE.get()
         if job_dict is None:  # shutdown sentinel

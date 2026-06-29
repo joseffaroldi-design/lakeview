@@ -85,6 +85,48 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 
 ## Changelog (Latest First)
 
+### Feb 28, 2026 — Sprint 22K: Production HTML Renderer Restoration — Complete
+
+**Verdict: This was a code bug, not an infra problem.** The Chromium binary was bundled correctly all along — at `/root/.cache/ms-playwright/chromium-1223/chrome-linux/chrome` (Playwright's standard cache location) — and a system Chrome is also available at `/usr/bin/chromium` (`$PLAYWRIGHT_CHROME_EXECUTABLE_PATH`). Our `_is_chromium_available()` was looking for the wrong sibling path (`chromium_headless_shell-1223/.../headless_shell`) that doesn't ship by default.
+
+**Audit table (route per theme on production *before* fix):**
+
+| Theme | Designed for | Routed to | Reason |
+|---|---|---|---|
+| luxury | HTML | AGENCY(luxury-dark-01) | "Chromium missing" → PIL fallback |
+| cajun | HTML | PROCEDURAL | same |
+| seafood_coastal | HTML | AGENCY(seafood-special-01) | same |
+| seafood_lagoon, seafood_dockside | HTML | PROCEDURAL | same |
+| burger_classic | AGENCY | AGENCY(burger-poster-01) | ok |
+| modern, game_day_scoreboard | AGENCY | AGENCY(...) | ok |
+| 14 other themes | PROCEDURAL | PROCEDURAL | ok |
+
+**Fix:**
+- `ai_designer/renderer.py` — `_is_chromium_available()` now tries 4 paths in order:
+  1. `$PLAYWRIGHT_CHROME_EXECUTABLE_PATH`
+  2. `$AGENT_BROWSER_EXECUTABLE_PATH`
+  3. Playwright's `pw.chromium.executable_path` (bundled Chromium full binary)
+  4. The bundled `headless_shell` sibling
+- New `get_chromium_executable_path()` exposes the resolved path.
+- `html_renderer/engine.py` — worker now passes `executable_path=` to `chromium.launch()` when an env-supplied binary is available.
+
+**Proof HTML renderer executed (preview after fix):**
+- Backend log: `"[ai_designer] HTML/CSS renderer using Chromium at '/root/.cache/ms-playwright/chromium-1223/chrome-linux/chrome'"`
+- `_is_chromium_available()` returns **True**
+- Luxury PNG sizes jumped from ~400 KB (PIL fallback) to ~620 KB (HTML render)
+- Vision-graded luxury identity: **5/10 → 9/10** ("strong luxury aesthetic, classic serif, gold ring, gold-edged price plaque")
+
+**Regression — 68/68 tests pass** (renderer, agency, layout, variant uniqueness, html_template_routes, smart_menu, workspace).
+Smoke test on preview: luxury / cajun / seafood_coastal / burger_classic all render successfully (620 KB / 579 KB / 451 KB / 394 KB respectively, all status=completed).
+
+**Files changed:**
+- `/app/backend/ai_designer/renderer.py` — Chromium path resolver
+- `/app/backend/html_renderer/engine.py` — passes `executable_path=` to Playwright launch
+
+**No Docker/runtime changes required.** This ships purely via redeploy.
+
+---
+
 ### Feb 28, 2026 — Sprint 22J: Theme Routing — Stop Silent Template Inheritance
 
 **Problem (from user):** *"Themes are not just labels. A theme must visibly change the final PNG. If theme changes from Burger Classic to Luxury, the output should look like a totally different restaurant brand."*

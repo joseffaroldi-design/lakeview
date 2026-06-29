@@ -52,7 +52,7 @@ from ai_designer.utils import FONT_SANS_BOLD
 logger = logging.getLogger("uvicorn.error")
 
 
-# ─── Sprint 22D Option B — Chromium-presence guard ────────────────────
+# ─── Sprint 22D/K — Chromium-presence guard ───────────────────────────
 #
 # Production crashed during Luxury/Cajun renders because Playwright's
 # expected Chromium binary was missing (revision mismatch between the
@@ -61,75 +61,88 @@ logger = logging.getLogger("uvicorn.error")
 # re-tried `chromium.launch()`, and leaked enough resources to OOM-kill
 # the container — taking the whole site down for ~60-90s per attempt.
 #
-# This guard checks ONCE (cached) whether the Chromium headless_shell
-# binary actually exists on disk. We rely on Playwright's own
-# `executable_path` PROPERTY (no subprocess, no launch) to learn the
-# expected location, then check the file system. If it's missing,
-# every render falls through to the PIL agency/procedural path. No
-# launch attempt, no leaked subprocess, no container restart.
-#
-# The check is single-call cached for the lifetime of the process via
-# `_chromium_lock`; concurrent calls during the first probe are safe.
+# Sprint 22K — the container ships a full Chrome at /usr/bin/chromium
+# (declared via $PLAYWRIGHT_CHROME_EXECUTABLE_PATH). We prefer that
+# binary when present, falling back to the bundled headless_shell as a
+# secondary path. This restores HTML rendering on both preview and
+# production without requiring an infra change.
 
 _chromium_lock = threading.Lock()
 _chromium_available: Optional[bool] = None
+_chromium_executable_path: Optional[str] = None
+
+
+def _resolve_chromium_executable() -> Optional[str]:
+    """Return a path to a Chromium binary Playwright can launch, or None.
+
+    Resolution order:
+      1. `$PLAYWRIGHT_CHROME_EXECUTABLE_PATH` (set by the host container)
+      2. `$AGENT_BROWSER_EXECUTABLE_PATH`     (Emergent platform default)
+      3. Bundled `<browsers_path>/chromium_headless_shell-<rev>/.../headless_shell`
+      4. Bundled `<browsers_path>/chromium-<rev>/.../chrome`
+    """
+    # 1 + 2 — explicit host-supplied paths.
+    for env in ("PLAYWRIGHT_CHROME_EXECUTABLE_PATH", "AGENT_BROWSER_EXECUTABLE_PATH"):
+        p = os.environ.get(env)
+        if p and os.path.exists(p):
+            return p
+    # 3 + 4 — bundled binaries via Playwright's executable_path property.
+    try:
+        from playwright.sync_api import sync_playwright
+
+        pw = sync_playwright().start()
+        try:
+            expected = pw.chromium.executable_path
+        finally:
+            try:
+                pw.stop()
+            except Exception:  # noqa: BLE001
+                pass
+        if expected and os.path.exists(expected):
+            return expected
+        # Try the headless_shell sibling (same revision).
+        derived = expected.replace("/chromium-", "/chromium_headless_shell-", 1)
+        shell_path = os.path.join(os.path.dirname(derived), "headless_shell")
+        if os.path.exists(shell_path):
+            return shell_path
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 def _is_chromium_available() -> bool:
-    """Return True iff Playwright Chromium headless shell is installed.
-
-    Cached for the lifetime of the process. Uses Playwright's
-    `executable_path` PROPERTY (no subprocess, no launch) to determine
-    the expected binary path, then performs a single os.path.exists().
-    Returns False on any error — fail-closed so a broken Playwright
-    install never blocks the PIL fallback.
-    """
-    global _chromium_available
+    """Cached probe — does at least one Chromium binary exist?"""
+    global _chromium_available, _chromium_executable_path
     if _chromium_available is not None:
         return _chromium_available
     with _chromium_lock:
         if _chromium_available is not None:
             return _chromium_available
-        try:
-            from playwright.sync_api import sync_playwright
-
-            pw = sync_playwright().start()
-            try:
-                # Property — does not launch the browser.
-                expected = pw.chromium.executable_path
-            finally:
-                try:
-                    pw.stop()
-                except Exception:  # noqa: BLE001
-                    pass
-            # html_renderer launches headless=True which requires
-            # `chromium_headless_shell-<rev>/chrome-linux/headless_shell`,
-            # not the full chrome binary. Derive it from `expected`:
-            #   /pw-browsers/chromium-1223/chrome-linux/chrome
-            #   -> /pw-browsers/chromium_headless_shell-1223/chrome-linux/headless_shell
-            derived = expected.replace(
-                "/chromium-", "/chromium_headless_shell-", 1
-            )
-            shell_path = os.path.join(os.path.dirname(derived), "headless_shell")
-            ok = os.path.exists(shell_path)
-            if not ok:
-                logger.warning(
-                    "[ai_designer] Playwright Chromium headless shell missing "
-                    f"at {shell_path!r}; HTML/CSS renderer disabled for this "
-                    "process — Cajun + Luxury jobs will silently fall back to "
-                    "the PIL agency/procedural renderer. Run "
-                    "`playwright install chromium` to restore HTML rendering."
-                )
-            _chromium_available = bool(ok)
-            return _chromium_available
-        except Exception as e:  # noqa: BLE001
+        path = _resolve_chromium_executable()
+        _chromium_executable_path = path
+        _chromium_available = bool(path)
+        if not _chromium_available:
             logger.warning(
-                "[ai_designer] Could not probe Playwright Chromium "
-                f"availability ({type(e).__name__}: {e}); HTML renderer "
-                "disabled. PIL fallback still active."
+                "[ai_designer] No Chromium binary found via "
+                "PLAYWRIGHT_CHROME_EXECUTABLE_PATH, "
+                "AGENT_BROWSER_EXECUTABLE_PATH, or Playwright's "
+                "bundled paths — HTML/CSS renderer disabled; Cajun + "
+                "Luxury + Seafood will fall back to the PIL agency/"
+                "procedural renderer."
             )
-            _chromium_available = False
-            return False
+        else:
+            logger.info(
+                "[ai_designer] HTML/CSS renderer using Chromium at %r", path,
+            )
+        return _chromium_available
+
+
+def get_chromium_executable_path() -> Optional[str]:
+    """Return the cached executable path resolved by _is_chromium_available,
+    or None if no binary was found. Lets the html_renderer worker launch
+    Playwright with the right `executable_path=` kwarg."""
+    _is_chromium_available()  # ensure cache populated
+    return _chromium_executable_path
 
 
 def compose_design(
