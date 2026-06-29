@@ -16,6 +16,7 @@ later via the existing /api/ai-designer/generate and
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import uuid
@@ -55,7 +56,12 @@ async def _persist_image(image_bytes: bytes, mime: str, filename: str,
         "image/png": "png", "image/webp": "webp",
     }.get(mime, "jpg")
     storage_path = objstore.make_path("uploads", asset_id, ext)
-    objstore.put_bytes(storage_path, image_bytes, mime)
+    # Production hotfix — put_bytes does a synchronous requests.put with a
+    # 180s timeout. Running it directly inside this async coroutine blocks
+    # the FastAPI event loop for the whole upload, starving every other
+    # request and causing Cloudflare 502s under any concurrent load. Run
+    # it in a worker thread so the loop stays responsive.
+    await asyncio.to_thread(objstore.put_bytes, storage_path, image_bytes, mime)
 
     width = height = None
     try:

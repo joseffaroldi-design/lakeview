@@ -197,7 +197,11 @@ async def _save_format_asset(src_bytes: bytes, fmt_key: str, item: Dict[str, str
     out_bytes = buf.getvalue()
     aid = str(uuid.uuid4())
     storage_path = objstore.make_path("marketing_pack", aid, "jpg")
-    objstore.put_bytes(storage_path, out_bytes, "image/jpeg")
+    # Production hotfix — objstore.put_bytes is a blocking requests.put.
+    # Offload to a worker thread to avoid stalling the event loop.
+    await asyncio.to_thread(
+        objstore.put_bytes, storage_path, out_bytes, "image/jpeg",
+    )
     tags = ["marketing-pack", fmt_key, f"pack:{pack_id}"]
     if fmt_key == "ig_story":
         tags.append("tiktok_reel")  # the 9:16 is dual-labeled
@@ -262,7 +266,11 @@ async def _render_pack_video(pack_id: str, image_asset_ids: List[str], item: Dic
         video_bytes = out_path.read_bytes()
         new_id = str(uuid.uuid4())
         storage_path = objstore.make_path("marketing_pack", new_id, "mp4")
-        objstore.put_bytes(storage_path, video_bytes, "video/mp4")
+        # Production hotfix — sync put_bytes blocks the event loop. The
+        # video can be tens of MB so this is one of the worst offenders.
+        await asyncio.to_thread(
+            objstore.put_bytes, storage_path, video_bytes, "video/mp4",
+        )
         doc = {
             "id": new_id,
             "filename": f"{_slugify(item['name'])}-promo-{new_id[:6]}.mp4",

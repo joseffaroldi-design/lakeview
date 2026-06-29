@@ -342,7 +342,12 @@ async def _generate_graphics_for_item(item: Dict[str, Any]) -> List[Dict[str, st
             # Upload to storage
             asset_id = str(uuid.uuid4())
             storage_path = objstore.make_path("todays_pick", asset_id, "jpg")
-            objstore.put_bytes(storage_path, img_bytes, "image/jpeg")
+            # Production hotfix — objstore.put_bytes is a blocking
+            # requests.put. Offload to a worker thread so it doesn't
+            # starve the event loop.
+            await asyncio.to_thread(
+                objstore.put_bytes, storage_path, img_bytes, "image/jpeg",
+            )
             
             # Create media_assets entry
             doc = {

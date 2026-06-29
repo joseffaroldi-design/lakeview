@@ -1,6 +1,7 @@
 """Asset CRUD + file streaming + folders + stats."""
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -95,7 +96,10 @@ async def get_file(asset_id: str):
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     try:
-        data, _ = objstore.get_bytes(asset["storage_path"])
+        # Production hotfix — get_bytes is a blocking requests.get with a 60s
+        # timeout. Running it inside the async loop starves every other
+        # request (this endpoint fires for every image preview in the UI).
+        data, _ = await asyncio.to_thread(objstore.get_bytes, asset["storage_path"])
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="File missing in storage")
     headers = {"Content-Disposition": f'inline; filename="{asset.get("filename", asset_id)}"'}
@@ -179,11 +183,16 @@ async def duplicate_asset(asset_id: str, authorization: str = Header(None), sess
     new_id = str(uuid.uuid4())
     ext = src["storage_path"].rsplit(".", 1)[-1]
     new_path = objstore.make_path(src.get("source", "uploads"), new_id, ext)
+    # Production hotfix — both get_bytes and put_bytes are blocking
+    # synchronous requests calls. Offload to worker threads so duplicating
+    # a large asset doesn't stall the event loop.
     try:
-        data, _ = objstore.get_bytes(src["storage_path"])
+        data, _ = await asyncio.to_thread(objstore.get_bytes, src["storage_path"])
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Source file missing in storage")
-    objstore.put_bytes(new_path, data, src.get("mime") or "application/octet-stream")
+    await asyncio.to_thread(
+        objstore.put_bytes, new_path, data, src.get("mime") or "application/octet-stream",
+    )
     clone = {**src, "id": new_id, "storage_path": new_path,
              "filename": f"{src['filename']} (Copy)", "is_favorite": False,
              "uploaded_at": _now(), "updated_at": _now()}

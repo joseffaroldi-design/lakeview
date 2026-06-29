@@ -1,6 +1,7 @@
 """Upload endpoint — multipart image/video uploads."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import subprocess
 import uuid
@@ -93,7 +94,13 @@ async def upload_media(
         # Upload to persistent object storage
         log.info("UPLOAD_STORAGE_START asset_id=%s path=%s", asset_id, storage_path)
         try:
-            objstore.put_bytes(storage_path, scratch.read_bytes(), mime)
+            # Production hotfix — put_bytes is blocking (requests.put, 180s
+            # timeout). Run it in a worker thread so a single big upload
+            # doesn't freeze the event loop and 502 every other request.
+            _scratch_bytes = await asyncio.to_thread(scratch.read_bytes)
+            await asyncio.to_thread(
+                objstore.put_bytes, storage_path, _scratch_bytes, mime,
+            )
         except Exception as e:  # noqa: BLE001
             log.exception("UPLOAD_FAILURE asset_id=%s reason=storage_put_failed", asset_id)
             raise HTTPException(

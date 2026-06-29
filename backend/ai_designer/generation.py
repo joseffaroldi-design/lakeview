@@ -99,7 +99,11 @@ async def run_design_job(
     # Load source food photo
     try:
         asset = await get_active_asset(body.source_asset_id)
-        food_bytes, _ = objstore.get_bytes(asset["storage_path"])
+        # Production hotfix — objstore.get_bytes is blocking; offload to a
+        # worker thread so concurrent jobs don't serialize on this fetch.
+        food_bytes, _ = await asyncio.to_thread(
+            objstore.get_bytes, asset["storage_path"],
+        )
     except HTTPException as e:
         await fail(e.detail if isinstance(e.detail, str) else "Source asset not found")
         return

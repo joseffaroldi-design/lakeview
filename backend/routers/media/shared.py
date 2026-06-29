@@ -95,8 +95,11 @@ async def _ensure_thumb_bytes(asset: Dict[str, Any]) -> Optional[bytes]:
     `lakeview/thumbs/{asset_id}.jpg` so subsequent fetches are O(1)."""
     thumb_path = objstore.make_path("thumbs", asset["id"], "jpg")
     # Cached?
+    # Production hotfix — objstore.get_bytes / put_bytes are blocking
+    # (synchronous requests calls). Run them in worker threads so a
+    # thumbnail fetch can't starve the event loop.
     try:
-        data, _ = objstore.get_bytes(thumb_path)
+        data, _ = await asyncio.to_thread(objstore.get_bytes, thumb_path)
         return data
     except FileNotFoundError:
         pass
@@ -104,7 +107,7 @@ async def _ensure_thumb_bytes(asset: Dict[str, Any]) -> Optional[bytes]:
         pass
     # Generate
     try:
-        src_bytes, _ = objstore.get_bytes(asset["storage_path"])
+        src_bytes, _ = await asyncio.to_thread(objstore.get_bytes, asset["storage_path"])
     except FileNotFoundError:
         return None
     out = io.BytesIO()
@@ -138,7 +141,7 @@ async def _ensure_thumb_bytes(asset: Dict[str, Any]) -> Optional[bytes]:
     if not data:
         return None
     try:
-        objstore.put_bytes(thumb_path, data, "image/jpeg")
+        await asyncio.to_thread(objstore.put_bytes, thumb_path, data, "image/jpeg")
     except Exception:  # noqa: BLE001
         pass  # Cache write is best-effort
     return data

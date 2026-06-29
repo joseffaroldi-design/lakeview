@@ -30,6 +30,7 @@ Routes:
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import os
@@ -496,7 +497,10 @@ async def _save_design_asset(img_bytes: bytes, item_name: str, theme_id: str, va
                              score_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     aid = str(uuid.uuid4())
     storage_path = objstore.make_path("ai_designs", aid, "png")
-    objstore.put_bytes(storage_path, img_bytes, "image/png")
+    # Production hotfix — see photo_flyer._persist_image for the same
+    # rationale. put_bytes is a blocking requests.put; running it directly
+    # inside this async coroutine starves the event loop.
+    await asyncio.to_thread(objstore.put_bytes, storage_path, img_bytes, "image/png")
     with Image.open(io.BytesIO(img_bytes)) as im:
         w, h = im.size
     slug = item_name[:30].replace(" ", "-").lower().strip("-") or "design"
