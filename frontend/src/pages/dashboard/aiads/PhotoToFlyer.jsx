@@ -404,7 +404,8 @@ const UploadStep = ({
               >
                 <option value="instagram_post">Instagram Post (1024×1024)</option>
                 <option value="instagram_story">Instagram Story (1080×1920)</option>
-                <option value="facebook">Facebook Post (1200×1200)</option>
+                <option value="facebook_post">Facebook Post / Link (1200×630)</option>
+                <option value="facebook_feed">Facebook Feed Square (1200×1200)</option>
                 <option value="tiktok">TikTok (1080×1920)</option>
                 <option value="twitter">Twitter/X (1200×675)</option>
                 <option value="email">Email Campaign (600×600)</option>

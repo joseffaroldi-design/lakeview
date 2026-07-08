@@ -35,6 +35,16 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — AI Designer Facebook Post dimensions fix**:
+  - Split ambiguous `facebook` platform option into two explicit choices:
+    `facebook_post` → 1200×630 (landscape link-share, the standard FB Post)
+    and `facebook_feed` → 1200×1200 (square in-feed).
+  - Legacy `facebook` key kept as 1200×1200 alias for saved jobs.
+  - Frontend: PhotoToFlyer.jsx dropdown updated with both options.
+  - Regression: `/app/backend/tests/test_platform_sizes.py` pins sizes.
+  - End-to-end verified: compose_design with `platform=facebook_post`
+    produces a 1200×630 PNG through the procedural fallback.
+
 - **Feb 2026 — AI Ad Builder (Phase 1)**:
   - New `AI Ads` tab in dashboard. Industry-agnostic reusable engine.
   - Backend: `/app/backend/ai_engine/` (client, prompts, templates, industries/restaurant) + `/app/backend/routers/ai_ads.py` (8 endpoints).
