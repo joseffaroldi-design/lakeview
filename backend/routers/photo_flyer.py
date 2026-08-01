@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Cookie, File, Form, Header, HTTPException, UploadFile
 from PIL import Image
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel, ConfigDict, constr
 
 import storage as objstore
 from auth import verify_session
@@ -188,5 +189,81 @@ async def analyze_photo(
              "vision_ok=%s menu=%s",
              original["id"][:8], (enhanced or original)["id"][:8],
              payload["food_type"], payload["vision_ok"],
+             menu_match.get("matched"))
+    return payload
+
+
+# ---------------------------------------------------------------------------
+# Analyze-Existing: run vision on a photo that's already in the media library.
+# Feb 2026 UX redesign — Step 1 of the wizard now supports picking from the
+# library instead of re-uploading. This endpoint mirrors /analyze but skips
+# the persist + enhance steps because those bytes are already stored.
+# ---------------------------------------------------------------------------
+
+class AnalyzeExistingRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    asset_id: constr(min_length=1, max_length=64)
+
+
+@router.post("/analyze-existing")
+async def analyze_existing(
+    body: AnalyzeExistingRequest,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    """Run vision + menu-match on a media_assets row the user already owns.
+
+    Behaviour mirrors /analyze but is a no-write path: we do NOT re-upload,
+    re-enhance, or create new rows. The returned payload uses the SAME
+    asset_id for both `original_asset_id` and `enhanced_asset_id` so the
+    downstream Review step can render the same photo in both slots.
+    """
+    await verify_session(authorization, session_token)
+
+    row = await db.media_assets.find_one({"id": body.asset_id}, {"_id": 0})
+    if not row:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+    if row.get("kind") != "image":
+        raise HTTPException(status_code=400,
+                            detail=f"Asset is a {row.get('kind')!r}, not an image.")
+    if row.get("status") == "archived":
+        raise HTTPException(status_code=400, detail="Asset is archived.")
+
+    storage_path = row.get("storage_path")
+    if not storage_path:
+        raise HTTPException(status_code=502,
+                            detail="Asset has no storage path — cannot analyze.")
+
+    # storage.get_bytes does a synchronous requests.get with a long timeout —
+    # run it in a worker thread so the event loop stays responsive.
+    # NOTE: returns (bytes, content_type); we only need the bytes here.
+    try:
+        image_bytes, _ = await asyncio.to_thread(objstore.get_bytes, storage_path)
+    except Exception as e:  # noqa: BLE001
+        log.exception("photo_flyer analyze-existing storage fetch failed")
+        raise HTTPException(status_code=502, detail=f"Storage error: {e}")
+
+    log.info("PHOTO_FLYER_ANALYZE_EXISTING_START asset=%s size=%d",
+             body.asset_id[:8], len(image_bytes))
+
+    vision = await analyze_food_photo(image_bytes)
+    menu_match = await match_food_to_menu(vision.get("food_type", ""), db)
+
+    payload = {
+        "original_asset_id": body.asset_id,
+        "enhanced_asset_id": body.asset_id,
+        "enhance_info": {"mode": "library_reuse"},
+        "vision_ok": bool(vision.get("vision_ok")),
+        "vision_error": vision.get("error"),
+        "food_type": vision.get("food_type") or "",
+        "confidence": vision.get("confidence", 0.0),
+        "features": vision.get("features", []),
+        "suggested_theme": vision.get("suggested_theme") or "comic_pop",
+        "dominant_colors": vision.get("dominant_colors", []),
+        "menu_match": menu_match,
+    }
+    log.info("PHOTO_FLYER_ANALYZE_EXISTING_OK asset=%s food=%r "
+             "vision_ok=%s menu=%s",
+             body.asset_id[:8], payload["food_type"], payload["vision_ok"],
              menu_match.get("matched"))
     return payload

@@ -1,23 +1,29 @@
 /**
- * Photo → Flyer (Sprint 16D)
+ * Photo → Flyer (Feb 2026 redesign)
  *
- * Primary front-end entry point for the marketing workflow. Upload a
- * food photo → AI vision analysis → auto-filled flyer + caption in one
- * click. Video is opt-in from the review screen ("Turn this into a 15s
- * video").
+ * 4-step workflow with a clear responsibility per step:
+ *   1. Item & Photo     — pick menu item (optional) + choose photo source
+ *                         (Upload new / From library)
+ *   2. Design           — edit auto-filled fields, pick theme, and (optional)
+ *                         tune marketing options + logo
+ *   3. Generate         — poll the AI Designer job
+ *   4. Done             — flyer + auto-generated captions + optional 15-s video
  *
- * Sprint 16F.2 additions:
- *   * Reads sessionStorage key `lakeview.photo_flyer.prefill` (set by
- *     MenuEditor sparkle ✨) so menu items deep-link in with name /
- *     features / price already populated.
- *   * Theme picker upgraded from a flat <select> to the same grouped
- *     pack picker the Template Designer ships, with a flat-select fall
- *     back when /api/ai-designer/themes doesn't expose packs[].
+ * Prior versions crammed the menu picker, saved-style banner, upload dropzone
+ * AND every advanced generation option into Step 1. That was overwhelming.
+ * Step 1 now surfaces only the two decisions the user must make first (item +
+ * photo) and every advanced tuning knob lives on Step 2 behind two
+ * collapsibles ("Marketing options", "Add a logo").
  *
- * Pipelines reused (NOT duplicated):
- *   POST /api/photo-flyer/analyze    (new orchestrator: upload+enhance+vision+menu)
- *   POST /api/ai-designer/generate   (flyer + auto_copy) — existing
- *   POST /api/marketing-pack/generate (15-s video, opt-in) — existing
+ * Data flow (unchanged from Sprint 16D — we only redesigned presentation):
+ *   POST /api/photo-flyer/analyze           (upload path)
+ *   POST /api/photo-flyer/analyze-existing  (library path, Feb 2026)
+ *   POST /api/ai-designer/generate          (flyer + auto_copy)
+ *   POST /api/marketing-pack/generate       (15-s video, opt-in)
+ *
+ * SessionStorage keys still respected:
+ *   `lakeview.photo_flyer.prefill`  — MenuEditor sparkle ✨ deep-link
+ *   `lakeview.photo_flyer.remix`    — Library "🔁 Remix" deep-link
  */
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import axios from "axios";
@@ -86,9 +92,127 @@ const clearRemix = () => {
 
 
 
-// ============================== Step 1 — Upload ==========================
+// ============================== Step 1 — Item + Photo ====================
+//
+// Feb 2026 redesign: consolidated menu-item picker AND photo source into
+// a single 2-column step. Photo source has two tabs — "Upload New" and
+// "From Library" — so the owner can either upload a fresh dish photo or
+// re-use one they've already stored. Every advanced flyer control (tone,
+// goal, caption length, platform, CTA, logo, variant count) moved out of
+// this step and into Step 2 (`AnalysisReviewStep`) as collapsibles so
+// Step 1 is a single decision: pick item + pick photo → Continue.
 
-const UploadStep = ({
+const LibraryPhotoGrid = ({ getAuthHeader, selectedId, onSelect }) => {
+  const [assets, setAssets] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    axios.get(`${API}/media/assets?kind=image&limit=200`, { headers: getAuthHeader() })
+      .then((r) => {
+        if (cancelled) return;
+        // Prefer photo-flyer-tagged photos + Custom folder; hide flyers,
+        // logos and other rendered artefacts so the picker stays a photo
+        // library, not a general asset dump.
+        const rows = (r.data.assets || []).filter((a) => {
+          const src = a.source || "";
+          const tags = a.tags || [];
+          const isFlyer = tags.includes("flyer") || src.startsWith("ai_designer");
+          const isLogo = tags.includes("logo") || src === "logo";
+          return !isFlyer && !isLogo;
+        });
+        setAssets(rows);
+      })
+      .catch(() => { if (!cancelled) setAssets([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [getAuthHeader]);
+
+  const filtered = (assets || []).filter((a) => {
+    if (!q.trim()) return true;
+    const needle = q.toLowerCase();
+    return (a.filename || "").toLowerCase().includes(needle)
+      || (a.item_name || "").toLowerCase().includes(needle)
+      || (a.tags || []).some((t) => t.toLowerCase().includes(needle));
+  });
+
+  if (loading) {
+    return (
+      <div className="text-center py-10 text-xs text-navy/60"
+           data-testid="photo-flyer-library-loading">
+        <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin text-gold" />
+        Loading your photo library…
+      </div>
+    );
+  }
+
+  if ((assets || []).length === 0) {
+    return (
+      <div className="text-center py-8 px-4 border border-dashed border-navy/20 rounded-md"
+           data-testid="photo-flyer-library-empty">
+        <ImageIcon className="w-8 h-8 mx-auto mb-2 text-navy/30" />
+        <p className="text-sm font-semibold text-navy">No photos in your library yet</p>
+        <p className="text-xs text-navy/60 mt-1">
+          Upload a photo using the &quot;Upload New&quot; tab &mdash; it&apos;ll be saved here for next time.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="photo-flyer-library">
+      <div className="mb-3">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={`Search ${assets.length} photo${assets.length === 1 ? "" : "s"}…`}
+          className="border-navy/20 text-sm"
+          data-testid="photo-flyer-library-search"
+        />
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1">
+        {filtered.map((a) => {
+          const selected = selectedId === a.id;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => onSelect(a)}
+              aria-pressed={selected}
+              className={`group relative aspect-square rounded-md overflow-hidden border-2 transition-all ${
+                selected
+                  ? "border-gold shadow-md ring-2 ring-gold/30"
+                  : "border-navy/10 hover:border-gold/50"
+              }`}
+              data-testid={`photo-flyer-library-item-${a.id}`}
+            >
+              <img
+                src={`${API}/media/thumb/${a.id}`}
+                alt={a.filename || "photo"}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+              {selected ? (
+                <div className="absolute inset-0 bg-gold/20 flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-gold drop-shadow" />
+                </div>
+              ) : null}
+            </button>
+          );
+        })}
+        {filtered.length === 0 ? (
+          <p className="col-span-full text-xs text-navy/60 text-center py-4">
+            No photos match &quot;{q}&quot;.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+const SelectSourceStep = ({
   onAnalyzed,
   getAuthHeader,
   prefill,
@@ -97,61 +221,78 @@ const UploadStep = ({
   onPickMenuItem,
   onClearMenuItem,
   savedMemory,
-  onUseSavedStyle,
   onStartFresh,
-  generationOptions,
-  onOptionsChange,
-  themesData,
 }) => {
+  const [sourceTab, setSourceTab] = useState("upload"); // "upload" | "library"
+  const [uploadFile, setUploadFile] = useState(null);   // File selected but not yet analyzed
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState("");
+  const [libraryAsset, setLibraryAsset] = useState(null); // media_assets row selected
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
 
-  const handlePick = async (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    await processFile(f);
+  // Clean up any object URL we created for the upload preview.
+  useEffect(() => {
+    return () => {
+      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    };
+  }, [uploadPreviewUrl]);
+
+  const pickUpload = (file) => {
+    if (!file) return;
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setUploadFile(file);
+    setUploadPreviewUrl(URL.createObjectURL(file));
+    setLibraryAsset(null);
+    setError(null);
   };
 
-  const processFile = async (file) => {
-    setBusy(true); setError(null); setProgress("Uploading photo…");
+  const handlePickInput = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) pickUpload(f);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    setDragActive(false);
+    if (busy) return;
+    const files = e.dataTransfer?.files;
+    if (files && files[0]) pickUpload(files[0]);
+  };
+
+  const chosen = sourceTab === "upload" ? !!uploadFile : !!libraryAsset;
+
+  const analyze = async () => {
+    setBusy(true); setError(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "Custom");
-      setProgress("Enhancing and analyzing your photo (≈8s)…");
-      const r = await axios.post(`${API}/photo-flyer/analyze`, fd, {
-        headers: { ...getAuthHeader() },
-        timeout: 90000,
-      });
-      onAnalyzed(r.data);
+      if (sourceTab === "upload") {
+        setProgress("Uploading and analyzing your photo (≈8s)…");
+        const fd = new FormData();
+        fd.append("file", uploadFile);
+        fd.append("folder", "Custom");
+        const r = await axios.post(`${API}/photo-flyer/analyze`, fd, {
+          headers: { ...getAuthHeader() },
+          timeout: 90000,
+        });
+        onAnalyzed(r.data);
+      } else {
+        setProgress("Analyzing photo from your library (≈5s)…");
+        const r = await axios.post(`${API}/photo-flyer/analyze-existing`,
+          { asset_id: libraryAsset.id },
+          { headers: getAuthHeader(), timeout: 60000 });
+        onAnalyzed(r.data);
+      }
     } catch (e2) {
       setError(parseAxiosError(e2));
     } finally {
       setBusy(false); setProgress("");
-    }
-  };
-
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (busy) return;
-    const files = e.dataTransfer?.files;
-    if (files && files[0]) {
-      await processFile(files[0]);
     }
   };
 
@@ -169,7 +310,7 @@ const UploadStep = ({
                 Promoting from menu: <span className="text-gold">{prefill.name}</span>
               </p>
               <p className="text-navy/70">
-                Item name, features and price will be pre-filled after you upload a photo.
+                Item name, features and price will be pre-filled after you choose a photo.
                 {prefill.price ? <> Detected price: <strong>{prefill.price}</strong>.</> : null}
               </p>
             </div>
@@ -185,375 +326,196 @@ const UploadStep = ({
         </div>
       ) : null}
 
-      <Section title="Start with a food photo" icon={Wand2} testId="photo-upload">
-        {/* Sprint 17A — Menu item dropdown. Reuses /api/menu (no new endpoint). */}
-        <div className="mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* LEFT — menu item */}
+        <Section title="1. Select a menu item" icon={BookOpen} testId="photo-flyer-item">
+          <p className="text-xs text-navy/60 mb-3">
+            Optional but recommended — this pre-fills the item name, price and
+            features and unlocks your saved style for future flyers.
+          </p>
           <MenuItemPicker
             getAuthHeader={getAuthHeader}
             value={menuItem?.item_key || ""}
             onSelect={onPickMenuItem}
             onClear={onClearMenuItem}
           />
-        </div>
-
-        {/* Sprint 17A / 19 — Saved style auto-applied. The owner can still
-            opt out via "Start Fresh" (or expand "View options" to pick
-            manually on the next step). Renders only when memory exists. */}
-        {menuItem && savedMemory ? (
-          <div
-            className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold/50 bg-gold/10 px-3 py-2"
-            data-testid="photo-flyer-saved-style-banner"
-          >
-            <div className="flex items-start gap-2 min-w-0">
-              <BookOpen className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
-              <div className="text-xs leading-snug min-w-0">
-                <p className="font-semibold text-navy truncate">
-                  Using your saved style for <span className="text-gold">{menuItem.name}</span>
-                </p>
-                <p className="text-navy/70 truncate">
-                  Saved theme: <strong>{savedMemory.theme}</strong>
-                  {savedMemory.use_count ? <> · used {savedMemory.use_count}×</> : null}
-                  {" · "}
-                  <button
-                    type="button"
-                    onClick={onStartFresh}
-                    className="underline hover:text-navy"
-                    data-testid="photo-flyer-start-fresh"
-                  >
-                    Start Fresh
-                  </button>
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <p className="text-sm text-navy/70 mb-3">
-          Upload a photo of any dish. We&apos;ll detect the food, enhance the
-          lighting, auto-fill the design fields, and you&apos;ll have a
-          shareable flyer + captions in under 60 seconds.
-          {menuItem ? <> Name, price and features have been pre-filled from <strong>{menuItem.name}</strong>.</> : null}
-        </p>
-
-        {/* Drag-and-drop upload zone */}
-        <div
-          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive
-              ? "border-gold bg-gold/10"
-              : "border-navy/20 hover:border-gold/50 bg-white"
-          } ${busy ? "opacity-50 pointer-events-none" : ""}`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          data-testid="photo-flyer-dropzone"
-        >
-          <Upload className={`w-12 h-12 mx-auto mb-3 ${dragActive ? "text-gold" : "text-navy/40"}`} />
-          <p className="text-sm font-semibold text-navy mb-1">
-            {dragActive ? "Drop your photo here" : "Drag & drop your food photo"}
-          </p>
-          <p className="text-xs text-navy/60 mb-3">or</p>
-          <Button
-            onClick={() => fileRef.current && fileRef.current.click()}
-            disabled={busy}
-            className="bg-gold text-navy hover:bg-gold/90"
-            data-testid="photo-flyer-upload-btn"
-          >
-            {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                  : <ImageIcon className="w-4 h-4 mr-1.5" />}
-            {busy ? "Working…" : "Browse files"}
-          </Button>
-          <input
-            ref={fileRef} type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handlePick}
-            className="hidden"
-            data-testid="photo-flyer-upload-input"
-          />
-          <p className="text-[10px] text-navy/50 mt-2">
-            Supports JPG, PNG, WebP
-          </p>
-        </div>
-        {busy && progress ? (
-          <p className="text-xs text-muted-foreground mt-2"
-             data-testid="photo-flyer-progress-text">{progress}</p>
-        ) : null}
-        {error ? (
-          <div className="mt-3">
-            <StructuredErrorCard error={error}
-              testId="photo-flyer-upload-error"
-              onRetry={() => setError(null)} />
-          </div>
-        ) : null}
-
-        {/* Generation Options */}
-        <details className="mt-6 border border-navy/10 rounded-lg overflow-hidden"
-                 data-testid="photo-flyer-generation-options">
-          <summary className="cursor-pointer select-none px-4 py-3 bg-navy/5 hover:bg-navy/10 transition-colors font-semibold text-sm text-navy flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-gold" />
-              Generation Options
-            </span>
-            <span className="text-xs text-navy/60 font-normal">
-              Customize your design upfront
-            </span>
-          </summary>
-          <div className="p-4 space-y-4 bg-white">
-            
-            {/* Variant Count */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-2">
-                Number of designs to generate
-              </label>
-              <div className="flex gap-2">
-                {[1, 3, 5].map((count) => (
-                  <button
-                    key={count}
-                    type="button"
-                    onClick={() => onOptionsChange({ ...generationOptions, variantCount: count })}
-                    className={`flex-1 px-4 py-2 rounded-md border text-sm font-semibold transition-colors ${
-                      generationOptions.variantCount === count
-                        ? "border-gold bg-gold/15 text-navy"
-                        : "border-navy/20 hover:border-gold/50 text-navy/70"
-                    }`}
-                    data-testid={`photo-flyer-variant-${count}`}
-                  >
-                    {count} {count === 1 ? "Design" : "Designs"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tone Selector */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-2">
-                Tone
-              </label>
-              <select
-                value={generationOptions.tone}
-                onChange={(e) => onOptionsChange({ ...generationOptions, tone: e.target.value })}
-                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
-                data-testid="photo-flyer-tone"
-              >
-                <option value="professional">Professional</option>
-                <option value="casual">Casual</option>
-                <option value="luxury">Luxury</option>
-                <option value="bold">Bold</option>
-                <option value="playful">Playful</option>
-              </select>
-            </div>
-
-            {/* Marketing Goal */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-2">
-                Marketing Goal
-              </label>
-              <select
-                value={generationOptions.marketingGoal}
-                onChange={(e) => onOptionsChange({ ...generationOptions, marketingGoal: e.target.value })}
-                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
-                data-testid="photo-flyer-marketing-goal"
-              >
-                <option value="drive_traffic">Drive Traffic</option>
-                <option value="promote_item">Promote New Item</option>
-                <option value="limited_offer">Limited Time Offer</option>
-                <option value="seasonal">Seasonal Campaign</option>
-                <option value="daily_special">Daily Special</option>
-                <option value="brand_awareness">Build Brand Awareness</option>
-              </select>
-            </div>
-
-            {/* Caption Length */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-2">
-                Caption Length: <span className="text-gold">{generationOptions.captionLength}</span>
-              </label>
-              <div className="flex gap-2 items-center">
-                <span className="text-[10px] text-navy/60 font-medium">Short</span>
-                <input
-                  type="range"
-                  min="1"
-                  max="3"
-                  value={generationOptions.captionLength === "short" ? 1 : generationOptions.captionLength === "medium" ? 2 : 3}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    const length = val === 1 ? "short" : val === 2 ? "medium" : "long";
-                    onOptionsChange({ ...generationOptions, captionLength: length });
-                  }}
-                  className="flex-1 h-2 bg-navy/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gold [&::-moz-range-thumb]:border-0"
-                  data-testid="photo-flyer-caption-length"
-                />
-                <span className="text-[10px] text-navy/60 font-medium">Long</span>
-              </div>
-              <p className="text-[10px] text-navy/50 mt-1">
-                {generationOptions.captionLength === "short" ? "1-2 sentences" :
-                 generationOptions.captionLength === "medium" ? "3-4 sentences" : "5+ sentences"}
-              </p>
-            </div>
-
-            {/* Platform / Export Size */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-2">
-                Platform / Export Size
-              </label>
-              <select
-                value={generationOptions.platform}
-                onChange={(e) => onOptionsChange({ ...generationOptions, platform: e.target.value })}
-                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
-                data-testid="photo-flyer-platform"
-              >
-                <option value="instagram_post">Instagram Post (1024×1024)</option>
-                <option value="instagram_story">Instagram Story (1080×1920)</option>
-                <option value="facebook_post">Facebook Post / Link (1200×630)</option>
-                <option value="facebook_feed">Facebook Feed Square (1200×1200)</option>
-                <option value="tiktok">TikTok (1080×1920)</option>
-                <option value="twitter">Twitter/X (1200×675)</option>
-                <option value="email">Email Campaign (600×600)</option>
-              </select>
-            </div>
-
-            {/* Optional CTA */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-2">
-                Call-to-Action (Optional)
-              </label>
-              <select
-                value={generationOptions.cta}
-                onChange={(e) => onOptionsChange({ ...generationOptions, cta: e.target.value })}
-                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
-                data-testid="photo-flyer-cta"
-              >
-                <option value="">None</option>
-                <option value="Order Today">Order Today</option>
-                <option value="Limited Time">Limited Time</option>
-                <option value="Chef Special">Chef Special</option>
-                <option value="Available Now">Available Now</option>
-                <option value="Today's Feature">Today&apos;s Feature</option>
-                <option value="Order Now">Order Now</option>
-              </select>
-            </div>
-
-            {/* Include Price */}
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-navy">
-                Include Price
-              </label>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={generationOptions.includePrice}
-                onClick={() => onOptionsChange({ ...generationOptions, includePrice: !generationOptions.includePrice })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  generationOptions.includePrice ? "bg-gold" : "bg-navy/20"
-                }`}
-                data-testid="photo-flyer-include-price"
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    generationOptions.includePrice ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Include Description */}
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-navy">
-                Include Description
-              </label>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={generationOptions.includeDescription}
-                onClick={() => onOptionsChange({ ...generationOptions, includeDescription: !generationOptions.includeDescription })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  generationOptions.includeDescription ? "bg-gold" : "bg-navy/20"
-                }`}
-                data-testid="photo-flyer-include-description"
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    generationOptions.includeDescription ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-navy/10 my-2"></div>
-            
-            {/* Logo Section */}
-            <div className="space-y-3">
-              <p className="text-xs font-bold text-navy uppercase tracking-wide">Logo Options</p>
-              
-              {/* Logo Upload */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-2">
-                  Logo URL (optional)
-                </label>
-                <input
-                  type="url"
-                  value={generationOptions.logoUrl}
-                  onChange={(e) => onOptionsChange({ ...generationOptions, logoUrl: e.target.value })}
-                  placeholder="https://example.com/logo.png"
-                  className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm"
-                  data-testid="photo-flyer-logo-url"
-                />
-                <p className="text-[10px] text-navy/50 mt-1">
-                  Paste URL to your restaurant logo
-                </p>
-              </div>
-
-              {/* Logo Placement */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-2">
-                  Logo Placement
-                </label>
-                <select
-                  value={generationOptions.logoPlacement}
-                  onChange={(e) => onOptionsChange({ ...generationOptions, logoPlacement: e.target.value })}
-                  className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
-                  data-testid="photo-flyer-logo-placement"
-                >
-                  <option value="none">No Logo</option>
-                  <option value="top_left">Top Left</option>
-                  <option value="top_center">Top Center</option>
-                  <option value="top_right">Top Right</option>
-                  <option value="bottom_left">Bottom Left</option>
-                  <option value="bottom_center">Bottom Center</option>
-                  <option value="bottom_right">Bottom Right</option>
-                  <option value="watermark">Watermark (Centered, Transparent)</option>
-                </select>
-              </div>
-
-              {/* Logo Size */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-2">
-                  Logo Size
-                </label>
-                <div className="flex gap-2">
-                  {['small', 'medium', 'large'].map((logoSize) => (
+          {menuItem && savedMemory ? (
+            <div
+              className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold/50 bg-gold/10 px-3 py-2"
+              data-testid="photo-flyer-saved-style-banner"
+            >
+              <div className="flex items-start gap-2 min-w-0">
+                <BookOpen className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                <div className="text-xs leading-snug min-w-0">
+                  <p className="font-semibold text-navy truncate">
+                    Using your saved style for <span className="text-gold">{menuItem.name}</span>
+                  </p>
+                  <p className="text-navy/70 truncate">
+                    Saved theme: <strong>{savedMemory.theme}</strong>
+                    {savedMemory.use_count ? <> · used {savedMemory.use_count}×</> : null}
+                    {" · "}
                     <button
-                      key={logoSize}
                       type="button"
-                      onClick={() => onOptionsChange({ ...generationOptions, logoSize })}
-                      className={`flex-1 px-4 py-2 rounded-md border text-xs font-semibold transition-colors capitalize ${
-                        generationOptions.logoSize === logoSize
-                          ? "border-gold bg-gold/15 text-navy"
-                          : "border-navy/20 hover:border-gold/50 text-navy/70"
-                      }`}
-                      data-testid={`photo-flyer-logo-size-${logoSize}`}
+                      onClick={onStartFresh}
+                      className="underline hover:text-navy"
+                      data-testid="photo-flyer-start-fresh"
                     >
-                      {logoSize}
+                      Start Fresh
                     </button>
-                  ))}
+                  </p>
                 </div>
               </div>
             </div>
+          ) : null}
+        </Section>
 
+        {/* RIGHT — photo source */}
+        <Section title="2. Choose a photo" icon={ImageIcon} testId="photo-upload">
+          <div className="flex gap-1 mb-3 p-1 bg-navy/5 rounded-md" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === "upload"}
+              onClick={() => setSourceTab("upload")}
+              className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
+                sourceTab === "upload"
+                  ? "bg-white text-navy shadow-sm"
+                  : "text-navy/60 hover:text-navy"
+              }`}
+              data-testid="photo-flyer-tab-upload"
+            >
+              <Upload className="w-3.5 h-3.5 inline mr-1.5 align-[-2px]" />
+              Upload new
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === "library"}
+              onClick={() => setSourceTab("library")}
+              className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
+                sourceTab === "library"
+                  ? "bg-white text-navy shadow-sm"
+                  : "text-navy/60 hover:text-navy"
+              }`}
+              data-testid="photo-flyer-tab-library"
+            >
+              <ImageIcon className="w-3.5 h-3.5 inline mr-1.5 align-[-2px]" />
+              From library
+            </button>
           </div>
-        </details>
-      </Section>
+
+          {sourceTab === "upload" ? (
+            uploadPreviewUrl ? (
+              <div className="space-y-2" data-testid="photo-flyer-upload-preview">
+                <img
+                  src={uploadPreviewUrl}
+                  alt="upload preview"
+                  className="w-full aspect-square object-cover rounded border-2 border-gold"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-navy/60 truncate">
+                    {uploadFile?.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+                      setUploadFile(null); setUploadPreviewUrl("");
+                    }}
+                    className="text-[11px] font-semibold text-navy/60 hover:text-navy underline shrink-0"
+                    data-testid="photo-flyer-upload-clear"
+                  >
+                    Choose different
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                  dragActive
+                    ? "border-gold bg-gold/10"
+                    : "border-navy/20 hover:border-gold/50 bg-white"
+                } ${busy ? "opacity-50 pointer-events-none" : ""}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                data-testid="photo-flyer-dropzone"
+              >
+                <Upload className={`w-10 h-10 mx-auto mb-2 ${dragActive ? "text-gold" : "text-navy/40"}`} />
+                <p className="text-sm font-semibold text-navy mb-1">
+                  {dragActive ? "Drop your photo here" : "Drag & drop a food photo"}
+                </p>
+                <p className="text-xs text-navy/60 mb-3">or</p>
+                <Button
+                  onClick={() => fileRef.current && fileRef.current.click()}
+                  disabled={busy}
+                  className="bg-gold text-navy hover:bg-gold/90"
+                  data-testid="photo-flyer-upload-btn"
+                >
+                  <ImageIcon className="w-4 h-4 mr-1.5" />
+                  Browse files
+                </Button>
+                <input
+                  ref={fileRef} type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handlePickInput}
+                  className="hidden"
+                  data-testid="photo-flyer-upload-input"
+                />
+                <p className="text-[10px] text-navy/50 mt-2">
+                  JPG, PNG or WebP · up to 15 MB
+                </p>
+              </div>
+            )
+          ) : (
+            <LibraryPhotoGrid
+              getAuthHeader={getAuthHeader}
+              selectedId={libraryAsset?.id || null}
+              onSelect={(a) => {
+                setLibraryAsset(a);
+                if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+                setUploadFile(null); setUploadPreviewUrl("");
+                setError(null);
+              }}
+            />
+          )}
+        </Section>
+      </div>
+
+      {/* Continue bar */}
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-navy/10"
+           data-testid="photo-flyer-continue-bar">
+        {busy && progress ? (
+          <p className="text-xs text-navy/60 mr-auto"
+             data-testid="photo-flyer-progress-text">
+            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin inline align-[-2px]" />
+            {progress}
+          </p>
+        ) : (
+          <p className="text-xs text-navy/60 mr-auto">
+            {chosen
+              ? "Ready — click Continue to analyze your photo."
+              : "Choose a photo to continue."}
+          </p>
+        )}
+        <Button
+          onClick={analyze}
+          disabled={!chosen || busy}
+          className="bg-gold text-navy hover:bg-gold/90"
+          data-testid="photo-flyer-continue"
+        >
+          {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                : <Sparkles className="w-4 h-4 mr-1.5" />}
+          Continue
+        </Button>
+      </div>
+
+      {error ? (
+        <StructuredErrorCard error={error}
+          testId="photo-flyer-upload-error"
+          onRetry={() => setError(null)} />
+      ) : null}
     </div>
   );
 };
@@ -647,6 +609,7 @@ const AnalysisReviewStep = ({
   analysis, prefill, themes, packs,
   menuItem, recs, recsContext, useSaved,
   savedMemory, onPersistVisionChoice,
+  generationOptions, onOptionsChange,
   onBack, onGenerate, busy,
 }) => {
   const [visionChoice, setVisionChoice] = useState(
@@ -844,6 +807,266 @@ const AnalysisReviewStep = ({
           </div>
         ) : null}
       </Section>
+
+      {/* Feb 2026 redesign — advanced marketing options moved here from
+          Step 1. Collapsed by default so novice users get smart defaults
+          and power users can still tweak everything. */}
+      <details className="border border-navy/10 rounded-lg overflow-hidden bg-white"
+               data-testid="photo-flyer-generation-options">
+        <summary className="cursor-pointer select-none px-4 py-3 bg-navy/5 hover:bg-navy/10 transition-colors font-semibold text-sm text-navy flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-gold" />
+            Marketing options
+          </span>
+          <span className="text-xs text-navy/60 font-normal">
+            {generationOptions.variantCount} designs · {generationOptions.tone} · {generationOptions.platform.replace(/_/g, " ")}
+          </span>
+        </summary>
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-2">
+              Number of designs to generate
+            </label>
+            <div className="flex gap-2">
+              {[1, 3, 5].map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => onOptionsChange({ ...generationOptions, variantCount: count })}
+                  className={`flex-1 px-4 py-2 rounded-md border text-sm font-semibold transition-colors ${
+                    generationOptions.variantCount === count
+                      ? "border-gold bg-gold/15 text-navy"
+                      : "border-navy/20 hover:border-gold/50 text-navy/70"
+                  }`}
+                  data-testid={`photo-flyer-variant-${count}`}
+                >
+                  {count} {count === 1 ? "Design" : "Designs"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">Tone</label>
+              <select
+                value={generationOptions.tone}
+                onChange={(e) => onOptionsChange({ ...generationOptions, tone: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-tone"
+              >
+                <option value="professional">Professional</option>
+                <option value="casual">Casual</option>
+                <option value="luxury">Luxury</option>
+                <option value="bold">Bold</option>
+                <option value="playful">Playful</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">Marketing Goal</label>
+              <select
+                value={generationOptions.marketingGoal}
+                onChange={(e) => onOptionsChange({ ...generationOptions, marketingGoal: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-marketing-goal"
+              >
+                <option value="drive_traffic">Drive Traffic</option>
+                <option value="promote_item">Promote New Item</option>
+                <option value="limited_offer">Limited Time Offer</option>
+                <option value="seasonal">Seasonal Campaign</option>
+                <option value="daily_special">Daily Special</option>
+                <option value="brand_awareness">Build Brand Awareness</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Platform / Export Size
+              </label>
+              <select
+                value={generationOptions.platform}
+                onChange={(e) => onOptionsChange({ ...generationOptions, platform: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-platform"
+              >
+                <option value="instagram_post">Instagram Post (1024×1024)</option>
+                <option value="instagram_story">Instagram Story (1080×1920)</option>
+                <option value="facebook_post">Facebook Post / Link (1200×630)</option>
+                <option value="facebook_feed">Facebook Feed Square (1200×1200)</option>
+                <option value="tiktok">TikTok (1080×1920)</option>
+                <option value="twitter">Twitter/X (1200×675)</option>
+                <option value="email">Email Campaign (600×600)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Call-to-Action (Optional)
+              </label>
+              <select
+                value={generationOptions.cta}
+                onChange={(e) => onOptionsChange({ ...generationOptions, cta: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-cta"
+              >
+                <option value="">None</option>
+                <option value="Order Today">Order Today</option>
+                <option value="Limited Time">Limited Time</option>
+                <option value="Chef Special">Chef Special</option>
+                <option value="Available Now">Available Now</option>
+                <option value="Today's Feature">Today&apos;s Feature</option>
+                <option value="Order Now">Order Now</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-2">
+              Caption Length: <span className="text-gold">{generationOptions.captionLength}</span>
+            </label>
+            <div className="flex gap-2 items-center">
+              <span className="text-[10px] text-navy/60 font-medium">Short</span>
+              <input
+                type="range"
+                min="1"
+                max="3"
+                value={generationOptions.captionLength === "short" ? 1 : generationOptions.captionLength === "medium" ? 2 : 3}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  const length = val === 1 ? "short" : val === 2 ? "medium" : "long";
+                  onOptionsChange({ ...generationOptions, captionLength: length });
+                }}
+                className="flex-1 h-2 bg-navy/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gold [&::-moz-range-thumb]:border-0"
+                data-testid="photo-flyer-caption-length"
+              />
+              <span className="text-[10px] text-navy/60 font-medium">Long</span>
+            </div>
+            <p className="text-[10px] text-navy/50 mt-1">
+              {generationOptions.captionLength === "short" ? "1-2 sentences" :
+               generationOptions.captionLength === "medium" ? "3-4 sentences" : "5+ sentences"}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="flex items-center justify-between rounded-md border border-navy/10 px-3 py-2">
+              <label className="text-xs font-semibold text-navy">Show price</label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={generationOptions.includePrice}
+                onClick={() => onOptionsChange({ ...generationOptions, includePrice: !generationOptions.includePrice })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  generationOptions.includePrice ? "bg-gold" : "bg-navy/20"
+                }`}
+                data-testid="photo-flyer-include-price"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    generationOptions.includePrice ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-navy/10 px-3 py-2">
+              <label className="text-xs font-semibold text-navy">Show features</label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={generationOptions.includeDescription}
+                onClick={() => onOptionsChange({ ...generationOptions, includeDescription: !generationOptions.includeDescription })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  generationOptions.includeDescription ? "bg-gold" : "bg-navy/20"
+                }`}
+                data-testid="photo-flyer-include-description"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    generationOptions.includeDescription ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details className="border border-navy/10 rounded-lg overflow-hidden bg-white"
+               data-testid="photo-flyer-logo-options">
+        <summary className="cursor-pointer select-none px-4 py-3 bg-navy/5 hover:bg-navy/10 transition-colors font-semibold text-sm text-navy flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <ImageIcon className="w-4 h-4 text-gold" />
+            Add a logo (optional)
+          </span>
+          <span className="text-xs text-navy/60 font-normal">
+            {generationOptions.logoPlacement === "none" || !generationOptions.logoUrl
+              ? "No logo"
+              : `${generationOptions.logoPlacement.replace(/_/g, " ")} · ${generationOptions.logoSize}`}
+          </span>
+        </summary>
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-2">
+              Logo URL
+            </label>
+            <input
+              type="url"
+              value={generationOptions.logoUrl}
+              onChange={(e) => onOptionsChange({ ...generationOptions, logoUrl: e.target.value })}
+              placeholder="https://example.com/logo.png"
+              className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm"
+              data-testid="photo-flyer-logo-url"
+            />
+            <p className="text-[10px] text-navy/50 mt-1">
+              Paste a URL to your restaurant logo (PNG with transparency works best).
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Placement
+              </label>
+              <select
+                value={generationOptions.logoPlacement}
+                onChange={(e) => onOptionsChange({ ...generationOptions, logoPlacement: e.target.value })}
+                className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="photo-flyer-logo-placement"
+              >
+                <option value="none">No logo</option>
+                <option value="top_left">Top Left</option>
+                <option value="top_center">Top Center</option>
+                <option value="top_right">Top Right</option>
+                <option value="bottom_left">Bottom Left</option>
+                <option value="bottom_center">Bottom Center</option>
+                <option value="bottom_right">Bottom Right</option>
+                <option value="watermark">Watermark (centered, transparent)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-navy mb-2">
+                Size
+              </label>
+              <div className="flex gap-2">
+                {['small', 'medium', 'large'].map((logoSize) => (
+                  <button
+                    key={logoSize}
+                    type="button"
+                    onClick={() => onOptionsChange({ ...generationOptions, logoSize })}
+                    className={`flex-1 px-3 py-2 rounded-md border text-xs font-semibold transition-colors capitalize ${
+                      generationOptions.logoSize === logoSize
+                        ? "border-gold bg-gold/15 text-navy"
+                        : "border-navy/20 hover:border-gold/50 text-navy/70"
+                    }`}
+                    data-testid={`photo-flyer-logo-size-${logoSize}`}
+                  >
+                    {logoSize}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={onBack} className="border-navy/20"
@@ -1518,11 +1741,11 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
       <div className="flex items-center gap-1 text-xs text-muted-foreground"
            data-testid="photo-flyer-stepper">
         <span className={step === "upload" ? "text-gold font-semibold" : ""}>
-          1. Upload
+          1. Item &amp; Photo
         </span>
         <ChevronRight className="w-3 h-3 opacity-50" />
         <span className={step === "review" ? "text-gold font-semibold" : ""}>
-          2. Review &amp; Edit
+          2. Design
         </span>
         <ChevronRight className="w-3 h-3 opacity-50" />
         <span className={step === "generating" ? "text-gold font-semibold" : ""}>
@@ -1541,7 +1764,7 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
       ) : null}
 
       {step === "upload" && (
-        <UploadStep
+        <SelectSourceStep
           onAnalyzed={onAnalyzed}
           getAuthHeader={getAuthHeader}
           prefill={prefill}
@@ -1550,11 +1773,7 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
           onPickMenuItem={onPickMenuItem}
           onClearMenuItem={onClearMenuItem}
           savedMemory={savedMemory}
-          onUseSavedStyle={onUseSavedStyle}
           onStartFresh={onStartFresh}
-          generationOptions={generationOptions}
-          onOptionsChange={setGenerationOptions}
-          themesData={themesData}
         />
       )}
       {step === "review" && analysis && (
@@ -1574,6 +1793,8 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
             axios.put(`${API}/design-memory/${encodeURIComponent(item_key)}`,
               { vision_choice: choice },
               { headers: getAuthHeader(), timeout: 10000 }).catch(() => {})}
+          generationOptions={generationOptions}
+          onOptionsChange={setGenerationOptions}
           onBack={startOver}
           onGenerate={onGenerate}
           busy={genBusy}
