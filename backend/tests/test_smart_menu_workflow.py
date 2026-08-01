@@ -183,36 +183,36 @@ def test_mark_used_404(auth):
 
 def test_recommend_favorite_bias(auth):
     """A favorited flyer for this item_key should bias recommendations
-    toward that theme."""
-    # Make a fake item_key.
+    toward that theme.
+
+    Feb 2026 (Phase 2B) — the previously-favorited `burger_grill_smoke`
+    theme is now retired (hidden from new selections). This test was
+    updated to favorite `vintage_diner` instead — a visible burger-style
+    theme — so the test's original intent (favorites influence ranks)
+    keeps working post-retirement.
+    """
     key = f"burgers::fav-{uuid.uuid4().hex[:6]}"
-    # Upload a dummy asset and stamp it as an ai_designer flyer with theme
-    # 'smokehouse_grill' for this item_key — directly via PATCH because the
-    # upload endpoint doesn't take theme/item_key.
     a = _upload_dummy_asset(auth, "fav-flyer.png")
-    # Promote to ai_designer-style row via PATCH-able fields (filename, tags,
-    # is_favorite). The router doesn't accept arbitrary fields, but the
-    # _favorite_theme_counts() helper falls back to `tags: ["theme:<id>"]`.
     rp = requests.patch(f"{API}/media/assets/{a['id']}", headers=auth,
                         json={
                             "is_favorite": True,
-                            "tags": ["theme:burger_grill_smoke"],
+                            "tags": ["theme:burger_classic"],
                         }, timeout=TIMEOUT)
     assert rp.status_code == 200
 
-    # The favorited theme is already a burger pack theme, so it will appear
-    # in the top-3 either way. The test is that its reason now MENTIONS the
-    # favorite — proving the signal landed.
+    # burger_classic is visible + a burger-category theme. It should
+    # appear in the top-3 and carry the "favorited" reason.
     r = requests.post(f"{API}/creative-director/recommend", headers=auth,
                       json={"item_key": key, "food_type": "smash burger"},
                       timeout=TIMEOUT)
     assert r.status_code == 200
     recs = r.json()["recommendations"]
-    smokey = next((x for x in recs if x["id"] == "burger_grill_smoke"), None)
-    assert smokey is not None, f"burger_grill_smoke should be in top3, got {[x['id'] for x in recs]}"
-    all_reasons = " ".join(smokey.get("all_reasons", []))
+    fav = next((x for x in recs if x["id"] == "burger_classic"), None)
+    assert fav is not None, \
+        f"burger_classic should be in top3, got {[x['id'] for x in recs]}"
+    all_reasons = " ".join(fav.get("all_reasons", []))
     assert "favorited" in all_reasons.lower(), \
-        f"favorite signal missing from reasons: {smokey.get('all_reasons')}"
+        f"favorite signal missing from reasons: {fav.get('all_reasons')}"
 
     # cleanup
     requests.delete(f"{API}/media/assets/{a['id']}", headers=auth, timeout=TIMEOUT)

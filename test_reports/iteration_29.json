@@ -1,0 +1,21 @@
+{
+  "summary": "Phase 2G verification: /api/html-template/featured rotation fix confirmed. Default call returns pool_size=57 with deterministic per-day pick; ?window_days=14 preserves legacy narrow-window behavior collapsing to pool_size=1 (aged pool); ?window_days=0 equivalent to default; response payload has all required keys; image_url resolves 200; endpoint is public.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_featured_rotation_verification.py",
+    "/app/test_reports/pytest/featured_rotation.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Note: uses Python built-in hash() for daily rotation — PYTHONHASHSEED randomizes across process restarts, so 'same asset all day' only holds within a single worker process. In multi-worker deployments different workers may serve different picks on the same day. Consider hashlib for cross-process determinism if strict daily consistency is required.",
+    "Minor style: `__import__(\"datetime\").timedelta(...)` at line 310 — `timedelta` is likely already importable at module scope; direct import is cleaner."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "n/a"},
+  "seed_data_creation": "None — used existing 57 html_bulk assets. No writes to DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 2G fix (widening default window_days to 0) is verified working end-to-end via public URL. 7 regression tests added at /app/backend/tests/test_featured_rotation_verification.py covering default rotation, deterministic pick, legacy window_days=14, window_days=0 equivalence, payload schema, image_url resolution, and public access.",
+  "primary_success_indicator": "Default GET /api/html-template/featured pool_size=57"
+}

@@ -287,27 +287,38 @@ def _today_str() -> str:
 
 
 @router.get("/featured")
-async def featured(window_days: int = 14):
-    """Today's Special — deterministically rotate through the most recent
-    bulk-rendered flyers. Returns the flyer that should appear on the
-    homepage hero today.
+async def featured(window_days: int = 0):
+    """Today's Special — deterministically rotate through active bulk-rendered
+    flyers. Returns the flyer that should appear on the homepage hero today.
 
-    Selection: take active HTML-bulk assets uploaded in the last
-    `window_days`, sort by `uploaded_at` desc, pick index
-    `hash(today) % count`. Same flyer all day; new flyer tomorrow.
-    Falls back to the most recent asset if none in the window.
+    Selection: take EVERY active HTML-bulk asset by default (window_days=0),
+    or only those within the last `window_days` if a positive value is passed.
+    Sort by `uploaded_at` desc, pick index `hash(today) % count`.
+    Same flyer all day; new flyer tomorrow.
+
+    Feb 2026 (Phase 2G) — the previous default was `window_days=14`, but the
+    existing bulk pool is > 30 days old, which silently collapsed the
+    rotation to a single flyer via the fallback branch. Widening the default
+    to "no age restriction" restores the deterministic daily rotation across
+    the ~57 assets without generating a new pool or deleting anything. If a
+    caller wants the historical 14-day window, they can pass ?window_days=14.
     """
     now = datetime.now(timezone.utc)
-    cutoff = (now - __import__("datetime").timedelta(days=window_days)).isoformat()
+
+    query: Dict[str, Any] = {"source": "html_bulk", "status": "active"}
+    if window_days and window_days > 0:
+        cutoff = (now - __import__("datetime").timedelta(days=window_days)).isoformat()
+        query["uploaded_at"] = {"$gte": cutoff}
 
     cursor = db.media_assets.find(
-        {"source": "html_bulk", "status": "active", "uploaded_at": {"$gte": cutoff}},
+        query,
         {"_id": 0, "id": 1, "filename": 1, "storage_path": 1, "item_name": 1,
          "theme": 1, "uploaded_at": 1, "width": 1, "height": 1},
-    ).sort("uploaded_at", -1).limit(50)
-    assets = await cursor.to_list(length=50)
+    ).sort("uploaded_at", -1).limit(200)
+    assets = await cursor.to_list(length=200)
     if not assets:
-        # Fallback: most recent regardless of window
+        # Fallback: most recent regardless of window (should be unreachable
+        # when window_days=0, but preserved for the explicit-window case).
         latest = await db.media_assets.find_one(
             {"source": "html_bulk", "status": "active"},
             {"_id": 0, "id": 1, "filename": 1, "storage_path": 1, "item_name": 1,
