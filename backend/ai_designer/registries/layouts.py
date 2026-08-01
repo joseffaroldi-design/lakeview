@@ -18,6 +18,7 @@ from typing import Tuple
 # keep their historical dimensions.
 PLATFORM_SIZES = {
     "instagram_post":   (1024, 1024),
+    "instagram_square": (1080, 1080),  # Phase 2C (Feb 2026) — new-selection default
     "instagram_story":  (1080, 1920),
     "tiktok":           (1080, 1920),
     "twitter":          (1200, 675),

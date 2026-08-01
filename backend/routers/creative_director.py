@@ -443,6 +443,14 @@ async def recommend(body: RecommendRequest,
         favorite_counts=fav_counts,
     )
 
+    # 5b) Phase 2B (Feb 2026) — filter retired themes out of NEW
+    # recommendations. Implementations still exist so a `memory_theme`
+    # that references a hidden theme is always preserved (owner's
+    # explicit prior choice outranks the retirement filter).
+    from routers.ai_designer import HIDDEN_THEMES as _HIDDEN
+    saved = memory.get("theme")
+    ranked = [r for r in ranked if r["id"] not in _HIDDEN or r["id"] == saved]
+
     # 6) Trim to top 3, attach rank label + a primary reason.
     recs: List[Dict[str, Any]] = []
     for i, row in enumerate(ranked[:3]):

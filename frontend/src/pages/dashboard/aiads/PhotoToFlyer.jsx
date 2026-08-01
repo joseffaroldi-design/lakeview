@@ -653,11 +653,24 @@ const AnalysisReviewStep = ({
   const [price, setPrice] = useState(seedPrice);
   const [headline, setHeadline] = useState((prefill && prefill.headline) || "");
   // Sprint 17A — when "Use Saved Style" was clicked, prefer the saved theme.
-  const [theme, setTheme] = useState(
+  // Phase 2B (Feb 2026) — for a NEW analysis (no memory, no recs), if the
+  // vision-suggested theme is hidden, fall back to a visible default. Saved
+  // memory + creative-director recs are trusted as-is (memory represents the
+  // owner's explicit prior choice; CD recs are already filtered upstream).
+  const _hiddenSet = new Set(
+    (themes || []).filter((t) => t.hidden).map((t) => t.id)
+  );
+  const _initialSuggested = (
     (useSaved && useSaved.theme)
     || (recs && recs[0]?.id)
     || analysis.suggested_theme
     || "comic_pop"
+  );
+  const [theme, setTheme] = useState(
+    _hiddenSet.has(_initialSuggested)
+      && !(useSaved && useSaved.theme === _initialSuggested)
+      ? "comic_pop"
+      : _initialSuggested
   );
 
   const topRec = recs && recs[0];
@@ -799,10 +812,19 @@ const AnalysisReviewStep = ({
               context={recsContext}
               value={theme}
               onPick={setTheme}
-              renderAll={() => (
-                <InlineThemePicker themes={themes} packs={packs}
-                  value={theme} onChange={setTheme} />
-              )}
+              renderAll={() => {
+                // Phase 2B (Feb 2026): filter retired themes out of the
+                // new-selection picker. BUT if the current selection is a
+                // hidden theme (e.g., from Design Memory / a remixed job)
+                // keep it visible so the owner sees what they've picked.
+                const visibleThemes = themes.filter(
+                  (t) => !t.hidden || t.id === theme
+                );
+                return (
+                  <InlineThemePicker themes={visibleThemes} packs={packs}
+                    value={theme} onChange={setTheme} />
+                );
+              }}
             />
           </div>
         ) : null}
@@ -891,13 +913,21 @@ const AnalysisReviewStep = ({
                 className="w-full border border-navy/20 rounded-md px-3 py-2 text-sm bg-white"
                 data-testid="photo-flyer-platform"
               >
-                <option value="instagram_post">Instagram Post (1024×1024)</option>
-                <option value="instagram_story">Instagram Story (1080×1920)</option>
-                <option value="facebook_post">Facebook Post / Link (1200×630)</option>
-                <option value="facebook_feed">Facebook Feed Square (1200×1200)</option>
-                <option value="tiktok">TikTok (1080×1920)</option>
-                <option value="twitter">Twitter/X (1200×675)</option>
-                <option value="email">Email Campaign (600×600)</option>
+                <option value="facebook_post">Facebook Post (1200×630)</option>
+                <option value="instagram_square">Instagram Square (1080×1080)</option>
+                <option value="instagram_story">Instagram / Facebook Story (1080×1920)</option>
+                {/* Phase 2C (Feb 2026) — legacy platform selections are
+                    preserved for saved jobs, but new selections are limited
+                    to the three above. If a stored request references a
+                    hidden size we render its label so the owner still sees
+                    what they picked. */}
+                {!["facebook_post","instagram_square","instagram_story"].includes(
+                  generationOptions.platform
+                ) ? (
+                  <option value={generationOptions.platform}>
+                    {generationOptions.platform.replace(/_/g, " ")} (legacy)
+                  </option>
+                ) : null}
               </select>
             </div>
             <div>
@@ -1542,7 +1572,7 @@ const PhotoToFlyer = ({ getAuthHeader }) => {
     tone: "professional",
     marketingGoal: "promote_item",
     captionLength: "medium",
-    platform: "instagram_post",
+    platform: "instagram_square",  // Phase 2C — new default is 1080×1080
     cta: "",
     includePrice: true,
     includeDescription: true,

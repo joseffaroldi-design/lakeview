@@ -147,6 +147,28 @@ _THEME_WARNINGS = _THEME_WARNINGS_NEW
 
 THEME_IDS = _THEME_IDS_NEW
 
+# ---------------------------------------------------------------- Hidden themes (Phase 2B, Feb 2026)
+#
+# The 11 themes below are retired from the new-selection picker but their
+# implementations remain intact in ai_designer.registries.theme_packs.* so
+# every saved ai_design_job / media_asset / design_memory row that references
+# them continues to render normally on regeneration or remix.
+#
+# The `/themes` endpoint stamps `hidden: true` on these; the frontend Photo→
+# Flyer picker filters them out UNLESS the current selection (e.g., from
+# Design Memory or a saved template) already references one — in which case
+# the hidden theme is displayed so the owner still sees what they picked.
+#
+# Do NOT delete implementations or rename these ids without a data migration —
+# 3,396 media_assets carry a `theme` field, of which ~1,832 reference this list.
+HIDDEN_THEMES = frozenset({
+    "casual_teal", "distressed_orange", "bold_purple_pop",
+    "social", "summer_splash",
+    "game_day_locker", "game_day_scoreboard",
+    "seafood_dockside", "seafood_lagoon",
+    "burger_grill_smoke", "burger_neon_diner",
+})
+
 if _THEME_WARNINGS:
     logger.warning("[ai-designer] theme pack warnings: %s", "; ".join(_THEME_WARNINGS))
 
@@ -571,8 +593,14 @@ async def list_themes(authorization: str = Header(None), session_token: str = Co
         * pack_label – human pack name ("Burger Joint")
         * category   – pack category tag ("burger", "sports", …)
         * best_use   – per-theme tagline ("Smash burgers, Tuesday burger nights")
+        * hidden     – Phase 2B (Feb 2026): true for themes retired from the
+                       new-selection picker. Backend implementations still
+                       exist so saved jobs / Design Memory rows referencing
+                       these themes can be regenerated normally.
 
-    `packs[]` is added as an optional grouped index for richer UIs.
+    `packs[]` is added as an optional grouped index for richer UIs. The
+    grouped payload's `theme_ids` include EVERY theme in the pack —
+    frontends decide whether to filter by `hidden`.
     """
     await verify_session(authorization, session_token)
     themes_payload = []
@@ -586,6 +614,7 @@ async def list_themes(authorization: str = Header(None), session_token: str = Co
             "pack_label": m.get("pack_label", ""),
             "category": m.get("category", ""),
             "best_use": m.get("best_use", ""),
+            "hidden": tid in HIDDEN_THEMES,
         })
     return {
         "themes": themes_payload,

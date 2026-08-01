@@ -19,6 +19,7 @@ def test_facebook_feed_and_legacy_are_square_1200x1200():
 
 def test_other_platform_sizes_unchanged():
     assert get_canvas_size("instagram_post") == (1024, 1024)
+    assert get_canvas_size("instagram_square") == (1080, 1080)
     assert get_canvas_size("instagram_story") == (1080, 1920)
     assert get_canvas_size("tiktok") == (1080, 1920)
     assert get_canvas_size("twitter") == (1200, 675)

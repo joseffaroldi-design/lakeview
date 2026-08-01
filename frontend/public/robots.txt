@@ -4,4 +4,4 @@ Disallow: /login
 Disallow: /dashboard
 Disallow: /api/
 
-Sitemap: https://upload-stage-two.preview.emergentagent.com/sitemap.xml
+Sitemap: https://lakeview-grill.emergent.host/sitemap.xml
