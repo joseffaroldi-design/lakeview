@@ -1,0 +1,21 @@
+{
+  "summary": "Preflight verification against LIVE preview backend (upload-stage-two.preview.emergentagent.com) after backend restart cleared the in-memory rate-limit window. All 8 targeted checks pass: admin login with documented password returns 200 + token; wrong password returns HTTP 401 'Invalid password' (NOT 429 — proves the slowapi limiter is not currently tripped for the requester IP); /api/auth/verify OK; and every Photo-to-Flyer preflight endpoint (themes, menu, media/assets?kind=image, photo-flyer/analyze-existing) returns 200. Dashboard SPA route reachable. Password was read from /app/memory/test_credentials.md programmatically and NEVER printed, echoed, or written to any artifact.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_auth_photoflyer_preflight.py",
+    "/app/test_reports/pytest/preflight_iter30.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "rate_limit.py uses in-memory slowapi storage — any backend restart silently clears lockouts. Consider Redis/Mongo-backed storage if the 5/15 min policy must survive restarts (security posture concern, not a functional bug)."
+  ],
+  "updated_files": ["/app/backend/tests/test_auth_photoflyer_preflight.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Read from /app/memory/test_credentials.md — value masked (***) intentionally not propagated to this report.",
+  "seed_data_creation": "None. analyze-existing test reused the first pre-existing image asset from /api/media/assets.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Documented admin password in /app/memory/test_credentials.md is VALID against the live preview backend as of iteration 30. Rate limit is 5/15min per-IP in-memory (slowapi) — a backend restart resets it. If a future test hits HTTP 429 on /api/auth/login, either wait 15 min or ask main agent to restart backend; do NOT rotate the password. Reusable pytest module at /app/backend/tests/test_auth_photoflyer_preflight.py covers login + all Photo-to-Flyer preflight endpoints.",
+  "rca of the issue": "Owner saw 'Invalid password' likely because prior failed attempts had tripped the 5-attempts/15-minute per-IP rate limiter (slowapi in-memory). Backend was restarted (unrelated cause), which flushed the in-memory limiter state. Post-restart the documented password authenticates successfully and a wrong password returns 401 (not 429), confirming no active lockout. No code change required. Mitigation for the future: back the slowapi limiter with Redis or Mongo so lockouts persist across restarts, or expose an admin-only endpoint to clear the counter for a given IP."
+}
