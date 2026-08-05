@@ -103,3 +103,72 @@ def test_featured_explicit_window_still_honoured():
         assert body["asset_id"] != "phase2g-old"
     finally:
         _cleanup(["phase2g-fresh", "phase2g-old"])
+
+
+
+# ---------------------------------------------------------------------------
+# SHA-256 determinism regression (Feb 2026 correction)
+# ---------------------------------------------------------------------------
+#
+# Python's built-in `hash()` is randomised by PYTHONHASHSEED on each process
+# start. If two workers (or a restart) served the daily featured request
+# with different seeds, they would return different flyers for the same day.
+# The `_daily_index` helper now uses hashlib.sha256, which is deterministic.
+# These tests lock in that determinism at both the unit and cross-process
+# levels so nobody regresses back to `hash()`.
+
+def test_daily_index_is_pure_deterministic_within_process():
+    """Same day-key + same pool size → same index, every call."""
+    from routers.html_template import _daily_index
+    day = "2026-02-01"
+    picks = [_daily_index(day, 57) for _ in range(1000)]
+    assert len(set(picks)) == 1, "Non-deterministic pick inside a single process"
+    assert 0 <= picks[0] < 57
+
+
+def test_daily_index_survives_separate_python_processes():
+    """This is the specific regression: the previous `hash()` implementation
+    would have produced different indices across separate `python -c ...`
+    invocations because PYTHONHASHSEED randomises per process."""
+    import subprocess
+    day = "2026-07-15"
+    pool = 57
+    script = (
+        "import sys; sys.path.insert(0, '/app/backend'); "
+        "from routers.html_template import _daily_index; "
+        f"print(_daily_index({day!r}, {pool}))"
+    )
+    outs = []
+    for _ in range(4):
+        # Force a random PYTHONHASHSEED per subprocess to prove SHA-256 is
+        # unaffected by that env var.
+        env = os.environ.copy()
+        env["PYTHONHASHSEED"] = "random"
+        r = subprocess.run(["python3", "-c", script],
+                           capture_output=True, text=True, env=env, timeout=15)
+        assert r.returncode == 0, r.stderr
+        outs.append(r.stdout.strip())
+    assert len(set(outs)) == 1, (
+        f"Cross-process determinism broken — got {outs} across 4 random-seed "
+        f"processes. The featured-picker must not use Python's built-in hash()."
+    )
+
+
+def test_daily_index_varies_by_day():
+    """A stable picker must still rotate across days — otherwise the whole
+    point of the feature is defeated."""
+    from routers.html_template import _daily_index
+    days = [f"2026-02-{d:02d}" for d in range(1, 29)]
+    picks = {d: _daily_index(d, 57) for d in days}
+    # With SHA-256 over 28 days into 57 buckets we should see many distinct
+    # picks. Not all 28 unique (birthday collisions), but at least >10.
+    assert len(set(picks.values())) >= 10, (
+        f"Rotation is not varying enough day-to-day: {picks}"
+    )
+
+
+def test_daily_index_handles_edge_cases():
+    """Zero / one pool sizes must not raise."""
+    from routers.html_template import _daily_index
+    assert _daily_index("2026-01-01", 0) == 0
+    assert _daily_index("2026-01-01", 1) == 0
