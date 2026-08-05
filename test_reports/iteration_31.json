@@ -1,0 +1,23 @@
+{
+  "summary": "Independently verified the SHA-256 daily-rotation fix (commit f0cdfa2) and the full Photo→Flyer E2E against the LIVE preview backend (upload-stage-two.preview.emergentagent.com). All 11 targeted checks pass. Featured rotation: /api/html-template/featured returns pool_size >= 2 with all required fields, twice-in-a-row same day yields identical asset_id, ?window_days=0 == default, ?window_days=14 still filters, image_url resolves to a valid PNG/JPEG, and _daily_index('2026-07-15', 57) is IDENTICAL across three subprocess invocations each with PYTHONHASHSEED=random (SHA-256 regression proof — hash() would have drifted). Photo→Flyer E2E: (a) library path on asset c3e26d02-…-eb143 with theme=cajun/fb_post/logo bottom_right produced 3 completed variants at (1200,630) and reopened cleanly; (b) fresh JPEG upload → theme=luxury/fb_post produced 3 variants at (1200,630); (c) burger_neon_diner is present in /themes with hidden=true AND legacy-compat generation still succeeds; (d) instagram_square (theme=modern) → (1080,1080) and instagram_story (theme=vintage_diner) → (1080,1920) verified via on-disk PIL open. Zero transient 5xx observed. Admin password read programmatically from /app/memory/test_credentials.md and NEVER logged. No media_assets rows created/mutated/deleted.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter31_sha256_and_photoflyer_e2e.py",
+    "/app/test_reports/pytest/iter31_featured.xml",
+    "/app/test_reports/pytest/iter31_photoflyer.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/routers/html_template.py _daily_index() is a clean, pure helper — SHA-256 first 8 bytes → big-endian uint → mod pool_size. Handles pool_size<=0 by returning 0. Matches the specification exactly.",
+    "The featured() endpoint docstring still says 'pick index hash(today) % count' (line ~315) even though the code now uses _daily_index. Cosmetic — update the comment to say SHA-256 for future readers."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter31_sha256_and_photoflyer_e2e.py"],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Read programmatically from /app/memory/test_credentials.md. Value is NOT propagated to this report.",
+  "seed_data_creation": "None. Fresh-upload test creates ONE transient media_assets row via /api/photo-flyer/analyze (normal user path, not cleanup-required per instructions).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reusable regression module at /app/backend/tests/test_iter31_sha256_and_photoflyer_e2e.py covers (a) SHA-256 cross-process determinism, (b) featured endpoint contract, (c) full Photo→Flyer E2E for both library-asset and fresh-upload paths at all three canvas sizes (1200x630, 1080x1080, 1080x1920), plus hidden-theme legacy compat. IMPORTANT: /api/ai-designer/generate requires the `item_name` field in the request body (Pydantic 422 otherwise) — any future test must include it. Poll interval 4s, timeout 240s per job was comfortably enough (jobs completed in ~15-30s each).",
+  "rca of the issue": "N/A — no bug found. SHA-256 fix is correctly implemented and demonstrably deterministic across separate Python processes with random PYTHONHASHSEED. Photo→Flyer E2E works across all 5 tested combinations."
+}
