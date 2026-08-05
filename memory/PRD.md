@@ -35,6 +35,34 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — Sprint V1.0 Safe Cleanup**:
+  - Extracted `App.js` (1,186 → 26 LOC, 97.8% reduction) into 11 public
+    components under `frontend/src/components/public/` (`Navbar`, `Hero`,
+    `About`, `Specials`, `Menu`, `EmailSignup`, `LoyaltyCard`,
+    `CateringForm`, `Contact`, `Footer`, `StickyOrderBar`) + section
+    registry.
+  - New helper modules: `frontend/src/lib/publicConfig.js` (API + image
+    constants) and `frontend/src/lib/analytics.js` (page/button tracking).
+  - New composer `frontend/src/pages/PublicSite.jsx`. `App.js` is now
+    only the router shell.
+  - Verbatim moves: all 110 data-testids preserved, section order
+    identical, `FALLBACK_LAYOUT` behavior preserved, homepage layout API
+    integration unchanged. Zero API/schema/renderer/theme changes.
+  - Docs reorg: 9 root SPRINT/UX/audit `.md` files moved via `git mv`
+    into `docs/{architecture,audits,deployment,implementation,historical-sprints}/`.
+    Root retains README, FROZEN_FEATURES, and test_result (agent scaffold).
+  - Full inventory report at `docs/architecture/LAKEVIEW_V1_INVENTORY.md`
+    covers extraction map, dependency audit (15+ dead packages flagged
+    but NOT removed per SAFE CLEANUP mandate), dashboard overlap matrix,
+    AI/renderer workflow map, backend router audit, FROZEN_FEATURES
+    conflict check (verdict: no conflict).
+  - Verified: `yarn build` passes; new files lint clean; `CI=true yarn
+    build` shows only the 4 pre-existing exhaustive-deps warnings from
+    prior sessions (`TemplateDesigner`, `PhotoToFlyer` ×2, `TodaysPick`).
+    No new warnings. Section order, testid count, and all 5 public API
+    endpoints (`/content`, `/menu`, `/homepage/layout`, `/specials`,
+    `/html-template/featured`) return 200 with unchanged shapes.
+
 - **Feb 2026 — AI Designer Facebook Post dimensions fix**:
   - Split ambiguous `facebook` platform option into two explicit choices:
     `facebook_post` → 1200×630 (landscape link-share, the standard FB Post)
