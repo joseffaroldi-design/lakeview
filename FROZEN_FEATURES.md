@@ -74,9 +74,13 @@ collections for analytics.
 alerts, no new spend visualisations.** Owner already has Emergent's platform-
 level billing UI.
 
-### 11. Lock Variant (`AiDesigner.jsx` — currently unreachable)
+### 11. Lock Variant (`AiDesigner.jsx` — removed Feb 2026)
+`AiDesigner.jsx` and its two helpers (`aiDesignerAnalytics.js`,
+`aiDesignerBoot.js`) were **deleted** in Feb 2026 after owner sign-off
+during the V1.0 follow-up cleanup. The three files were unreachable (no
+navigation route imported them) and totaled 2,056 LOC of dead code.
 No re-implementation, no port to `PhotoToFlyer.jsx`, no new "pin this
-design" UI. The concept is frozen.
+design" UI. The concept remains frozen.
 
 ### 12. Save-as-Template (`POST /api/ai-designer/jobs/{id}/save-template`)
 Backend endpoint stays intact for the moment. `ai_design_templates`
