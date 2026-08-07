@@ -11,13 +11,15 @@
  * No data migration. No collection changes.
  */
 import React, { useState } from "react";
-import { Mail, UtensilsCrossed, CreditCard, Send } from "lucide-react";
+import { Mail, UtensilsCrossed, CreditCard, Send, Users } from "lucide-react";
 import SubscribersTab from "./SubscribersTab";
 import CateringTab from "./CateringTab";
+import AllCustomers from "./AllCustomers";
 import { LoyaltyManager, MessagingDashboard } from "@/pages/LoyaltyMessaging";
 import { PageHeader } from "@/components/dashboard/primitives";
 
 const FILTERS = [
+  { id: "all",         label: "All",         icon: Users },
   { id: "subscribers", label: "Subscribers", icon: Mail },
   { id: "loyalty",     label: "Loyalty",     icon: CreditCard },
   { id: "inquiries",   label: "Inquiries",   icon: UtensilsCrossed },
@@ -25,7 +27,7 @@ const FILTERS = [
 ];
 
 const CustomersTab = ({ getAuthHeader, initialFilter }) => {
-  const [active, setActive] = useState(initialFilter || "subscribers");
+  const [active, setActive] = useState(initialFilter || "all");
 
   return (
     <section data-testid="customers-tab" className="ds-fade">
@@ -51,6 +53,7 @@ const CustomersTab = ({ getAuthHeader, initialFilter }) => {
         })}
       </div>
 
+      {active === "all"         && <AllCustomers    getAuthHeader={getAuthHeader} />}
       {active === "subscribers" && <SubscribersTab getAuthHeader={getAuthHeader} />}
       {active === "loyalty"     && <LoyaltyManager getAuthHeader={getAuthHeader} />}
       {active === "inquiries"   && <CateringTab    getAuthHeader={getAuthHeader} />}
