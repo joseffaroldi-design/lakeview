@@ -23,12 +23,15 @@ jobs:
           CI: 'false'
           REACT_APP_BACKEND_URL: http://localhost:8000
         run: yarn build
-      - name: Verify forbidden legacy API prefixes are absent from active frontend
+      - name: Verify removed marketing systems stay out of active frontend
         run: |
-          if grep -RInE '/api/(ai-designer|creative-director|design-memory|marketing-pack|workspace)' frontend/src; then
-            echo 'Legacy frontend API dependency found.'
+          if grep -RInE '/api/(photo-flyer|ai-designer|creative-director|design-memory|marketing-pack|workspace)' frontend/src; then
+            echo 'Removed marketing API dependency found in active frontend.'
             exit 1
           fi
+          test ! -f frontend/src/pages/dashboard/AiAdsTab.jsx
+          test ! -f frontend/src/pages/dashboard/aiads/PhotoToFlyer.jsx
+          test ! -f frontend/src/pages/dashboard/aiads/PromoteThisItem.jsx
 
   backend-static:
     runs-on: ubuntu-latest
@@ -39,13 +42,7 @@ jobs:
           python-version: '3.11'
       - name: Compile backend
         run: python -m compileall -q backend
-      - name: Verify Photo Flyer facade is mounted
-        run: |
-          grep -q 'api_router.include_router(photo_flyer.router)' backend/server.py
-          grep -q '@router.get("/themes")' backend/routers/photo_flyer.py
-          grep -q '@router.post("/generate"' backend/routers/photo_flyer.py
-          grep -q '@router.get("/job/{job_id}")' backend/routers/photo_flyer.py
-      - name: Verify historical compatibility code remains
+      - name: Verify historical compatibility code remains dormant
         run: |
           test -d backend/ai_designer
           test -d backend/theme_packs
