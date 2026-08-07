@@ -1,0 +1,52 @@
+name: PR Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [agent/simplify-photo-flyer-backend]
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --non-interactive
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          CI: 'true'
+          REACT_APP_BACKEND_URL: http://localhost:8000
+        run: yarn build
+      - name: Verify forbidden legacy API prefixes are absent from active frontend
+        run: |
+          if grep -RInE '/api/(ai-designer|creative-director|design-memory|marketing-pack|workspace)' frontend/src; then
+            echo 'Legacy frontend API dependency found.'
+            exit 1
+          fi
+
+  backend-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile backend
+        run: python -m compileall -q backend
+      - name: Verify Photo Flyer facade is mounted
+        run: |
+          grep -q 'api_router.include_router(photo_flyer.router)' backend/server.py
+          grep -q '@router.get("/themes")' backend/routers/photo_flyer.py
+          grep -q '@router.post("/generate"' backend/routers/photo_flyer.py
+          grep -q '@router.get("/job/{job_id}")' backend/routers/photo_flyer.py
+      - name: Verify historical compatibility code remains
+        run: |
+          test -d backend/ai_designer
+          test -d backend/theme_packs
+          grep -q 'HIDDEN_THEMES = frozenset' backend/routers/ai_designer.py
