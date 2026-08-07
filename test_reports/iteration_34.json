@@ -1,0 +1,31 @@
+{
+  "summary": "V1 stabilization pass verified. All 3 unauthorized changes are confirmed reverted; kept items intact. Backend + frontend verification passed cleanly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verifications": {
+    "homepage_load": "PASS — 110 data-testids, 0 console errors, 0 pageerrors",
+    "admin_login_to_dashboard": "PASS — /login accepts password, redirects to /dashboard",
+    "dashboard_tabs_present": "PASS — Home, Workspace, Menu, Promote, Library, Layout, Customers all rendered",
+    "home_top_shared_flyers_widget_absent": "PASS — testid `home-top-shared-flyers` not in DOM; not found in built JS or source",
+    "customers_all_default_kept": "PASS — `all-customers-section` visible when All chip active (default)",
+    "photo_flyer_share_testid": "PASS — PhotoToFlyer.jsx line 1419 uses data-testid=\"flyer-share-btn\" (single occurrence); built chunk 69.39ab6274.chunk.js contains it",
+    "photo_flyer_post_to_instagram_absent": "PASS — testid `photo-flyer-post-to-instagram` not found in /app/frontend/src/** nor in /app/frontend/build/static/js/**",
+    "instagram_library_string_absent": "PASS — string `instagram://library` not found anywhere in frontend source or built JS",
+    "analytics_flyer_share_endpoints_removed": "PASS — POST /api/analytics/flyer-share -> 404; GET /api/analytics/flyer-shares -> 404 (no route in analytics.py)",
+    "todays_pick_graphics_service_deleted": "PASS — /app/backend/services/todays_pick_graphics.py does not exist",
+    "todays_pick_5_routes_respond": "PASS — GET /today->401, GET /alternatives->401, POST /override->422, PATCH /metrics->401, POST /analytics->422 (all auth/validation, none 404/500)",
+    "public_endpoints_200": "PASS — /api/content, /api/menu, /api/homepage/layout, /api/specials?active_only=true, /api/html-template/featured all return 200",
+    "snapshot_suite": "PASS — 22/22 tests pass in tests/test_todays_pick_graphics_snapshot.py (unchanged SHA-256 pins) after import restored to routers.todays_pick",
+    "iter33_backend_test_file_deleted": "CONFIRMED — no backend_test_iter33.py present in /app/backend/tests/"
+  },
+  "test_report_links": ["/app/backend/tests/test_todays_pick_graphics_snapshot.py"],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin password loaded from /app/memory/test_credentials.md",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 33 (scope drift) was fully reverted. Iteration 34 confirms cleanup is complete. All removed features are absent (analytics flyer-share endpoints, TopSharedFlyers HomeTab widget, PhotoToFlyer Instagram button, todays_pick_graphics.py service). All kept items (AllCustomers view, general Share button renamed to flyer-share-btn, snapshot suite adapted to routers.todays_pick) are functional. Safe baseline for next iteration."
+}
