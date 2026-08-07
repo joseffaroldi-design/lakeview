@@ -11,7 +11,7 @@ API_BASE = f"{BASE_URL}/api"
 print("Logging in...")
 response = requests.post(
     f"{API_BASE}/auth/login",
-    json={"email": "admin@lakeview.com", "password": "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"},
+    json={"email": "admin@lakeview.com", "password": "[REDACTED]"},
     timeout=10
 )
 token = response.json()["token"]

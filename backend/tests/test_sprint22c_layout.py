@@ -13,7 +13,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-ADMIN_PASSWORD = "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 EXPECTED_KEYS = {
     "hero", "todays_featured", "specials", "about", "menu",

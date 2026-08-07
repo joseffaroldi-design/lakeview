@@ -1,3 +1,4 @@
+import os
 """End-to-end smoke test for Sprint 16D: Photo→Flyer.
 
 Validates the full new flow against live preview:
@@ -21,7 +22,7 @@ import requests
 from PIL import Image, ImageDraw
 
 BASE = "https://upload-stage-two.preview.emergentagent.com"
-PW = "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
+PW = os.environ.get("ADMIN_PASSWORD", "")
 OUT = Path("/app/memory/launch/assets/sprint16d")
 OUT.mkdir(parents=True, exist_ok=True)
 

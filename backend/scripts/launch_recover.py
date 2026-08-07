@@ -1,3 +1,4 @@
+import os
 """Recovery: read previously-completed AI Designer + Marketing Pack jobs
 and download their artifacts. Used when the initial validation script's
 polling tripped on 15s GET timeouts (the jobs themselves completed fine).
@@ -13,7 +14,7 @@ from pathlib import Path
 import requests
 
 BASE = "https://upload-stage-two.preview.emergentagent.com"
-PW = "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
+PW = os.environ.get("ADMIN_PASSWORD", "")
 OUT = Path("/app/memory/launch/assets")
 OUT.mkdir(parents=True, exist_ok=True)
 

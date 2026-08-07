@@ -91,7 +91,7 @@ async def login(request, data: LoginRequest, response):
 | `CORS_ORIGINS`     | `*`                             | (whatever was set)                |
 
 The active **preview** admin password sha256[:8] is `2f599703` — Support
-can hash `83CeLOZJQbOcopK0yYmNtdRQg4VPii8o` and confirm match.
+can hash `[REDACTED-scrubbed during V1 release-blocker remediation]` and confirm match.
 
 ---
 
@@ -107,7 +107,7 @@ PROD="https://lakeview-grill.emergent.host"
 curl -s -o /dev/null -w "new_password=%{http_code}\n" \
   -X POST "$PROD/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"password":"83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"}'
+  -d '{"password":"[REDACTED-scrubbed during V1 release-blocker remediation]"}'
 
 # Expected: 401 (the old password should no longer work)
 # Actually seeing: 200  ← THE BUG
@@ -156,7 +156,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$PROD/api/auth/login" \
 # New password must return 200 + token
 curl -s -X POST "$PROD/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"password":"83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"}' | python -m json.tool
+  -d '{"password":"[REDACTED-scrubbed during V1 release-blocker remediation]"}' | python -m json.tool
 # → { "message": "Login successful", "token": "..." }
 ```
 

@@ -28,7 +28,7 @@
     "backend": "100% (5/5 parametrized themes, 45/45 unique hashes)",
     "frontend": "skipped per request"
   },
-  "test_credentials": "Read from /app/memory/test_credentials.md — admin password 83CeLOZJQbOcopK0yYmNtdRQg4VPii8o used to mint a JWT against POST /api/auth/login. One auth round-trip for the entire module (module-scoped fixture).",
+  "test_credentials": "Read from /app/memory/test_credentials.md — admin password [REDACTED] used to mint a JWT against POST /api/auth/login. One auth round-trip for the entire module (module-scoped fixture).",
   "seed_data_creation": "45 new media_assets rows created (5 themes × 3 jobs × 3 variants), each with tags including 'ai-designer', source 'ai-designer'. Not cleaned up — these are real generated artifacts. The original upload source asset (859d6add-2df8-4c5e-86df-167d5a58e49d) was untouched.",
   "retest_needed": false,
   "main_agent_can_self_test": true,

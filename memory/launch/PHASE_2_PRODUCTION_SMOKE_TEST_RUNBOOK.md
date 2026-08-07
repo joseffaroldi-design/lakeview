@@ -1,7 +1,7 @@
 # Phase 2 — Production Smoke-Test Runbook
 
 **Use AFTER**: Emergent Support confirms env-var propagation is fixed and
-production responds 200 to the new `ADMIN_PASSWORD` (`83CeLOZJQbOcopK0yYmNtdRQg4VPii8o`).
+production responds 200 to the new `ADMIN_PASSWORD` (`[REDACTED]`).
 
 **Audience**: You (running curl/browser from your local terminal). E1 has no
 network path to production from inside the preview pod.
@@ -10,7 +10,7 @@ Set these once at the top of your shell:
 
 ```bash
 PROD="https://lakeview-grill.emergent.host"
-NEW_PW="83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
+NEW_PW="[REDACTED]"
 OLD_PW="<the password that's currently still working in prod>"
 ```
 

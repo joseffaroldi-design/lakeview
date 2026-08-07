@@ -16,7 +16,7 @@
   ],
   "updated_files": [],
   "success_rate": {"backend": "skipped (frontend-only sprint)", "frontend": "100% of in-runtime checks passed; workspace-detail open-click verified via static code review only"},
-  "test_credentials": "Admin password from /app/memory/test_credentials.md (83CeLOZJQbOcopK0yYmNtdRQg4VPii8o) — valid.",
+  "test_credentials": "Admin password from /app/memory/test_credentials.md ([REDACTED]) — valid.",
   "seed_data_creation": "None — read-only UI testing.",
   "retest_needed": false,
   "should_main_agent_self_test": true,

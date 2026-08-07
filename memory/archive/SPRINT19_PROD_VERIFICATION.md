@@ -55,7 +55,7 @@ loads to be free for the pod.
 * `POST /api/ai-designer/generate`
 * `POST /api/marketing-pack/generate`
 
-The preview admin password (`83CeLOZJQbOcopK0yYmNtdRQg4VPii8o`) was rejected
+The preview admin password (`[REDACTED-scrubbed during V1 release-blocker remediation]`) was rejected
 by prod with `{"detail":"Invalid password"}` — production uses its own
 `ADMIN_PASSWORD` env var, which I don't have.
 

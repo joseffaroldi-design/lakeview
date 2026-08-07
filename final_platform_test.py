@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """Final comprehensive platform size test with proper timeouts."""
 import requests
@@ -7,7 +8,7 @@ import io
 
 BASE_URL = "https://upload-stage-two.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@lakeview.com"
-ADMIN_PASSWORD = "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 class Colors:
     GREEN = '\033[92m'

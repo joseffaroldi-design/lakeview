@@ -11,12 +11,20 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://upload-stage-two.preview.emergentagent.com").rstrip("/")
 
 def _load_admin_password():
-    with open("/app/memory/test_credentials.md", "r") as f:
-        for line in f:
-            m = re.match(r"^\s*-\s*\*\*Password\*\*:\s*(\S+)\s*$", line)
-            if m:
-                return m.group(1)
-    raise RuntimeError("Admin password not found in credentials file")
+    # Prefer environment. Fall back to reading /app/backend/.env directly
+    # so tests run inside the container without extra setup. The plaintext
+    # password is no longer stored in memory/test_credentials.md.
+    pw = os.environ.get("ADMIN_PASSWORD", "")
+    if pw:
+        return pw
+    try:
+        with open("/app/backend/.env", "r") as f:
+            for line in f:
+                if line.startswith("ADMIN_PASSWORD="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    raise RuntimeError("ADMIN_PASSWORD not available (env or backend/.env)")
 
 ADMIN_PASSWORD = _load_admin_password()
 

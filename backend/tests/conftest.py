@@ -5,9 +5,10 @@ ADMIN_PASSWORD / REACT_APP_BACKEND_URL / MONGO_URL / DB_NAME were not exported
 into the shell. We now:
 
 1. Load `/app/backend/.env` and `/app/frontend/.env` if present.
-2. Fall back to extracting ADMIN_PASSWORD from `/app/memory/test_credentials.md`
-   so the same baseline works in CI, in the preview pod, and on a fresh
-   developer machine.
+2. Legacy fallback: extract ADMIN_PASSWORD from `/app/memory/test_credentials.md`
+   if it happens to be present. As of the V1 release-blocker remediation the
+   plaintext password is no longer committed to that file; the `.env` path
+   above is now the primary source.
 3. Register the `slow` pytest mark so `@pytest.mark.slow` no longer emits
    warnings.
 

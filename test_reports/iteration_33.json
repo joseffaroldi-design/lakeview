@@ -17,7 +17,7 @@
     "/app/backend/tests/backend_test_iter33.py (new — 7 tests covering public endpoints + flyer-share track/list/no-op)"
   ],
   "success_rate": {"backend": "100% (7/7 iter33 API tests + 22/22 snapshot tests)", "frontend": "100% (all 4 sprint items verified at runtime)"},
-  "test_credentials": "Admin password: 83CeLOZJQbOcopK0yYmNtdRQg4VPii8o (from /app/memory/test_credentials.md)",
+  "test_credentials": "Admin password: [REDACTED] (from /app/memory/test_credentials.md)",
   "seed_data_creation": "Backend test created 1 flyer_shares document (item_key='testitem', share_count>=1) which now surfaces the home-top-shared-flyers widget. Main agent may want to clear db.flyer_shares if they want to re-verify the 'hidden when empty' state.",
   "retest_needed": false,
   "should_main_agent_self_test": false,

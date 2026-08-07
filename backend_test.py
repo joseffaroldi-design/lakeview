@@ -18,7 +18,7 @@ import io
 BASE_URL = os.getenv("REACT_APP_BACKEND_URL", "https://upload-stage-two.preview.emergentagent.com")
 API_BASE = f"{BASE_URL}/api"
 ADMIN_EMAIL = "admin@lakeview.com"
-ADMIN_PASSWORD = "83CeLOZJQbOcopK0yYmNtdRQg4VPii8o"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 # Test results tracking
 test_results = {

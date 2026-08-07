@@ -27,12 +27,22 @@ assert _m, "REACT_APP_BACKEND_URL missing from /app/frontend/.env"
 BASE = _m.group(1).strip().rstrip("/")
 API = f"{BASE}/api"
 
-# Admin password sourced from /app/memory/test_credentials.md — programmatic
-# read, never logged.
-_creds = Path("/app/memory/test_credentials.md").read_text()
-_pm = re.search(r"\*\*Password\*\*:\s*(\S+)", _creds)
-assert _pm, "Password not found in test_credentials.md"
-_ADMIN_PW = _pm.group(1).strip()
+# Admin password loaded from ADMIN_PASSWORD env (falling back to
+# /app/backend/.env). The plaintext password is no longer stored in
+# memory/test_credentials.md — never logged.
+def _load_admin_pw():
+    pw = os.environ.get("ADMIN_PASSWORD", "")
+    if pw:
+        return pw
+    try:
+        for line in Path("/app/backend/.env").read_text().splitlines():
+            if line.startswith("ADMIN_PASSWORD="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return ""
+_ADMIN_PW = _load_admin_pw()
+assert _ADMIN_PW, "ADMIN_PASSWORD not available (env or backend/.env)"
 
 LIB_ASSET_ID = "c3e26d02-b0a6-465f-84f2-deebe2ccf143"
 LOGO_URL = ("https://customer-assets.emergentagent.com/job_703dcc6a-aa7a-4633-a18d-a8d37a8eb209/"
