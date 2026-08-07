@@ -1,14 +1,14 @@
 /**
  * Sprint 17B — RecommendedStyleCard
  *
- * ONE compact card that bundles the AI's top recommendation across
+ * ONE compact card that bundles the top style recommendation across
  * theme + layout + typography + badge + overlay, with a single
  * "Apply Recommended Style" CTA. Everything else (other themes, manual
  * picker) lives behind a collapsible "View other themes" toggle so the
  * owner sees a single decision instead of 22.
  *
  * Props:
- *   rec               – the top recommendation (from /api/creative-director/recommend.recommendations[0])
+ *   rec               – the top recommendation object supplied by the parent
  *   context           – the same context block (has_memory, holiday, ...)
  *   isSelected        – true when the parent has already accepted this rec
  *   onApply()         – apply the top recommendation (pick its theme_id)

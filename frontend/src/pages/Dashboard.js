@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import {
-  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon,
+  ArrowLeft, LogOut, Pencil, Users, Home, Image as ImageIcon,
   Briefcase, LayoutTemplate,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import HomeTab from "@/pages/dashboard/HomeTab";
 
-// Sprint 19 perf: lazy-load every non-landing tab + the heavy Promote modal.
+// Lazy-load non-landing tabs so the dashboard stays fast and predictable.
 const ContentEditor = lazy(() => import(/* webpackPrefetch: true */ "@/pages/ContentEditor").then(m => ({ default: m.ContentEditor })));
 const MenuEditor    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/ContentEditor").then(m => ({ default: m.MenuEditor })));
-const AiAdsTab      = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AiAdsTab"));
 const CustomersTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/CustomersTab"));
 const LibraryTab    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LibraryTab"));
 const AnalyticsTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AnalyticsTab"));
 const WorkspaceTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/WorkspaceTab"));
 const LayoutTab     = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LayoutTab"));
 const TodaysPickCard = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/home/TodaysPickCard"));
-const PromoteThisItem = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/aiads/PromoteThisItem"));
 
 const TabFallback = () => (
   <div className="py-16 text-center text-sm text-navy/50" data-testid="tab-loading">
@@ -27,12 +25,10 @@ const TabFallback = () => (
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Sprint 21 — Analytics hidden from pilot nav (code retained).
 const TABS = [
   { id: "home",        label: "Home",       icon: Home },
   { id: "workspace",   label: "Workspace",  icon: Briefcase },
   { id: "menu",        label: "Menu",       icon: Pencil },
-  { id: "promotions",  label: "Promote",    icon: Megaphone },
   { id: "library",     label: "Library",    icon: ImageIcon },
   { id: "layout",      label: "Layout",     icon: LayoutTemplate },
   { id: "customers",   label: "Customers",  icon: Users },
@@ -42,7 +38,6 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [authChecked, setAuthChecked] = useState(false);
   const [customersInitialFilter, setCustomersInitialFilter] = useState(null);
-  const [promoteCtx, setPromoteCtx] = useState(null);
   const navigate = useNavigate();
 
   const getAuthHeader = useCallback(() => {
@@ -72,13 +67,11 @@ const Dashboard = () => {
   };
 
   const switchTab = (tab, subTab) => {
-    setActiveTab(tab);
-    if (tab === "customers") setCustomersInitialFilter(subTab || null);
-  };
-
-  const openPromote = (item, category) => {
-    if (!item) return;
-    setPromoteCtx({ item, category: category || "" });
+    // Photo-to-Flyer / Promote is intentionally removed from V1.
+    // Old deep-links are routed to the menu instead of opening a dead screen.
+    const safeTab = tab === "promotions" || tab === "promote" ? "menu" : tab;
+    setActiveTab(safeTab);
+    if (safeTab === "customers") setCustomersInitialFilter(subTab || null);
   };
 
   if (!authChecked) {
@@ -91,7 +84,6 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-shell min-h-screen" data-testid="dashboard-shell">
-      {/* Glass top bar */}
       <header className="ds-topnav sticky top-0 z-40" data-testid="dashboard-topbar">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="h-16 flex items-center justify-between">
@@ -115,7 +107,6 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Tab strip */}
           <nav
             className="ds-nav-scroll flex items-center gap-1 -mb-px overflow-x-auto pb-2 pt-1"
             data-testid="dashboard-tabs"
@@ -142,7 +133,7 @@ const Dashboard = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {activeTab === "home" && (
-          <HomeTab getAuthHeader={getAuthHeader} onNavigate={switchTab} onPromote={openPromote} />
+          <HomeTab getAuthHeader={getAuthHeader} onNavigate={switchTab} />
         )}
         {activeTab === "menu" && (
           <Suspense fallback={<TabFallback />}>
@@ -151,18 +142,14 @@ const Dashboard = () => {
                 <p className="ds-eyebrow mb-1">Menu &amp; site content</p>
                 <h2 className="ds-display text-3xl sm:text-4xl">Edit your menu</h2>
                 <p className="text-sm text-navy/60 mt-2 max-w-xl">
-                  Update dishes, hero copy, gallery, and page content. Use the sparkle ✨ button on any dish to launch a flyer in one click.
+                  Update dishes, prices, descriptions, Today's Pick, gallery, and public website content.
                 </p>
               </header>
-              {/* Sprint 22F — Today's Pick moved here from Home tab. */}
               <div className="mb-10">
                 <TodaysPickCard getAuthHeader={getAuthHeader} />
               </div>
               <div className="space-y-10">
-                <MenuEditor
-                  getAuthHeader={getAuthHeader}
-                  onPromoteDeepLink={() => setActiveTab("promotions")}
-                />
+                <MenuEditor getAuthHeader={getAuthHeader} />
                 <div className="pt-8 border-t border-navy/10">
                   <p className="ds-eyebrow mb-1">Site content</p>
                   <h3 className="ds-display text-xl sm:text-2xl mb-4">Public website copy</h3>
@@ -172,20 +159,17 @@ const Dashboard = () => {
             </section>
           </Suspense>
         )}
-        {activeTab === "promotions" && (
-          <Suspense fallback={<TabFallback />}>
-            <AiAdsTab getAuthHeader={getAuthHeader} />
-          </Suspense>
-        )}
         {activeTab === "workspace" && (
           <Suspense fallback={<TabFallback />}>
-            <WorkspaceTab getAuthHeader={getAuthHeader} onPromote={openPromote} />
+            <WorkspaceTab getAuthHeader={getAuthHeader} />
           </Suspense>
         )}
         {activeTab === "library" && (
           <Suspense fallback={<TabFallback />}>
-            <LibraryTab getAuthHeader={getAuthHeader}
-              onRequestNavigate={(tab) => setActiveTab(tab === "promote" ? "promotions" : tab)} />
+            <LibraryTab
+              getAuthHeader={getAuthHeader}
+              onRequestNavigate={(tab) => switchTab(tab)}
+            />
           </Suspense>
         )}
         {activeTab === "layout" && (
@@ -204,24 +188,6 @@ const Dashboard = () => {
           </Suspense>
         )}
       </main>
-
-      {promoteCtx ? (
-        <Suspense fallback={<TabFallback />}>
-          <PromoteThisItem
-            mode="modal"
-            getAuthHeader={getAuthHeader}
-            initialMenuItem={promoteCtx.item ? {
-              item_key: `${(promoteCtx.category && promoteCtx.category.slug) || "menu"}::${(promoteCtx.item.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
-              name: promoteCtx.item.name,
-              description: promoteCtx.item.description,
-              price: promoteCtx.item.price,
-              category_slug: promoteCtx.category && promoteCtx.category.slug,
-              category_display_name: promoteCtx.category && (promoteCtx.category.display_name || promoteCtx.category.name),
-            } : null}
-            onClose={() => setPromoteCtx(null)}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 };
