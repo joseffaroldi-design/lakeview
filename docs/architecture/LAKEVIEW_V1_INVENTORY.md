@@ -284,17 +284,33 @@ in this sprint is:
 The following were **identified** in this audit but **not acted on**, per
 the SAFE CLEANUP mandate:
 
-1. **Dead-package removal** — 15+ packages exclusively used by unused
-   shadcn UI wrappers. Deletion requires owner approval and a separate
-   cleanup PR.
-2. **Orphan shadcn UI files** — 20+ `.jsx` files in `components/ui/` are
-   never imported by app code. Deletion requires owner approval.
-3. **`AiDesigner.jsx` removal** — frozen per §11; needs owner unfreeze.
-4. **Router splits** — `ai_designer.py` (871 LOC) and `todays_pick.py`
-   (767 LOC) are large but touch too many frozen areas to split safely
-   without dedicated owner review.
-5. **`SubscribersTab` ⊂ `CustomersTab` consolidation** — product decision,
-   not a code decision.
+1. **Dead-package removal** — RESOLVED Feb 2026: 38 packages + 30 shadcn
+   files removed. Frontend `dependencies` 51 → 13. See top-level changelog.
+2. **Orphan shadcn UI files** — RESOLVED (same purge).
+3. **`AiDesigner.jsx` removal** — RESOLVED Feb 2026: deleted along with
+   `aiDesignerAnalytics.js` + `aiDesignerBoot.js` (2,056 LOC dead code).
+   `FROZEN_FEATURES.md` §11 updated.
+4. **Router splits** — RE-DEFERRED with stronger evidence:
+   - `ai_designer.py` (871 LOC) currently re-exports **19 private
+     PIL primitives** (`_radial_gradient`, `_star`, `_lightning_bolt`,
+     `_distressed_grain`, `_halftone_dots`, `_wavy_ribbon`,
+     `_speed_lines`, `_squiggle`, `_sparks`, `_brush_stamp`,
+     `_linear_gradient`, `_corner_frame`, `_corner_ornaments`,
+     `_diagonal_ribbon`, `_marble_veins`, `_checker_strip`,
+     `_corner_dots`, `_olive_branch`, `_confetti`) that are directly
+     imported by **15+ theme pack files** under
+     `theme_packs/*.py` and
+     `ai_designer/registries/theme_packs/*.py`. Splitting requires
+     rewiring every theme pack import — high-risk mechanical work that
+     touches renderer paths (Stop Condition). Needs a dedicated sprint
+     with snapshot regression tests per theme.
+   - `todays_pick.py` (767 LOC) — PIL helpers could be extracted safely
+     (~155 LOC block, no external imports), but the compose function
+     lives on the daily 5:30 AM cron path that populates the public
+     Today's Featured card. Any regression here would be immediately
+     visible on the marketing site. Also needs its own sprint with a
+     snapshot test for the daily-generated PNG.
+5. **`SubscribersTab` ⊂ `CustomersTab` consolidation** — product decision.
 6. **Pre-existing `CI=true` lint warnings** (4 total) — out of scope per
    the "move only, do not improve" rule.
 
