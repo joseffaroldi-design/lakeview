@@ -35,6 +35,38 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — Sprint V1.0 Follow-up: Backlog burn-down**:
+  - **AiDesigner cleanup**: Deleted 2,056 LOC of dead code —
+    `AiDesigner.jsx` (1,638 LOC), `aiDesignerAnalytics.js` (247 LOC),
+    `aiDesignerBoot.js` (171 LOC). `FROZEN_FEATURES.md` §11 updated
+    (unfrozen + deleted with owner sign-off).
+  - **Dead package purge**: Removed 30 unused shadcn UI files (kept only
+    `button`, `card`, `input`) and uninstalled 38 npm packages via
+    `yarn remove` (26 unused `@radix-ui/*` packages + `cmdk`, `date-fns`,
+    `embla-carousel-react`, `input-otp`, `next-themes`, `react-day-picker`,
+    `react-hook-form`, `@hookform/resolvers`, `react-resizable-panels`,
+    `vaul`, `zod`, `cra-template`). Frontend dependencies dropped from
+    **51 → 13**. Kept `sonner` (used in index.js), `@radix-ui/react-slot`
+    (used by button), `axios`, `react`, `react-dom`, `react-router-dom`,
+    `react-scripts`, `lucide-react`, `class-variance-authority`, `clsx`,
+    `tailwind-merge`, `recharts`, `tailwindcss-animate`.
+  - **Share Flyer button**: New button on Photo-to-Flyer output screen
+    (testid `photo-flyer-share-flyer`) between `Download flyer` and
+    `Regenerate`. Uses `navigator.share` (Web Share API) first for
+    native mobile share sheets, falls back to copying the absolute
+    flyer URL to clipboard and opening `facebook.com/sharer/sharer.php`
+    in a new tab. Zero backend changes.
+  - **Router splits (`ai_designer.py`, `todays_pick.py`)**: RE-DEFERRED
+    with stronger evidence in `docs/architecture/LAKEVIEW_V1_INVENTORY.md`
+    §8. Splitting `ai_designer.py` requires rewiring 19 private PIL
+    primitive re-exports consumed by 15+ theme pack files. Splitting
+    `todays_pick.py` risks the daily-cron Today's Featured pipeline.
+    Both need dedicated sprints with per-theme snapshot tests.
+  - Independent verification via `testing_agent_v3_fork` iteration 32:
+    zero issues, retest_needed=false. All 7 dashboard tabs render, all
+    5 public API endpoints 200, Share button confirmed in source and
+    reachable in the DOM.
+
 - **Feb 2026 — Sprint V1.0 Safe Cleanup**:
   - Extracted `App.js` (1,186 → 26 LOC, 97.8% reduction) into 11 public
     components under `frontend/src/components/public/` (`Navbar`, `Hero`,
