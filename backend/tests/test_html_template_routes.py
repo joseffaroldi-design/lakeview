@@ -13,12 +13,39 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
+
+def _admin_password() -> str:
+    """Load ADMIN_PASSWORD from env or /app/backend/.env fallback.
+    Plaintext no longer lives in memory/test_credentials.md after the V1
+    release-blocker remediation."""
+    pw = os.environ.get("ADMIN_PASSWORD", "")
+    if pw:
+        return pw
+    try:
+        for line in open("/app/backend/.env"):
+            if line.startswith("ADMIN_PASSWORD="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return ""
+
+
 # Import the app late so settings/db are wired
 @pytest.fixture(scope="module")
 def client():
     from server import app
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="module")
+def admin_headers(client):
+    pw = _admin_password()
+    if not pw:
+        pytest.skip("ADMIN_PASSWORD not available")
+    r = client.post("/api/auth/login", json={"password": pw})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['token']}"}
 
 
 def test_themes_endpoint(client):
@@ -32,7 +59,7 @@ def test_themes_endpoint(client):
 
 
 @pytest.mark.slow
-def test_preview_returns_png(client):
+def test_preview_returns_png(client, admin_headers):
     r = client.post("/api/html-template/preview", json={
         "theme": "luxury",
         "item_name": "Test Filet",
@@ -40,30 +67,30 @@ def test_preview_returns_png(client):
         "price": "$24.50",
         "output_size": 256,
         "render_size": 512,
-    })
+    }, headers=admin_headers)
     assert r.status_code == 200, r.text
     assert r.headers["content-type"].startswith("image/png")
     im = Image.open(io.BytesIO(r.content))
     assert im.size == (256, 256)
 
 
-def test_preview_rejects_unsupported_theme(client):
+def test_preview_rejects_unsupported_theme(client, admin_headers):
     r = client.post("/api/html-template/preview", json={
         "theme": "burger_classic",  # not in HTML renderer
         "item_name": "x",
         "output_size": 256, "render_size": 512,
-    })
+    }, headers=admin_headers)
     assert r.status_code == 400
 
 
 @pytest.mark.slow
-def test_bulk_render_lifecycle(client):
+def test_bulk_render_lifecycle(client, admin_headers):
     r = client.post("/api/html-template/bulk-render", json={
         "theme": "luxury",
         "limit": 2,
         "output_size": 256,
         "render_size": 512,
-    })
+    }, headers=admin_headers)
     assert r.status_code == 200, r.text
     body = r.json()
     assert "job_id" in body
