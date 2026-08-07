@@ -30,7 +30,7 @@ import axios from "axios";
 import {
   Sparkles, Upload, Loader2, Download, RefreshCw, CheckCircle,
   ArrowLeft, Wand2, Image as ImageIcon, Video, ChevronRight, Copy,
-  AlertTriangle, BookOpen, Save, X, Share2,
+  AlertTriangle, BookOpen, Save, X, Share2, Instagram,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -1299,6 +1299,57 @@ const ReviewStep = ({
     });
   };
 
+  // Post to Instagram — Item 3 (Feb 2026). IG has no share URL and their
+  // API blocks third-party publishing without an approved Business account.
+  // So the best "one-tap" flow we can offer is:
+  //   1. Copy the caption + hashtags to the clipboard.
+  //   2. Trigger a download of the flyer image so the owner has it in
+  //      their Photos roll.
+  //   3. Try to open the Instagram app via the `instagram://library`
+  //      scheme on mobile; fall back to instagram.com on desktop.
+  //   4. Track as platform="instagram".
+  const onPostToInstagramClick = async () => {
+    if (!flyerUrl) return;
+    // 1. Copy caption
+    const captionText = ig || fb || `Fresh from Lakeview: ${flyer.headline || analysis?.food_type || "our latest special"}`;
+    try { await navigator.clipboard?.writeText(captionText); } catch { /* ignore */ }
+
+    // 2. Trigger download so the image is in the camera roll on mobile.
+    triggerDownload();
+
+    // 3. Deep-link — instagram:// only works if the app is installed,
+    // so we open both in quick succession (the app wins if installed).
+    const isMobile = /Mobi|Android|iPhone|iPad/.test(navigator.userAgent);
+    if (isMobile) {
+      // Best-effort deep link to Instagram library. If IG isn't installed
+      // the browser silently no-ops; we still opened the fallback below.
+      window.location.href = "instagram://library";
+      setTimeout(() => {
+        window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+      }, 400);
+    } else {
+      window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+    }
+
+    // 4. Track
+    try {
+      await axios.post(`${API}/analytics/flyer-share`, {
+        item_key: menuItem?.item_key || "",
+        item_name: menuItem?.name || analysis?.food_type || flyer.headline || "",
+        theme: themeUsed || "",
+        platform: "instagram",
+      }, { timeout: 8000 });
+    } catch { /* ignore */ }
+
+    // 5. Toast — tell owner what happens next.
+    const el = document.createElement("div");
+    el.textContent = "Caption copied and flyer saved — paste into Instagram";
+    el.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0a2540;color:#fff;padding:10px 18px;border-radius:6px;font-size:12px;z-index:9999;max-width:90vw;text-align:center";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  };
+
+
   // Share flyer — Web Share API first (mobile-native share sheet), fallback
   // to clipboard copy + Facebook/Instagram share dialogs.
   const onShareClick = async () => {
@@ -1431,6 +1482,13 @@ const ReviewStep = ({
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-navy hover:text-gold hover:underline"
                 data-testid="photo-flyer-share-flyer">
                 <Share2 className="w-4 h-4" /> Share flyer
+              </button>
+              <button
+                type="button"
+                onClick={onPostToInstagramClick}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-navy hover:text-gold hover:underline"
+                data-testid="photo-flyer-post-to-instagram">
+                <Instagram className="w-4 h-4" /> Post to Instagram
               </button>
               <button onClick={onRegenerate}
                 className="inline-flex items-center gap-1.5 text-sm text-navy hover:underline"
