@@ -19,7 +19,7 @@ from routers import (
     cms, specials, analytics, loyalty, messaging,
     catering, newsletter, misc, ai_ads, media, home,
     marketing_pack, billing, ai_designer, todays_pick, ai_image,
-    photo_flyer, design_memory, creative_director,
+    design_memory, creative_director,
     html_template, workspace,
 )
 
@@ -53,7 +53,6 @@ api_router.include_router(marketing_pack.router)
 api_router.include_router(billing.router)
 api_router.include_router(ai_designer.router)
 api_router.include_router(ai_image.router)
-api_router.include_router(photo_flyer.router)
 api_router.include_router(todays_pick.router)
 api_router.include_router(design_memory.router)
 api_router.include_router(creative_director.router)
