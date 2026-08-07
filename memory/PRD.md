@@ -35,6 +35,48 @@ Build a website for restaurant "Lakeview Burgers & Seafood" featuring menu, orde
 ## Testing: 122/123 backend (99%), full frontend coverage
 
 ## Changelog
+- **Feb 2026 — Sprint V1.0 Follow-up 2: Customers + Analytics + IG + Router Split**:
+  - **Item 1 — Customers consolidation**: New `AllCustomers.jsx` unified
+    directory. `All` is now the default filter chip in `CustomersTab`,
+    showing both newsletter subscribers (email-only) and loyalty members
+    (name+phone+visits) merged into a single searchable list with
+    per-channel badges. No shared key exists between the two collections;
+    merge is at render time only. Backend untouched.
+  - **Item 2 — Flyer share analytics**: New public endpoint
+    `POST /api/analytics/flyer-share` (rate-limited 30/min) upserts a
+    `flyer_shares` doc keyed by `item_key` with atomic `$inc` on
+    `share_count` and `platform_counts.{webshare|facebook|instagram|unknown}`.
+    New admin endpoint `GET /api/analytics/flyer-shares` returns the
+    ranked list + totals. The Share Flyer button in Photo-to-Flyer now
+    POSTs after every share attempt (best-effort, silent on failure).
+    New HomeTab widget "Most shared flyers" (top 5 by count) hidden
+    until at least one share exists.
+  - **Item 3 — Post to Instagram one-tap**: New button (testid
+    `photo-flyer-post-to-instagram`) between Share Flyer and Regenerate.
+    Copies IG caption + hashtags to clipboard, triggers a flyer download
+    so it lands in the mobile camera roll, then attempts the
+    `instagram://library` deep link on mobile with `instagram.com`
+    fallback. Tracks as `platform="instagram"` in `/api/analytics/flyer-share`.
+  - **Item 4 — Router split (`todays_pick.py`)**: Extracted 155 LOC of
+    pure PIL composition helpers into a new `services/todays_pick_graphics.py`
+    module (`CANVAS`, `THEME`, `LAYOUTS`, `RESTAURANT_BRANDING`, `FONT_*`,
+    `_font`, `_wrap_text`, `_generate_simple_background`, `_draw_title`,
+    `_draw_price_badge`, `_draw_branding`, `_compose_simple_design`).
+    Router shrank 767 -> 630 LOC. All names re-exported from the router
+    for backward compat. Safety net: **new snapshot regression suite
+    `tests/test_todays_pick_graphics_snapshot.py` — 22 tests including
+    12 SHA-256 byte-hash pins across 4 input pairs × 3 layouts —
+    verified byte-identical output before and after the split.**
+  - **Item 4 — Router split (`ai_designer.py`) re-deferred**: This file
+    is already ~90% thin shims from Tech Debt Sprint Steps 5-6
+    (composition -> `ai_designer.composition`, orchestration ->
+    `ai_designer.generation`). 19 private PIL primitives are directly
+    imported from `routers.ai_designer` by 15+ theme_pack files plus
+    `HIDDEN_THEMES` by `creative_director.py`. A real split needs those
+    callers rewired first, which is a separate refactor. The snapshot-
+    test protocol established for `todays_pick_graphics` is the pattern
+    for the future work.
+
 - **Feb 2026 — Sprint V1.0 Follow-up: Backlog burn-down**:
   - **AiDesigner cleanup**: Deleted 2,056 LOC of dead code —
     `AiDesigner.jsx` (1,638 LOC), `aiDesignerAnalytics.js` (247 LOC),

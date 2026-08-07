@@ -1,0 +1,25 @@
+{
+  "summary": "Sprint V1.0 Follow-up 2 verification (both backend + frontend). All 4 sprint items pass: (1) Customers 'All' unified view — chip present as DEFAULT (order: All, Subscribers, Loyalty, Inquiries, Messages), all-customers-section + all-customers-search testids render, unified list shows 70 customers (40 email + 30 loyalty), search filter works. (2) Home 'Most shared flyers' widget — home-top-shared-flyers visible after seeding a share via backend, renders '1 share total' + item name + last theme correctly. (3) Photo-to-Flyer new buttons — photo-flyer-share-flyer AND photo-flyer-post-to-instagram testids verified in PhotoToFlyer.jsx source (lines 1483, 1490). (4) Snapshot suite — 22/22 passing (byte-identical SHA-256 hashes match pre-refactor). Backend endpoints: POST /api/analytics/flyer-share returns {ok:true,tracked:true}; GET /api/analytics/flyer-shares returns testitem with share_count>=1; missing item_key returns {ok:true,tracked:false} (correct no-op behavior). All 5 public endpoints (/api/content, /api/menu, /api/homepage/layout, /api/specials?active_only=true, /api/html-template/featured) return 200. Public homepage loads with 0 console errors; admin login works with rotated password. Zero console errors during full dashboard flow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test_iter33.py",
+    "/app/backend/tests/test_todays_pick_graphics_snapshot.py",
+    "/app/test_reports/pytest/iter33.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/analytics.py POST /api/analytics/flyer-share doesn't use a Pydantic model — accepts raw body dict. Minor: consider a FlyerShareIn Pydantic model to align with rest of codebase and get automatic validation/OpenAPI schema.",
+    "The _FlyerShareTracker empty class (analytics.py L255-257) is dead code — 'namespace holder' comment but no methods attached; endpoints are module-level. Safe to delete.",
+    "PhotoToFlyer.jsx is now ~1900 LOC (still exceeds 700 guideline) — router-split done for backend todays_pick.py; a similar split for PhotoToFlyer step-components remains a good follow-up."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test_iter33.py (new — 7 tests covering public endpoints + flyer-share track/list/no-op)"
+  ],
+  "success_rate": {"backend": "100% (7/7 iter33 API tests + 22/22 snapshot tests)", "frontend": "100% (all 4 sprint items verified at runtime)"},
+  "test_credentials": "Admin password: 83CeLOZJQbOcopK0yYmNtdRQg4VPii8o (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Backend test created 1 flyer_shares document (item_key='testitem', share_count>=1) which now surfaces the home-top-shared-flyers widget. Main agent may want to clear db.flyer_shares if they want to re-verify the 'hidden when empty' state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sprint V1.0 Follow-up 2 fully verified. New backend regression file /app/backend/tests/backend_test_iter33.py covers public endpoints + flyer-share analytics. Snapshot suite (22 tests) is a strong guard against regressions in todays_pick_graphics.py — always run after any change to routers/todays_pick.py or services/todays_pick_graphics.py. Widget home-top-shared-flyers is now visible because a TEST_ share doc exists — this is fine; can be cleared with db.flyer_shares.delete_many({'item_key':'testitem'}) to re-verify hidden state."
+}
