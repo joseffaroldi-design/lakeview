@@ -10,7 +10,7 @@ const AiAdsTab = ({ getAuthHeader }) => (
     <PageHeader
       eyebrow="Promote"
       title={<>Photo <span className="text-gold">→</span> Flyer</>}
-      subtitle="Upload a food photo and we'll auto-build a flyer + caption in under a minute. Turn it into a 15-second video if you like."
+      subtitle="Upload a food photo, confirm the details, choose a style, and generate a flyer with ready-to-copy captions."
     />
     <PhotoToFlyer getAuthHeader={getAuthHeader} />
   </div>
