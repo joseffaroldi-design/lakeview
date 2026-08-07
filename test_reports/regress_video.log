@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0 -- /root/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /app
+plugins: anyio-4.12.1
+collecting ... collected 2 items
+
+backend/tests/test_phase8_media_studio.py::TestVideoRender::test_video_render_lifecycle PASSED [ 50%]
+backend/tests/test_phase8_media_studio.py::TestVideoRender::test_video_jobs_list_sorted PASSED [100%]
+
+============================== 2 passed in 23.15s ==============================

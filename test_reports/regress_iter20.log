@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0 -- /root/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /app
+plugins: anyio-4.12.1
+collecting ... collected 11 items
+
+backend/tests/test_phase8_media_studio.py::TestUpload::test_upload_jpg_success PASSED [  9%]
+backend/tests/test_phase8_media_studio.py::TestUpload::test_upload_rejects_unsupported_mime PASSED [ 18%]
+backend/tests/test_phase8_media_studio.py::TestEdit::test_edit_brightness_contrast_text PASSED [ 27%]
+backend/tests/test_phase8_media_studio.py::TestEdit::test_edit_crop_rotate_flip_changes_dims PASSED [ 36%]
+backend/tests/test_phase8_media_studio.py::TestEdit::test_edit_remove_background PASSED [ 45%]
+backend/tests/test_phase8_media_studio.py::TestSocialExport::test_social_formats_list PASSED [ 54%]
+backend/tests/test_phase8_media_studio.py::TestSocialExport::test_export_six_formats_cover PASSED [ 63%]
+backend/tests/test_phase8_media_studio.py::TestSocialExport::test_export_contain_with_bg_color PASSED [ 72%]
+backend/tests/test_phase8_media_studio.py::TestVideoRender::test_video_render_lifecycle 

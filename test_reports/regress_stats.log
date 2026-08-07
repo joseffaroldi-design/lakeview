@@ -1,0 +1,10 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0 -- /root/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /app
+plugins: anyio-4.12.1
+collecting ... collected 1 item
+
+backend/tests/test_phase8_media_studio.py::TestStats::test_stats_contains_required_keys PASSED [100%]
+
+============================== 1 passed in 0.75s ===============================

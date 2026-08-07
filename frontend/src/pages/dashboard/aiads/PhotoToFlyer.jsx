@@ -1309,26 +1309,39 @@ const ReviewStep = ({
     const absUrl = flyerUrl.startsWith("http")
       ? flyerUrl
       : `${window.location.origin}${flyerUrl}`;
+    let sharePlatform = "unknown";
+    let didShare = false;
     if (navigator.share) {
       try {
         await navigator.share({ title: shareTitle, text: shareText, url: absUrl });
-        return;
+        sharePlatform = "webshare";
+        didShare = true;
       } catch (e) {
-        // User cancelled or Web Share unavailable — fall through to fallback
-        if (e?.name === "AbortError") return;
+        if (e?.name === "AbortError") return; // user cancelled — don't fall through, don't track
       }
     }
-    // Fallback: copy the flyer URL to clipboard and open Facebook sharer.
-    // Instagram has no web-share URL, so we tell the owner to paste in
-    // the caption field on mobile.
-    try { await navigator.clipboard?.writeText(absUrl); } catch { /* ignore */ }
-    const fbShare = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(absUrl)}`;
-    window.open(fbShare, "_blank", "noopener,noreferrer");
-    const el = document.createElement("div");
-    el.textContent = "Flyer link copied — paste it into Instagram or any app";
-    el.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0a2540;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;z-index:9999";
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+    if (!didShare) {
+      // Fallback: copy the flyer URL and open Facebook sharer
+      try { await navigator.clipboard?.writeText(absUrl); } catch { /* ignore */ }
+      const fbShare = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(absUrl)}`;
+      window.open(fbShare, "_blank", "noopener,noreferrer");
+      sharePlatform = "facebook";
+      const el = document.createElement("div");
+      el.textContent = "Flyer link copied — paste it into Instagram or any app";
+      el.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0a2540;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;z-index:9999";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2000);
+    }
+    // Track — best-effort, silent on failure so a network hiccup never
+    // blocks the owner from sharing.
+    try {
+      await axios.post(`${API}/analytics/flyer-share`, {
+        item_key: menuItem?.item_key || "",
+        item_name: menuItem?.name || analysis?.food_type || flyer.headline || "",
+        theme: themeUsed || "",
+        platform: sharePlatform,
+      }, { timeout: 8000 });
+    } catch { /* ignore */ }
   };
 
   return (
