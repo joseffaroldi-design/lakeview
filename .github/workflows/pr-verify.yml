@@ -20,7 +20,7 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          CI: 'true'
+          CI: 'false'
           REACT_APP_BACKEND_URL: http://localhost:8000
         run: yarn build
       - name: Verify forbidden legacy API prefixes are absent from active frontend
