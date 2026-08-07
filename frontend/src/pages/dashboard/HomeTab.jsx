@@ -14,7 +14,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
   AlertTriangle, BarChart3, Calendar as CalendarIcon, ChefHat, Image as ImageIcon,
-  Loader2, Megaphone, Share2, Sparkles, TrendingUp, UserPlus, Utensils, Users,
+  Loader2, Megaphone, Sparkles, TrendingUp, UserPlus, Utensils, Users,
 } from "lucide-react";
 // Sprint 22F — Today's Pick moved to the Menu tab; BillingCard kept.
 import BillingCard from "./BillingCard";
@@ -296,9 +296,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         <BillingCard getAuthHeader={getAuthHeader} />
       </div>
 
-      {/* MOST SHARED FLYERS — Item 2 (Feb 2026) */}
-      <TopSharedFlyers getAuthHeader={getAuthHeader} />
-
       {/* RECENT ACTIVITY / SUGGESTIONS */}
       {suggestions.length > 0 && (
         <div className="mb-8" data-testid="home-suggestions">
@@ -334,72 +331,3 @@ const QuickAction = ({ icon: Icon, label, sub, onClick, tone = "navy", testId })
 );
 
 export default HomeTab;
-
-// TopSharedFlyers — Item 2 (Feb 2026): compact leaderboard of the menu
-// items whose flyers were shared most (via the Photo→Flyer Share button).
-// Hidden when nothing has ever been shared so first-run owners don't see
-// an empty card.
-const TopSharedFlyers = ({ getAuthHeader }) => {
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      try {
-        const r = await axios.get(`${API}/analytics/flyer-shares`, {
-          headers: getAuthHeader(),
-          timeout: 8000,
-        });
-        if (cancel) return;
-        setItems(r.data?.items || []);
-        setTotal(r.data?.total_shares || 0);
-      } catch {
-        // Silent — this is a supplementary widget, not critical.
-      } finally {
-        if (!cancel) setLoading(false);
-      }
-    })();
-    return () => { cancel = true; };
-  }, [getAuthHeader]);
-
-  if (loading || items.length === 0) return null;
-
-  const top = items.slice(0, 5);
-  return (
-    <div className="mb-8" data-testid="home-top-shared-flyers">
-      <div className="flex items-baseline justify-between mb-3">
-        <p className="ds-eyebrow">Most shared flyers</p>
-        <span className="text-xs text-navy/50">{total} share{total === 1 ? "" : "s"} total</span>
-      </div>
-      <div className="ds-card p-4">
-        <div className="divide-y divide-navy/5">
-          {top.map((it, idx) => (
-            <div
-              key={it.item_key}
-              className="flex items-center justify-between py-2"
-              data-testid={`home-shared-flyer-row-${idx}`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="w-6 h-6 rounded-full bg-gold/15 text-gold text-xs font-bold flex items-center justify-center flex-shrink-0">
-                  {idx + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-navy truncate">{it.item_name || it.item_key}</p>
-                  <p className="text-xs text-navy/50 truncate">
-                    {it.last_theme ? `Last theme: ${it.last_theme.replace(/_/g, " ")}` : ""}
-                  </p>
-                </div>
-              </div>
-              <span className="inline-flex items-center gap-1 text-sm font-semibold text-forest whitespace-nowrap">
-                <Share2 className="w-3.5 h-3.5" />
-                {it.share_count}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
