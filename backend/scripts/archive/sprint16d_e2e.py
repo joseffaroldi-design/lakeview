@@ -1,4 +1,3 @@
-import os
 """End-to-end smoke test for Sprint 16D: Photo→Flyer.
 
 Validates the full new flow against live preview:
@@ -11,6 +10,8 @@ Validates the full new flow against live preview:
 Total wall-time target: < 90s (vision ~9s, designer ~35s, video ~50s).
 """
 from __future__ import annotations
+
+import os
 
 import io
 import sys

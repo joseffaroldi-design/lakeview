@@ -17,10 +17,10 @@ from rate_limit import limiter
 import auth
 from routers import (
     cms, specials, analytics, loyalty, messaging,
-    catering, newsletter, misc, ai_ads, media, home,
-    marketing_pack, billing, ai_designer, todays_pick, ai_image,
-    photo_flyer, design_memory, creative_director,
-    html_template, workspace,
+    catering, newsletter, misc, media, home,
+    billing, todays_pick,
+    photo_flyer,
+    html_template, settings, marketing,
 )
 
 logging.basicConfig(
@@ -46,19 +46,14 @@ api_router.include_router(loyalty.router)
 api_router.include_router(messaging.router)
 api_router.include_router(catering.router)
 api_router.include_router(newsletter.router)
-api_router.include_router(ai_ads.router)
 api_router.include_router(media.router)
 api_router.include_router(home.router)
-api_router.include_router(marketing_pack.router)
 api_router.include_router(billing.router)
-api_router.include_router(ai_designer.router)
-api_router.include_router(ai_image.router)
 api_router.include_router(photo_flyer.router)
 api_router.include_router(todays_pick.router)
-api_router.include_router(design_memory.router)
-api_router.include_router(creative_director.router)
 api_router.include_router(html_template.router)
-api_router.include_router(workspace.router)
+api_router.include_router(settings.router)
+api_router.include_router(marketing.router)
 app.include_router(api_router)
 
 # CORS
@@ -96,18 +91,15 @@ async def on_startup():
         # Sprint 12C: route /api/ai-ads/assets to media_assets via source filter
         await db.media_assets.create_index([("source", 1), ("created_at", -1)], name="media_source_created")
         # Sprint 15B: render_jobs and ai_image_jobs indexes removed (collections dropped).
-        # ai_design_jobs: AI Designer themed variations
-        await db.ai_design_jobs.create_index([("status", 1), ("created_at", -1)], name="adj_status_created")
-        await db.ai_design_jobs.create_index("id", name="adj_id", unique=True, sparse=True)
-        await db.ai_design_templates.create_index("id", name="adt_id", unique=True, sparse=True)
-        await db.ai_design_templates.create_index([("created_at", -1)], name="adt_created")
         # marketing_packs: Promote This Item 2.0
         await db.marketing_packs.create_index([("status", 1), ("created_at", -1)], name="mpk_status_created")
         await db.marketing_packs.create_index("id", name="mpk_id", unique=True, sparse=True)
         await db.menu_promotions.create_index("item_key", name="mp_item_key", unique=True)
-        # Sprint 17A: per-menu-item Design Memory (visual prefs only).
-        await db.design_memory.create_index("item_key", name="dm_item_key", unique=True)
-        await db.design_memory.create_index([("updated_at", -1)], name="dm_updated_at")
+        # V1 simplification: owner settings + deterministic flyer jobs + auditable loyalty.
+        await db.business_settings.create_index("id", name="business_settings_id", unique=True, sparse=True)
+        await db.marketing_flyer_jobs.create_index("id", name="marketing_flyer_job_id", unique=True, sparse=True)
+        await db.marketing_flyer_jobs.create_index([("status", 1), ("created_at", -1)], name="marketing_flyer_status_created")
+        await db.loyalty_events.create_index([("member_id", 1), ("created_at", -1)], name="loyalty_events_member_created")
         # Sprint 12C — Task 3: TTL indexes prevent unbounded growth on append-only
         # audit / log / analytics collections. Mongo's TTL monitor deletes any doc
         # whose `expires_at` (BSON Date) is in the past, checked roughly every 60s.
@@ -124,16 +116,9 @@ async def on_startup():
 
     # Sprint 12D: ai_engine.plugins pre-warm removed (plugins package deleted).
 
-    # ---- 7. Clean up orphan media jobs left behind by a previous worker
-    try:
-        # Sprint 15B: cleanup_orphan_render_jobs + cleanup_orphan_ai_image_jobs deleted
-        # along with /media/video and /media/ai-image routes.
-        from routers.marketing_pack import cleanup_orphan_marketing_packs
-        from routers.ai_designer import cleanup_orphan_ai_design_jobs
-        await cleanup_orphan_marketing_packs()
-        await cleanup_orphan_ai_design_jobs()
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Orphan job cleanup skipped: %s", e)
+    # ---- 7. Legacy generation job cleanup retired.
+    # Historical rows and render implementations remain read-compatible until
+    # their data is migrated, but the old generation APIs no longer create jobs.
 
     # ---- 7a. Sprint 12C — Backfill TTL `expires_at` on legacy rows.
     try:
