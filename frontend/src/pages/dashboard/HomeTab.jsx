@@ -74,7 +74,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           axios.get(`${API}/home/promote-suggestions?limit=3`, { headers }),
           axios.get(`${API}/specials`, { headers }),
           axios.get(`${API}/catering/inquiries`, { headers }),
-          axios.get(`${API}/ai-ads/stats`, { headers }).catch(() => ({ data: {} })),
+          axios.get(`${API}/marketing/stats`, { headers }).catch(() => ({ data: {} })),
         ]);
 
         if (cancelled) return;
@@ -95,7 +95,7 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         });
         setHealth(healthData);
         setTopItems(top3);
-        setMenuItems([]);  // no longer needed — using top3 instead
+        setMenuItems([]);
 
         setWeek({
           mostPromotedItem: stats.most_used_goal || "—",
@@ -104,7 +104,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           loyaltyGrowth: summary.new_subscribers || 0,
         });
 
-        // Suggestions — top-3 + catering follow-ups + failures + expiring
         const sug = [];
         if (top3.length > 0) {
           sug.push({
@@ -130,9 +129,9 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
           sug.push({
             id: "fix-failed", icon: AlertTriangle, tone: "navy",
             title: `${summary.real_failures} failed publish${summary.real_failures === 1 ? "" : "es"}`,
-            body: "Auto-retried 3 times. Open the Calendar to inspect or reconnect a provider.",
-            cta: "Open Calendar",
-            onClick: () => onNavigate && onNavigate("promotions", "calendar"),
+            body: "Review the failed item before promoting again.",
+            cta: "Open Marketing",
+            onClick: () => onNavigate && onNavigate("promotions"),
           });
         }
         const expiringSoon = specials.filter((s) => {
@@ -146,16 +145,16 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
             title: `${expiringSoon[0].title} ends soon`,
             body: "Boost it with one last social push.",
             cta: "Promote it",
-            onClick: () => onNavigate && onNavigate("promotions", "automations"),
+            onClick: () => onNavigate && onNavigate("promotions"),
           });
         }
         if (sug.length === 0) {
           sug.push({
             id: "all-clear", icon: Sparkles, tone: "gold",
             title: "You're caught up",
-            body: "Nothing urgent. Want to plan next week while you have a minute?",
-            cta: "Open Calendar",
-            onClick: () => onNavigate && onNavigate("promotions", "calendar"),
+            body: "Nothing urgent. Create a flyer when you are ready.",
+            cta: "Open Marketing",
+            onClick: () => onNavigate && onNavigate("promotions"),
           });
         }
         setSuggestions(sug);
@@ -168,12 +167,14 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
     return () => { cancelled = true; };
   }, [getAuthHeader, onNavigate, onPromote]);
 
-  // Sprint 22F — Today's Pick + refresh moved to TodaysPickCard (Menu tab).
-
-  // Featured = first top-3 item (fallback null)
   const featuredItem = topItems[0] || null;
   void featuredItem;
-  void menuItems; // legacy state, no longer rendered
+  void menuItems;
+  void week;
+  void promoteOpen;
+  void setPromoteOpen;
+  void todayYMD;
+  void CalendarIcon;
 
   const HEALTH_TONES = {
     green:  { dot: "bg-forest", text: "All systems healthy" },
@@ -209,7 +210,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         }
       />
 
-      {/* HEALTH ISSUES PANEL */}
       {issuesOpen ? (
         <div
           className={`mb-6 ds-card p-4 ${health.level === "red" ? "border-red-200 bg-red-50/40" : health.level === "yellow" ? "border-gold/30 bg-gold/5" : "border-forest/20 bg-forest/5"}`}
@@ -242,10 +242,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         </div>
       ) : null}
 
-      {/* Sprint 22F — Today's Pick moved to the Menu tab.
-          Quick actions are now the primary CTAs on the Home dashboard. */}
-
-      {/* QUICK ACTIONS */}
       <div className="mb-8" data-testid="home-quick-actions">
         <p className="ds-eyebrow mb-3">Quick actions</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -254,49 +250,46 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
             tone="gold"
             onClick={() => onNavigate && onNavigate("promotions")}
             testId="qa-promote" />
-          <QuickAction icon={Utensils} label="Menu &amp; Today&apos;s Pick"
-            sub="Edit dishes &amp; pick"
+          <QuickAction icon={Utensils} label="Menu & Today's Pick"
+            sub="Edit dishes & pick"
             onClick={() => onNavigate && onNavigate("menu")}
             testId="qa-menu" />
           <QuickAction icon={ImageIcon} label="Library"
-            sub="Saved flyers &amp; videos"
+            sub="Saved flyers & photos"
             onClick={() => onNavigate && onNavigate("library")}
             testId="qa-library" />
           <QuickAction icon={UserPlus} label="Customers"
-            sub="Subscribers &amp; leads"
+            sub="Subscribers & leads"
             onClick={() => onNavigate && onNavigate("customers")}
             testId="qa-customers" />
         </div>
       </div>
 
-      {/* WORKSPACE SUMMARY */}
       <div className="mb-8" data-testid="home-workspace-summary">
         <div className="flex items-end justify-between mb-3">
           <div>
-            <p className="ds-eyebrow">Workspace</p>
-            <h3 className="ds-display text-lg sm:text-xl">Today at a glance</h3>
+            <p className="ds-eyebrow">Today</p>
+            <h3 className="ds-display text-lg sm:text-xl">At a glance</h3>
           </div>
-          <button onClick={() => onNavigate && onNavigate("workspace")}
+          <button onClick={() => onNavigate && onNavigate("library")}
             className="text-xs text-navy/60 hover:text-navy font-semibold"
-            data-testid="home-open-workspace">
-            View all projects →
+            data-testid="home-open-library">
+            View photos →
           </button>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatTile label="Active Promos" value={today.activePromos} icon={Megaphone} tone="navy" testId="home-active-promos" />
           <StatTile label="New Inquiries" value={today.newInquiries} icon={Users} tone={today.newInquiries > 0 ? "gold" : "navy"} testId="home-new-inquiries" />
-          <StatTile label="Items in queue" value={topItems.length > 0 ? topItems.length : "—"} icon={TrendingUp} tone="navy" testId="home-week-summary" />
-          <StatTile label="View Analytics" value="→" icon={BarChart3} tone="navy" testId="home-analytics-link" />
+          <StatTile label="Items to Promote" value={topItems.length > 0 ? topItems.length : "—"} icon={TrendingUp} tone="navy" testId="home-week-summary" />
+          <StatTile label="Flyers Generated" value="→" icon={BarChart3} tone="navy" testId="home-analytics-link" />
         </div>
       </div>
 
-      {/* BILLING */}
       <div className="mb-8">
         <p className="ds-eyebrow mb-3">Budget</p>
         <BillingCard getAuthHeader={getAuthHeader} />
       </div>
 
-      {/* RECENT ACTIVITY / SUGGESTIONS */}
       {suggestions.length > 0 && (
         <div className="mb-8" data-testid="home-suggestions">
           <p className="ds-eyebrow mb-3">Recent activity</p>
@@ -308,7 +301,6 @@ const HomeTab = ({ getAuthHeader, onNavigate, onPromote }) => {
         </div>
       )}
 
-      {/* ONBOARDING — subtle, last */}
       <OnboardingGuide getAuthHeader={getAuthHeader} onNavigate={onNavigate} />
     </section>
   );

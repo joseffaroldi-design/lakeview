@@ -54,6 +54,12 @@ const Hero = ({ content, titleOverride, bodyOverride }) => {
         <p className="font-sans text-sm md:text-base text-cream/90 mb-4 md:mb-5 max-w-2xl mx-auto animate-fade-in-up animation-delay-400">
           {bodyOverride || content?.subtitle || "Serving the finest burgers and fresh Gulf seafood in the heart of New Orleans since 2015"}
         </p>
+
+        {content?.announcement ? (
+          <p className="inline-block mb-4 px-4 py-2 rounded-full bg-gold text-navy text-sm font-semibold shadow-lg" data-testid="hero-announcement">
+            {content.announcement}
+          </p>
+        ) : null}
         
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in-up animation-delay-600">

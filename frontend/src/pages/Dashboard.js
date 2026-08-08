@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import {
-  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon,
-  Briefcase, LayoutTemplate,
+  ArrowLeft, LogOut, Pencil, Megaphone, Users, Home, Image as ImageIcon, Settings,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -14,10 +13,9 @@ const AiAdsTab      = lazy(() => import(/* webpackPrefetch: true */ "@/pages/das
 const CustomersTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/CustomersTab"));
 const LibraryTab    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LibraryTab"));
 const AnalyticsTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AnalyticsTab"));
-const WorkspaceTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/WorkspaceTab"));
 const LayoutTab     = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LayoutTab"));
+const SettingsTab   = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/SettingsTab"));
 const TodaysPickCard = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/home/TodaysPickCard"));
-const PromoteThisItem = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/aiads/PromoteThisItem"));
 
 const TabFallback = () => (
   <div className="py-16 text-center text-sm text-navy/50" data-testid="tab-loading">
@@ -29,20 +27,18 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Sprint 21 — Analytics hidden from pilot nav (code retained).
 const TABS = [
-  { id: "home",        label: "Home",       icon: Home },
-  { id: "workspace",   label: "Workspace",  icon: Briefcase },
-  { id: "menu",        label: "Menu",       icon: Pencil },
-  { id: "promotions",  label: "Promote",    icon: Megaphone },
-  { id: "library",     label: "Library",    icon: ImageIcon },
-  { id: "layout",      label: "Layout",     icon: LayoutTemplate },
+  { id: "home",        label: "Dashboard",  icon: Home },
+  { id: "menu",        label: "Website",    icon: Pencil },
+  { id: "promotions",  label: "Marketing",  icon: Megaphone },
+  { id: "library",     label: "Photos",     icon: ImageIcon },
   { id: "customers",   label: "Customers",  icon: Users },
+  { id: "settings",    label: "Settings",   icon: Settings },
 ];
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [authChecked, setAuthChecked] = useState(false);
   const [customersInitialFilter, setCustomersInitialFilter] = useState(null);
-  const [promoteCtx, setPromoteCtx] = useState(null);
   const navigate = useNavigate();
 
   const getAuthHeader = useCallback(() => {
@@ -77,8 +73,18 @@ const Dashboard = () => {
   };
 
   const openPromote = (item, category) => {
-    if (!item) return;
-    setPromoteCtx({ item, category: category || "" });
+    if (item) {
+      try {
+        sessionStorage.setItem("lakeview.photo_flyer.prefill", JSON.stringify({
+          name: item.name || "",
+          description: item.description || "",
+          price: item.price || "",
+          features: item.features || [],
+          category: category?.display_name || category?.name || "",
+        }));
+      } catch { /* browser storage unavailable */ }
+    }
+    setActiveTab("promotions");
   };
 
   if (!authChecked) {
@@ -148,8 +154,8 @@ const Dashboard = () => {
           <Suspense fallback={<TabFallback />}>
             <section data-testid="menu-tab">
               <header className="mb-8">
-                <p className="ds-eyebrow mb-1">Menu &amp; site content</p>
-                <h2 className="ds-display text-3xl sm:text-4xl">Edit your menu</h2>
+                <p className="ds-eyebrow mb-1">Website</p>
+                <h2 className="ds-display text-3xl sm:text-4xl">Menu &amp; website</h2>
                 <p className="text-sm text-navy/60 mt-2 max-w-xl">
                   Update dishes, hero copy, gallery, and page content. Use the sparkle ✨ button on any dish to launch a flyer in one click.
                 </p>
@@ -168,6 +174,11 @@ const Dashboard = () => {
                   <h3 className="ds-display text-xl sm:text-2xl mb-4">Public website copy</h3>
                   <ContentEditor getAuthHeader={getAuthHeader} />
                 </div>
+                <div className="pt-8 border-t border-navy/10">
+                  <p className="ds-eyebrow mb-1">Homepage</p>
+                  <h3 className="ds-display text-xl sm:text-2xl mb-4">Section order &amp; visibility</h3>
+                  <LayoutTab getAuthHeader={getAuthHeader} />
+                </div>
               </div>
             </section>
           </Suspense>
@@ -177,25 +188,20 @@ const Dashboard = () => {
             <AiAdsTab getAuthHeader={getAuthHeader} />
           </Suspense>
         )}
-        {activeTab === "workspace" && (
-          <Suspense fallback={<TabFallback />}>
-            <WorkspaceTab getAuthHeader={getAuthHeader} onPromote={openPromote} />
-          </Suspense>
-        )}
         {activeTab === "library" && (
           <Suspense fallback={<TabFallback />}>
             <LibraryTab getAuthHeader={getAuthHeader}
               onRequestNavigate={(tab) => setActiveTab(tab === "promote" ? "promotions" : tab)} />
           </Suspense>
         )}
-        {activeTab === "layout" && (
-          <Suspense fallback={<TabFallback />}>
-            <LayoutTab getAuthHeader={getAuthHeader} />
-          </Suspense>
-        )}
         {activeTab === "customers" && (
           <Suspense fallback={<TabFallback />}>
             <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
+          </Suspense>
+        )}
+        {activeTab === "settings" && (
+          <Suspense fallback={<TabFallback />}>
+            <SettingsTab getAuthHeader={getAuthHeader} />
           </Suspense>
         )}
         {activeTab === "analytics" && (
@@ -205,23 +211,6 @@ const Dashboard = () => {
         )}
       </main>
 
-      {promoteCtx ? (
-        <Suspense fallback={<TabFallback />}>
-          <PromoteThisItem
-            mode="modal"
-            getAuthHeader={getAuthHeader}
-            initialMenuItem={promoteCtx.item ? {
-              item_key: `${(promoteCtx.category && promoteCtx.category.slug) || "menu"}::${(promoteCtx.item.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
-              name: promoteCtx.item.name,
-              description: promoteCtx.item.description,
-              price: promoteCtx.item.price,
-              category_slug: promoteCtx.category && promoteCtx.category.slug,
-              category_display_name: promoteCtx.category && (promoteCtx.category.display_name || promoteCtx.category.name),
-            } : null}
-            onClose={() => setPromoteCtx(null)}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React from "react";
-import PhotoToFlyer from "./aiads/PhotoToFlyer";
+import PhotoToFlyer from "./aiads/SimplePhotoToFlyer";
 import { PageHeader } from "@/components/dashboard/primitives";
 
 // Preserved for any external surface still emitting onUseInAd handoffs.
@@ -10,7 +10,7 @@ const AiAdsTab = ({ getAuthHeader }) => (
     <PageHeader
       eyebrow="Promote"
       title={<>Photo <span className="text-gold">→</span> Flyer</>}
-      subtitle="Upload a food photo and we'll auto-build a flyer + caption in under a minute. Turn it into a 15-second video if you like."
+      subtitle="Choose a food photo, template, text, price, and size. The flyer renders predictably and saves to your Library."
     />
     <PhotoToFlyer getAuthHeader={getAuthHeader} />
   </div>
