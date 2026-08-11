@@ -82,7 +82,21 @@ def test_unknown_project_returns_404():
 
 
 def test_backfill_endpoint():
-    r = _post("/api/workspace/backfill")
+    # /api/workspace/backfill requires an authenticated admin session
+    # (V1 blocker remediation). Follow the project's standard test-auth
+    # pattern: log in with the env-provided ADMIN_PASSWORD, then call the
+    # protected endpoint with the returned bearer token.
+    login = requests.post(
+        f"{BASE_URL}/api/auth/login",
+        json={"password": os.environ["ADMIN_PASSWORD"]},
+        timeout=15,
+    )
+    assert login.status_code == 200, f"login failed: {login.status_code} {login.text[:200]}"
+    token = login.json()["token"]
+    r = _post(
+        "/api/workspace/backfill",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status_code == 200
     body = r.json()
     assert "created" in body and "total" in body
