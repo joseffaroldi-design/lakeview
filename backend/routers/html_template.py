@@ -32,9 +32,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Cookie, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
+from auth import verify_session
 import html_renderer as _html
 from config import db
 import storage as objstore
@@ -108,7 +109,12 @@ def _render_blocking(body: "PreviewBody", food_path: Optional[str]) -> bytes:
 
 
 @router.post("/preview")
-async def preview(body: PreviewBody):
+async def preview(
+    body: PreviewBody,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    await verify_session(authorization, session_token)
     """Hot-render one flyer through the HTML/CSS engine.
 
     `render_flyer` internally detects the running asyncio loop and
@@ -250,7 +256,13 @@ async def _run_bulk_render(job_id: str, body: BulkRenderBody) -> None:
 
 
 @router.post("/bulk-render")
-async def bulk_render(body: BulkRenderBody, background: BackgroundTasks):
+async def bulk_render(
+    body: BulkRenderBody,
+    background: BackgroundTasks,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    await verify_session(authorization, session_token)
     """Render every menu item with the chosen HTML theme. Runs as a
     background asyncio task; poll `/bulk-render/{job_id}` for progress."""
     if not _html.is_supported(body.theme):
