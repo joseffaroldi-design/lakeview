@@ -25,12 +25,11 @@ GET  /api/html-template/bulk-render/{job_id}
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import io
 import os
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Cookie, Header, HTTPException, Response
@@ -299,24 +298,6 @@ def _today_str() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-def _daily_index(day_key: str, pool_size: int) -> int:
-    """Deterministic per-day pick that survives process restarts and
-    matches across separate Python interpreters.
-
-    Previously used Python's built-in ``hash()``, which is randomised by
-    ``PYTHONHASHSEED`` on each process — meaning multiple workers or
-    server restarts could rotate to different flyers mid-day. This uses
-    SHA-256 on the day key so the same day always maps to the same index
-    regardless of which process serves the request.
-    """
-    if pool_size <= 0:
-        return 0
-    digest = hashlib.sha256(day_key.encode("utf-8")).digest()
-    # First 8 bytes → big-endian unsigned int → modulo pool size.
-    n = int.from_bytes(digest[:8], "big", signed=False)
-    return n % pool_size
-
-
 @router.get("/featured")
 async def featured(window_days: int = 0):
     """Today's Special — deterministically rotate through active bulk-rendered
@@ -338,7 +319,7 @@ async def featured(window_days: int = 0):
 
     query: Dict[str, Any] = {"source": "html_bulk", "status": "active"}
     if window_days and window_days > 0:
-        cutoff = (now - timedelta(days=window_days)).isoformat()
+        cutoff = (now - __import__("datetime").timedelta(days=window_days)).isoformat()
         query["uploaded_at"] = {"$gte": cutoff}
 
     cursor = db.media_assets.find(
@@ -360,7 +341,7 @@ async def featured(window_days: int = 0):
             raise HTTPException(status_code=404, detail="No bulk-rendered flyers in the library yet")
         assets = [latest]
 
-    idx = _daily_index(_today_str(), len(assets))
+    idx = abs(hash(_today_str())) % len(assets)
     pick = assets[idx]
     return {
         "asset_id": pick["id"],
