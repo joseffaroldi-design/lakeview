@@ -22,9 +22,10 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Cookie, Header, HTTPException, Query
 from pydantic import BaseModel
 
+from auth import verify_session
 from config import db
 
 
@@ -454,7 +455,13 @@ class HeroBody(BaseModel):
 
 
 @router.post("/projects/{item_key}/hero")
-async def set_hero(item_key: str, body: HeroBody):
+async def set_hero(
+    item_key: str,
+    body: HeroBody,
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
+    await verify_session(authorization, session_token)
     proj = await db.marketing_projects.find_one({"item_key": item_key}, {"_id": 0})
     if not proj:
         raise HTTPException(status_code=404, detail="project not found")
@@ -469,9 +476,13 @@ async def set_hero(item_key: str, body: HeroBody):
 
 
 @router.post("/backfill")
-async def backfill_projects():
+async def backfill_projects(
+    authorization: str = Header(None),
+    session_token: str = Cookie(None),
+):
     """Ops endpoint — idempotent rebuild of the marketing_projects collection
     from the current menu. Safe to call any time."""
+    await verify_session(authorization, session_token)
     created = await _ensure_projects()
     total = await db.marketing_projects.count_documents({})
     return {"created": created, "total": total}

@@ -28,5 +28,23 @@ def verify_admin_password(candidate: str) -> bool:
 
 
 # CORS
-cors_origins = os.environ.get('CORS_ORIGINS', '*')
-ALLOWED_ORIGINS = ["*"] if cors_origins == '*' else cors_origins.split(',')
+# In production, refuse to fall back to wildcard credentialed CORS: the
+# combination `allow_credentials=True` + `allow_origins=["*"]` is
+# invalid per the CORS spec and unsafe. If ENVIRONMENT=production and
+# CORS_ORIGINS is unset or blank, we default to an empty list so no
+# cross-origin request is admitted — the operator must configure the
+# explicit production domain before browsers can talk to the API.
+_env_name = (os.environ.get('ENVIRONMENT') or '').strip().lower()
+_cors_raw = (os.environ.get('CORS_ORIGINS') or '').strip()
+_IS_PROD = _env_name == 'production'
+
+if _cors_raw and _cors_raw != '*':
+    ALLOWED_ORIGINS = [o.strip() for o in _cors_raw.split(',') if o.strip()]
+elif _IS_PROD:
+    # Fail-safe: no credentialed wildcard in production.
+    ALLOWED_ORIGINS = []
+else:
+    # Dev / preview convenience: allow all when explicitly requested via
+    # `*` or when nothing is configured.
+    ALLOWED_ORIGINS = ["*"]
+
