@@ -36,11 +36,10 @@ const IMAGES = {
   hero: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1600&q=82&auto=format&fit=crop",
   homeHero: "/hero-burger.jpg",
   burger: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1000&q=82&auto=format&fit=crop",
-  poboy: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=1000&q=82&auto=format&fit=crop",
-  seafood: "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=1000&q=82&auto=format&fit=crop",
-  fries: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=1000&q=82&auto=format&fit=crop",
-  tenders: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=1000&q=82&auto=format&fit=crop",
-  tacos: "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=1000&q=82&auto=format&fit=crop",
+  poboy: "/shrimp-poboy.jpg",
+  fries: "/cafe-fries.jpg",
+  tenders: "/chicken-tenders.jpg",
+  tacos: "/tacos.jpg",
   catering: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=1400&q=82&auto=format&fit=crop",
   about: "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg",
 };
@@ -165,7 +164,6 @@ const Favorites = () => {
     [IMAGES.poboy, "Shrimp Po'boy"],
     [IMAGES.fries, "Café Fries"],
     [IMAGES.tenders, "Chicken Tenders"],
-    [IMAGES.seafood, "Gulf Seafood"],
   ];
   return (
     <section className="lv-favorites" id="menu-preview">
