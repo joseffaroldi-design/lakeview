@@ -1,38 +1,35 @@
 /**
- * CustomersTab — Phase 9E consolidation.
+ * CustomersTab — simplified customer follow-up.
  *
- * Merges 4 previously-separate top-level tabs into one filter-chip surface:
+ * Keeps the two day-to-day customer lists in one place:
  *   • Subscribers — newsletter signups
- *   • Loyalty    — loyalty members
- *   • Inquiries  — catering inquiries
- *   • Messages   — SMS/email blast composer
+ *   • Loyalty     — loyalty members
  *
- * No new business logic — each sub-view delegates to the original component.
- * No data migration. No collection changes.
+ * Catering inquiries live in the top-level Catering tab.
  */
 import React, { useState } from "react";
-import { Mail, UtensilsCrossed, CreditCard, Send } from "lucide-react";
+import { Mail, CreditCard } from "lucide-react";
 import SubscribersTab from "./SubscribersTab";
-import CateringTab from "./CateringTab";
-import { LoyaltyManager, MessagingDashboard } from "@/pages/LoyaltyMessaging";
+import { LoyaltyManager } from "@/pages/LoyaltyMessaging";
 import { PageHeader } from "@/components/dashboard/primitives";
 
 const FILTERS = [
   { id: "subscribers", label: "Subscribers", icon: Mail },
-  { id: "loyalty",     label: "Loyalty",     icon: CreditCard },
-  { id: "inquiries",   label: "Inquiries",   icon: UtensilsCrossed },
-  { id: "messages",    label: "Messages",    icon: Send },
+  { id: "loyalty", label: "Loyalty", icon: CreditCard },
 ];
 
 const CustomersTab = ({ getAuthHeader, initialFilter }) => {
-  const [active, setActive] = useState(initialFilter || "subscribers");
+  const initial = FILTERS.some((item) => item.id === initialFilter)
+    ? initialFilter
+    : "subscribers";
+  const [active, setActive] = useState(initial);
 
   return (
     <section data-testid="customers-tab" className="ds-fade">
       <PageHeader
         eyebrow="Customers"
-        title="Everyone you can talk to"
-        subtitle="Subscribers, loyalty members, catering leads and your message blasts — all in one place."
+        title="Customer lists"
+        subtitle="Keep subscribers and loyalty members easy to find. Catering inquiries have their own tab."
       />
 
       <div className="flex flex-wrap gap-1 mb-6 ds-nav-scroll overflow-x-auto" data-testid="customers-filters">
@@ -52,9 +49,7 @@ const CustomersTab = ({ getAuthHeader, initialFilter }) => {
       </div>
 
       {active === "subscribers" && <SubscribersTab getAuthHeader={getAuthHeader} />}
-      {active === "loyalty"     && <LoyaltyManager getAuthHeader={getAuthHeader} />}
-      {active === "inquiries"   && <CateringTab    getAuthHeader={getAuthHeader} />}
-      {active === "messages"    && <MessagingDashboard getAuthHeader={getAuthHeader} />}
+      {active === "loyalty" && <LoyaltyManager getAuthHeader={getAuthHeader} />}
     </section>
   );
 };
