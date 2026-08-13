@@ -27,6 +27,11 @@ const ADDRESS = "872 Harrison Ave, New Orleans, LA 70124";
 const SQUARE_URL = "https://lakeview-burgers-seafood.square.site";
 const UBER_URL = "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY";
 
+// PHOTO PLAN
+// These are temporary development references only. Do not treat them as final
+// production photography. The public redesign is intentionally structured so
+// each URL below can be replaced one-for-one with approved Lakeview photos
+// without changing layout, data, or backend behavior.
 const IMAGES = {
   hero: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1600&q=82&auto=format&fit=crop",
   burger: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1000&q=82&auto=format&fit=crop",
@@ -141,13 +146,13 @@ const Hero = () => (
         <MapPin /> 872 Harrison Ave, New Orleans, LA
       </a>
     </div>
-    <div className="lv-hero-photo"><img src={IMAGES.hero} alt="Burger and fries" fetchPriority="high" /></div>
+    <div className="lv-hero-photo"><img src={IMAGES.hero} alt="Temporary hero food photography placeholder" fetchPriority="high" /></div>
   </section>
 );
 
 const FavoriteCard = ({ image, name }) => (
   <Link to="/menu" className="lv-favorite-card">
-    <img src={image} alt={name} loading="lazy" />
+    <img src={image} alt={`Temporary ${name} photography placeholder`} loading="lazy" />
     <strong>{name}</strong><span>★</span>
   </Link>
 );
@@ -188,11 +193,11 @@ const StoryCatering = () => (
   <section className="lv-story-catering">
     <article id="story" className="lv-story">
       <div className="lv-story-copy"><p className="lv-kicker">Our Story</p><h2>New Orleans Cooking.<br />Lakeview Family.</h2><p>Lakeview Burgers & Seafood has been part of the neighborhood since 2015. Built on decades of restaurant experience and a love for good food, we're proud to serve the community we call home.</p><a className="lv-btn lv-btn-outline" href="#visit">Meet the Family <ChevronRight /></a></div>
-      <div className="lv-story-photos"><img className="main" src={IMAGES.about} alt="Lakeview Burgers & Seafood restaurant" loading="lazy" /><img className="small" src={IMAGES.burger} alt="Lakeview burger" loading="lazy" /></div>
+      <div className="lv-story-photos"><img className="main" src={IMAGES.about} alt="Temporary Lakeview story photography placeholder" loading="lazy" /><img className="small" src={IMAGES.burger} alt="Temporary Lakeview burger photography placeholder" loading="lazy" /></div>
     </article>
     <article id="catering" className="lv-catering">
       <div className="lv-catering-copy"><p className="lv-kicker">Lakeview Catering</p><h2>Feed Everybody.</h2><p>Office lunches, game days, birthdays, family gatherings and events—we'll help you put together something everyone will want to eat.</p><a className="lv-btn lv-btn-cream" href={PHONE_HREF}>Call About Catering <ChevronRight /></a></div>
-      <img src={IMAGES.catering} alt="Catering food spread" loading="lazy" />
+      <img src={IMAGES.catering} alt="Temporary catering food photography placeholder" loading="lazy" />
     </article>
   </section>
 );
@@ -286,7 +291,7 @@ export const PublicMenu = () => {
       <main>
         <section className="lv-menu-hero">
           <div className="lv-menu-hero-copy"><p className="lv-script">Made in Lakeview; Loved in New Orleans.</p><h1>Our Menu</h1><div className="lv-rule">⚜</div><p>From big, juicy burgers to fresh Gulf seafood and New Orleans favorites—there's something here for every appetite.</p></div>
-          <img src={IMAGES.hero} alt="Lakeview burger and fries" />
+          <img src={IMAGES.hero} alt="Temporary Lakeview menu hero photography placeholder" />
         </section>
         <nav className="lv-category-nav" aria-label="Menu categories">
           {navCategories.map((cat, index) => {
