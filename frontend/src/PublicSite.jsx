@@ -34,6 +34,7 @@ const UBER_URL = "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-
 // without changing layout, data, or backend behavior.
 const IMAGES = {
   hero: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1600&q=82&auto=format&fit=crop",
+  homeHero: "/hero-burger.jpg",
   burger: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1000&q=82&auto=format&fit=crop",
   poboy: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=1000&q=82&auto=format&fit=crop",
   seafood: "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=1000&q=82&auto=format&fit=crop",
@@ -146,7 +147,7 @@ const Hero = () => (
         <MapPin /> 872 Harrison Ave, New Orleans, LA
       </a>
     </div>
-    <div className="lv-hero-photo"><img src={IMAGES.hero} alt="Temporary hero food photography placeholder" fetchPriority="high" /></div>
+    <div className="lv-hero-photo"><img src={IMAGES.homeHero} alt="Lakeview Burgers & Seafood burger" fetchPriority="high" /></div>
   </section>
 );
 
