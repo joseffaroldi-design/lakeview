@@ -1,11 +1,12 @@
 {
   "name": "Lakeview Burgers & Seafood",
   "short_name": "Lakeview",
-  "description": "Best burgers and fresh Gulf seafood in New Orleans. Order online, view our menu, and join our loyalty program.",
+  "description": "Lakeview Burgers & Seafood — burgers, Gulf seafood, po'boys and New Orleans favorites on Harrison Avenue.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#fcfbf7",
-  "theme_color": "#1d2a3b",
+  "background_color": "#F6F1DB",
+  "theme_color": "#102839",
   "orientation": "portrait-primary",
   "categories": ["food", "restaurant"],
   "icons": [
@@ -31,18 +32,21 @@
   "shortcuts": [
     {
       "name": "View Menu",
-      "url": "/#menu",
-      "description": "Browse our full menu"
+      "short_name": "Menu",
+      "url": "/menu",
+      "description": "Browse the Lakeview menu"
     },
     {
-      "name": "Order on Uber Eats",
-      "url": "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY",
-      "description": "Order delivery via Uber Eats"
+      "name": "Order Online",
+      "short_name": "Order",
+      "url": "https://lakeview-burgers-seafood.square.site",
+      "description": "Order pickup from Lakeview"
     },
     {
       "name": "Call Us",
+      "short_name": "Call",
       "url": "tel:+15042891032",
-      "description": "Call for reservations"
+      "description": "Call Lakeview Burgers & Seafood"
     }
   ]
 }
