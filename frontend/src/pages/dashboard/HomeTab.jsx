@@ -1,6 +1,5 @@
 import React from "react";
-import { Image as ImageIcon, LayoutTemplate, Pencil, Users } from "lucide-react";
-import BillingCard from "./BillingCard";
+import { Image as ImageIcon, Megaphone, Pencil, Users } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/primitives";
 
 const QuickAction = ({ icon: Icon, label, sub, onClick, testId }) => (
@@ -24,51 +23,51 @@ const HomeTab = ({ onNavigate }) => {
   return (
     <section data-testid="home-tab" className="ds-fade">
       <PageHeader
-        eyebrow="Studio"
-        title={<>Good to see you<span className="text-gold">.</span></>}
-        subtitle="Keep the restaurant basics current without extra tools getting in the way."
+        eyebrow="Lakeview admin"
+        title={<>Keep the restaurant current<span className="text-gold">.</span></>}
+        subtitle="Five simple areas for the things you actually update."
       />
 
       <div className="mb-8" data-testid="home-quick-actions">
         <p className="ds-eyebrow mb-3">Quick actions</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <QuickAction
             icon={Pencil}
-            label="Menu & Today's Pick"
-            sub="Edit dishes, prices and today's feature"
+            label="Menu"
+            sub="Dishes, prices and descriptions"
             onClick={() => go("menu")}
             testId="qa-menu"
           />
           <QuickAction
+            icon={Megaphone}
+            label="Marketing"
+            sub="Website copy and customer-facing info"
+            onClick={() => go("marketing")}
+            testId="qa-marketing"
+          />
+          <QuickAction
             icon={ImageIcon}
             label="Library"
-            sub="Manage saved photos and files"
+            sub="Photos and saved files"
             onClick={() => go("library")}
             testId="qa-library"
           />
           <QuickAction
             icon={Users}
             label="Customers"
-            sub="Loyalty, subscribers and inquiries"
+            sub="Loyalty, subscribers and catering"
             onClick={() => go("customers")}
             testId="qa-customers"
-          />
-          <QuickAction
-            icon={LayoutTemplate}
-            label="Layout"
-            sub="Manage website presentation"
-            onClick={() => go("layout")}
-            testId="qa-layout"
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="ds-card p-5">
-          <p className="ds-eyebrow mb-1">Daily operations</p>
-          <h3 className="ds-display text-xl">Menu first</h3>
+          <p className="ds-eyebrow mb-1">Most common task</p>
+          <h3 className="ds-display text-xl">Keep the menu accurate</h3>
           <p className="text-sm text-navy/60 mt-2">
-            Keep prices, descriptions and Today's Pick accurate. Those are the highest-value changes you make most often.
+            Update prices and descriptions here and keep the public website in sync.
           </p>
           <button
             type="button"
@@ -80,24 +79,19 @@ const HomeTab = ({ onNavigate }) => {
         </div>
 
         <div className="ds-card p-5">
-          <p className="ds-eyebrow mb-1">Customer retention</p>
-          <h3 className="ds-display text-xl">Loyalty & customers</h3>
+          <p className="ds-eyebrow mb-1">Customer activity</p>
+          <h3 className="ds-display text-xl">One customer area</h3>
           <p className="text-sm text-navy/60 mt-2">
-            View loyalty members, subscribers and catering inquiries from one place.
+            Loyalty members, email subscribers and catering inquiries stay together.
           </p>
           <button
             type="button"
-            onClick={() => go("customers", "loyalty")}
+            onClick={() => go("customers")}
             className="ds-btn-secondary mt-4 text-xs"
           >
             Open Customers
           </button>
         </div>
-      </div>
-
-      <div className="mb-8">
-        <p className="ds-eyebrow mb-3">Budget</p>
-        <BillingCard />
       </div>
     </section>
   );
