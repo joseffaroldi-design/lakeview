@@ -1,6 +1,17 @@
-import React from "react";
-import { Image as ImageIcon, Pencil, Users, UtensilsCrossed } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import {
+  Eye,
+  Image as ImageIcon,
+  MousePointerClick,
+  Pencil,
+  Smartphone,
+  Users,
+  UtensilsCrossed,
+} from "lucide-react";
 import { PageHeader } from "@/components/dashboard/primitives";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const QuickAction = ({ icon: Icon, label, sub, onClick, testId }) => (
   <button
@@ -17,8 +28,64 @@ const QuickAction = ({ icon: Icon, label, sub, onClick, testId }) => (
   </button>
 );
 
-const HomeTab = ({ onNavigate }) => {
+const TrafficCard = ({ label, value, sub, icon: Icon }) => (
+  <div className="ds-card p-4" data-testid={`traffic-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-navy/50">{label}</p>
+        <p className="ds-display text-3xl mt-1">{value}</p>
+        <p className="text-xs text-navy/50 mt-1">{sub}</p>
+      </div>
+      <div className="w-9 h-9 rounded-xl bg-navy/8 text-navy flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4" />
+      </div>
+    </div>
+  </div>
+);
+
+const HomeTab = ({ onNavigate, getAuthHeader }) => {
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsError, setAnalyticsError] = useState(false);
   const go = (tab, subTab) => onNavigate && onNavigate(tab, subTab);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAnalytics = async () => {
+      try {
+        const response = await axios.get(`${API}/analytics`, {
+          headers: getAuthHeader ? getAuthHeader() : {},
+        });
+        if (!cancelled) {
+          setAnalytics(response.data);
+          setAnalyticsError(false);
+        }
+      } catch (error) {
+        if (!cancelled) setAnalyticsError(true);
+      }
+    };
+
+    loadAnalytics();
+    return () => {
+      cancelled = true;
+    };
+  }, [getAuthHeader]);
+
+  const orderClicksToday = useMemo(() => {
+    if (!analytics?.button_clicks_today) return 0;
+    return Object.entries(analytics.button_clicks_today).reduce((sum, [name, count]) => {
+      const key = name.toLowerCase();
+      if (key.includes("uber") || key.includes("square")) return sum + Number(count || 0);
+      return sum;
+    }, 0);
+  }, [analytics]);
+
+  const mobileShare = useMemo(() => {
+    const devices = analytics?.device_breakdown || {};
+    const total = Object.values(devices).reduce((sum, count) => sum + Number(count || 0), 0);
+    if (!total) return 0;
+    return Math.round(((Number(devices.mobile || 0) + Number(devices.tablet || 0)) / total) * 100);
+  }, [analytics]);
 
   return (
     <section data-testid="home-tab" className="ds-fade">
@@ -27,6 +94,55 @@ const HomeTab = ({ onNavigate }) => {
         title={<>Keep it simple<span className="text-gold">.</span></>}
         subtitle="The everyday tools you need to keep the restaurant website and customer information current."
       />
+
+      <div className="mb-8" data-testid="traffic-overview">
+        <div className="flex items-end justify-between gap-4 mb-3">
+          <div>
+            <p className="ds-eyebrow">Website traffic</p>
+            <h2 className="ds-display text-xl">Traffic at a glance</h2>
+          </div>
+          <p className="text-xs text-navy/45">Live from Lakeview website activity</p>
+        </div>
+
+        {analytics ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <TrafficCard
+              label="Views today"
+              value={analytics.views_today ?? 0}
+              sub={`${analytics.views_this_week ?? 0} this week`}
+              icon={Eye}
+            />
+            <TrafficCard
+              label="Visitors today"
+              value={analytics.unique_sessions_today ?? 0}
+              sub={`${analytics.unique_sessions ?? 0} tracked visitors total`}
+              icon={Users}
+            />
+            <TrafficCard
+              label="Order clicks"
+              value={orderClicksToday}
+              sub="Uber Eats + Square today"
+              icon={MousePointerClick}
+            />
+            <TrafficCard
+              label="Mobile traffic"
+              value={`${mobileShare}%`}
+              sub={`${analytics.views_this_month ?? 0} views this month`}
+              icon={Smartphone}
+            />
+          </div>
+        ) : analyticsError ? (
+          <div className="ds-card p-4 text-sm text-navy/55">
+            Traffic data is temporarily unavailable. The rest of the dashboard is unaffected.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="ds-card p-4 h-28 animate-pulse" />
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="mb-8" data-testid="home-quick-actions">
         <p className="ds-eyebrow mb-3">Quick actions</p>
