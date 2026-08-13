@@ -1,41 +1,47 @@
 """Lakeview Burgers & Seafood — FastAPI app entry point.
 
-Route registration lives here; business logic is split across /routers/*.
+The public restaurant website and the small owner dashboard share this API.
+Only routes required by those two surfaces are mounted here. Historical AI,
+designer, flyer, billing, workspace, and experimental admin routers are kept
+out of the live application.
 """
 import asyncio
 import logging
 import os
-from fastapi import FastAPI, APIRouter
-from starlette.middleware.cors import CORSMiddleware
+
+from fastapi import APIRouter, FastAPI
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-
-from config import db, client, ALLOWED_ORIGINS
-from seed_data import seed_defaults
-from rate_limit import limiter
+from starlette.middleware.cors import CORSMiddleware
 
 import auth
+from config import ALLOWED_ORIGINS, client, db
+from rate_limit import limiter
+from seed_data import seed_defaults
 from routers import (
-    cms, specials, analytics, loyalty, messaging,
-    catering, newsletter, misc, ai_ads, media, home,
-    marketing_pack, billing, ai_designer, todays_pick, ai_image,
-    design_memory, creative_director,
-    html_template, workspace,
+    analytics,
+    catering,
+    cms,
+    home,
+    loyalty,
+    media,
+    messaging,
+    misc,
+    newsletter,
+    specials,
 )
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-
-# Rate limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# All routes mount under /api
+# Public restaurant + essential owner-dashboard API only.
 api_router = APIRouter(prefix="/api")
 api_router.include_router(misc.router)
 api_router.include_router(auth.router)
@@ -46,21 +52,10 @@ api_router.include_router(loyalty.router)
 api_router.include_router(messaging.router)
 api_router.include_router(catering.router)
 api_router.include_router(newsletter.router)
-api_router.include_router(ai_ads.router)
 api_router.include_router(media.router)
 api_router.include_router(home.router)
-api_router.include_router(marketing_pack.router)
-api_router.include_router(billing.router)
-api_router.include_router(ai_designer.router)
-api_router.include_router(ai_image.router)
-api_router.include_router(todays_pick.router)
-api_router.include_router(design_memory.router)
-api_router.include_router(creative_director.router)
-api_router.include_router(html_template.router)
-api_router.include_router(workspace.router)
 app.include_router(api_router)
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -70,132 +65,70 @@ app.add_middleware(
 )
 
 
-SCHEDULER_INTERVAL_SECONDS = 30  # Retained constant; scheduler loop removed in Sprint 12D
-_scheduler_task = None  # always None — publishing pipeline retired
-
-# Sprint 13A: APScheduler for Today's Pick daily cron
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-_daily_scheduler = None
-
-
 @app.on_event("startup")
 async def on_startup():
     await seed_defaults(db)
-    # ---- 1. MongoDB indexes on hot collections (idempotent — create_index is a no-op if it exists)
+
+    # Index only collections used by the live public/admin surfaces.
     try:
-        # Sprint 12D: scheduled_posts / publish_logs / provider_connections indexes
-        # removed with the publishing pipeline (collections to be dropped).
-        # ai_generations: analytics aggregations
-        await db.ai_generations.create_index([("created_at", -1)], name="gens_created")
-        await db.ai_generations.create_index([("brief.platform", 1)], name="gens_platform")
-        # media_assets: Library lookups by kind/folder/tags
-        await db.media_assets.create_index([("status", 1), ("kind", 1), ("uploaded_at", -1)], name="media_status_kind_uploaded")
-        await db.media_assets.create_index([("folder", 1), ("uploaded_at", -1)], name="media_folder_uploaded")
+        await db.media_assets.create_index(
+            [("status", 1), ("kind", 1), ("uploaded_at", -1)],
+            name="media_status_kind_uploaded",
+        )
+        await db.media_assets.create_index(
+            [("folder", 1), ("uploaded_at", -1)],
+            name="media_folder_uploaded",
+        )
         await db.media_assets.create_index("id", name="media_id", unique=True, sparse=True)
-        # Sprint 12C: route /api/ai-ads/assets to media_assets via source filter
-        await db.media_assets.create_index([("source", 1), ("created_at", -1)], name="media_source_created")
-        # Sprint 15B: render_jobs and ai_image_jobs indexes removed (collections dropped).
-        # ai_design_jobs: AI Designer themed variations
-        await db.ai_design_jobs.create_index([("status", 1), ("created_at", -1)], name="adj_status_created")
-        await db.ai_design_jobs.create_index("id", name="adj_id", unique=True, sparse=True)
-        await db.ai_design_templates.create_index("id", name="adt_id", unique=True, sparse=True)
-        await db.ai_design_templates.create_index([("created_at", -1)], name="adt_created")
-        # marketing_packs: Promote This Item 2.0
-        await db.marketing_packs.create_index([("status", 1), ("created_at", -1)], name="mpk_status_created")
-        await db.marketing_packs.create_index("id", name="mpk_id", unique=True, sparse=True)
-        await db.menu_promotions.create_index("item_key", name="mp_item_key", unique=True)
-        # Sprint 17A: per-menu-item Design Memory (visual prefs only).
-        await db.design_memory.create_index("item_key", name="dm_item_key", unique=True)
-        await db.design_memory.create_index([("updated_at", -1)], name="dm_updated_at")
-        # Sprint 12C — Task 3: TTL indexes prevent unbounded growth on append-only
-        # audit / log / analytics collections. Mongo's TTL monitor deletes any doc
-        # whose `expires_at` (BSON Date) is in the past, checked roughly every 60s.
-        await db.failure_audit_log.create_index("expires_at", name="fal_ttl", expireAfterSeconds=0)
-        await db.page_views.create_index("expires_at", name="pv_ttl", expireAfterSeconds=0)
-        # Sprint 12C — Task 5: ai_generations retained 90 days for /api/ai-ads/stats analytics
-        await db.ai_generations.create_index("expires_at", name="gens_ttl", expireAfterSeconds=0)
-        # Sprint 15B: admin_sessions TTL. New rows write native BSON `expires_at`;
-        # legacy ISO-string `expires` rows are bulk-cleaned below.
-        await db.admin_sessions.create_index("expires_at", name="as_ttl", expireAfterSeconds=0)
-        logger.info("MongoDB indexes ensured on hot collections")
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Index creation skipped: %s", e)
+        await db.failure_audit_log.create_index(
+            "expires_at", name="fal_ttl", expireAfterSeconds=0
+        )
+        await db.page_views.create_index(
+            "expires_at", name="pv_ttl", expireAfterSeconds=0
+        )
+        await db.admin_sessions.create_index(
+            "expires_at", name="as_ttl", expireAfterSeconds=0
+        )
+        logger.info("Live Lakeview indexes ensured")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Index creation skipped: %s", exc)
 
-    # Sprint 12D: ai_engine.plugins pre-warm removed (plugins package deleted).
-
-    # ---- 7. Clean up orphan media jobs left behind by a previous worker
-    try:
-        # Sprint 15B: cleanup_orphan_render_jobs + cleanup_orphan_ai_image_jobs deleted
-        # along with /media/video and /media/ai-image routes.
-        from routers.marketing_pack import cleanup_orphan_marketing_packs
-        from routers.ai_designer import cleanup_orphan_ai_design_jobs
-        await cleanup_orphan_marketing_packs()
-        await cleanup_orphan_ai_design_jobs()
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Orphan job cleanup skipped: %s", e)
-
-    # ---- 7a. Sprint 12C — Backfill TTL `expires_at` on legacy rows.
+    # Retain TTL compatibility for existing public analytics/session rows.
     try:
         from migrations.ttl_backfill import backfill_ttl_expiries
-        await backfill_ttl_expiries(db)
-    except Exception as e:  # noqa: BLE001
-        logger.warning("TTL backfill skipped: %s", e)
 
-    # ---- 7b. Sprint 15B: bulk-delete expired admin_sessions (legacy ISO-string `expires`).
+        await backfill_ttl_expiries(db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("TTL backfill skipped: %s", exc)
+
     try:
         deleted = await auth.cleanup_expired_sessions()
         if deleted:
-            logger.info("Cleaned up %d expired admin_sessions", deleted)
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Session cleanup skipped: %s", e)
+            logger.info("Cleaned up %d expired admin sessions", deleted)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Session cleanup skipped: %s", exc)
 
-    # ---- 7c. Initialize Emergent Object Storage (off the event loop)
+    # Library uploads continue to use Emergent object storage.
     try:
         import storage as objstore
-        await asyncio.to_thread(objstore.init_storage)
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Object storage init skipped: %s", e)
 
-    # ---- 8. Media Studio infra: ensure ffmpeg + (optionally) pre-warm rembg model.
-    # Sprint 15B.3: BOTH ffmpeg-ensure and rembg-prewarm are now fully off the
-    # critical startup path. ffmpeg-install runs as a background task (was
-    # blocking startup up to 120s if apt-get had to install the binary).
-    # rembg is opt-in via REMBG_PREWARM=1; default skips and loads lazily on
-    # the first user-triggered "Remove background" call.
+        await asyncio.to_thread(objstore.init_storage)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Object storage init skipped: %s", exc)
+
+    # Keep media helpers lazy/background-only for Library operations.
     try:
         from bootstrap import ensure_ffmpeg, prewarm_rembg
+
         asyncio.create_task(asyncio.to_thread(ensure_ffmpeg))
         if os.environ.get("REMBG_PREWARM", "").lower() in ("1", "true", "yes"):
             asyncio.create_task(prewarm_rembg())
-        else:
-            logger.info("[bootstrap] rembg pre-warm skipped (set REMBG_PREWARM=1 to enable). Model loads on first explicit Remove-Background request.")
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Media bootstrap skipped: %s", e)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Media bootstrap skipped: %s", exc)
 
-    # Sprint 12D: scheduler loop removed (publishing pipeline retired)
-    logger.info("Backend startup complete — Sprint 12D demolition active")
-    
-    # ---- 9. Start APScheduler for Today's Pick (Sprint 13A → 14A) ----
-    global _daily_scheduler
-    try:
-        _daily_scheduler = AsyncIOScheduler()
-        # Sprint 14A: Run at 5:30 AM UTC (generate graphics + copy before owner wakes up)
-        _daily_scheduler.add_job(
-            todays_pick.generate_todays_pick_job,
-            'cron',
-            hour=5,
-            minute=30,
-            id='todays_pick_daily',
-            replace_existing=True,
-        )
-        _daily_scheduler.start()
-        logger.info("Today's Pick scheduler started (runs daily at 5:30 AM UTC with graphics)")
-    except Exception as e:
-        logger.error(f"Failed to start Today's Pick scheduler: {e}")
+    logger.info("Lakeview backend started with public + essential admin routes only")
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
     client.close()
-    if _daily_scheduler:
-        _daily_scheduler.shutdown(wait=False)
