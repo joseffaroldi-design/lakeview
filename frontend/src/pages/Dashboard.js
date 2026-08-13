@@ -1,38 +1,31 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import {
-  ArrowLeft, LogOut, Pencil, Users, Home, Image as ImageIcon,
-  Briefcase, LayoutTemplate,
+  ArrowLeft, LogOut, Pencil, Users, Home, Image as ImageIcon, Megaphone,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import HomeTab from "@/pages/dashboard/HomeTab";
 
-// Lazy-load non-landing tabs so the dashboard stays fast and predictable.
-const ContentEditor = lazy(() => import(/* webpackPrefetch: true */ "@/pages/ContentEditor").then(m => ({ default: m.ContentEditor })));
-const MenuEditor    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/ContentEditor").then(m => ({ default: m.MenuEditor })));
-const CustomersTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/CustomersTab"));
-const LibraryTab    = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LibraryTab"));
-const AnalyticsTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/AnalyticsTab"));
-const WorkspaceTab  = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/WorkspaceTab"));
-const LayoutTab     = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/LayoutTab"));
-const TodaysPickCard = lazy(() => import(/* webpackPrefetch: true */ "@/pages/dashboard/home/TodaysPickCard"));
+const ContentEditor = lazy(() => import("@/pages/ContentEditor").then((m) => ({ default: m.ContentEditor })));
+const MenuEditor = lazy(() => import("@/pages/ContentEditor").then((m) => ({ default: m.MenuEditor })));
+const CustomersTab = lazy(() => import("@/pages/dashboard/CustomersTab"));
+const LibraryTab = lazy(() => import("@/pages/dashboard/LibraryTab"));
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const TABS = [
+  { id: "home", label: "Home", icon: Home },
+  { id: "menu", label: "Menu", icon: Pencil },
+  { id: "marketing", label: "Marketing", icon: Megaphone },
+  { id: "library", label: "Library", icon: ImageIcon },
+  { id: "customers", label: "Customers", icon: Users },
+];
 
 const TabFallback = () => (
   <div className="py-16 text-center text-sm text-navy/50" data-testid="tab-loading">
     Loading…
   </div>
 );
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-
-const TABS = [
-  { id: "home",        label: "Home",       icon: Home },
-  { id: "workspace",   label: "Workspace",  icon: Briefcase },
-  { id: "menu",        label: "Menu",       icon: Pencil },
-  { id: "library",     label: "Library",    icon: ImageIcon },
-  { id: "layout",      label: "Layout",     icon: LayoutTemplate },
-  { id: "customers",   label: "Customers",  icon: Users },
-];
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -47,10 +40,15 @@ const Dashboard = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
-    if (!token) { navigate("/login"); return; }
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     (async () => {
       try {
-        await axios.get(`${API}/auth/verify`, { headers: { Authorization: `Bearer ${token}` } });
+        await axios.get(`${API}/auth/verify`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setAuthChecked(true);
       } catch (err) {
         localStorage.removeItem("admin_token");
@@ -60,18 +58,21 @@ const Dashboard = () => {
   }, [navigate]);
 
   const handleLogout = async () => {
-    try { await axios.post(`${API}/auth/logout`, {}, { headers: getAuthHeader() }); }
-    catch (err) { console.error("Error logging out:", err); }
+    try {
+      await axios.post(`${API}/auth/logout`, {}, { headers: getAuthHeader() });
+    } catch (err) {
+      console.error("Error logging out:", err);
+    }
     localStorage.removeItem("admin_token");
     navigate("/login");
   };
 
   const switchTab = (tab, subTab) => {
-    // Photo-to-Flyer / Promote is intentionally removed from V1.
-    // Old deep-links are routed to the menu instead of opening a dead screen.
-    const safeTab = tab === "promotions" || tab === "promote" ? "menu" : tab;
+    const safeTab = TABS.some((item) => item.id === tab) ? tab : "home";
     setActiveTab(safeTab);
-    if (safeTab === "customers") setCustomersInitialFilter(subTab || null);
+    if (safeTab === "customers") {
+      setCustomersInitialFilter(subTab || null);
+    }
   };
 
   if (!authChecked) {
@@ -94,7 +95,7 @@ const Dashboard = () => {
               </Link>
               <div className="hidden sm:block h-6 w-px bg-navy/10" />
               <div className="ds-display text-base sm:text-lg leading-none" style={{ fontWeight: 600 }}>
-                Lakeview <span className="text-gold">·</span> Studio
+                Lakeview <span className="text-gold">·</span> Admin
               </div>
             </div>
             <button
@@ -118,7 +119,7 @@ const Dashboard = () => {
                 <button
                   key={tab.id}
                   data-testid={`tab-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => switchTab(tab.id)}
                   className={`ds-tab whitespace-nowrap shrink-0 ${active ? "is-active" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -132,59 +133,50 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {activeTab === "home" && (
-          <HomeTab getAuthHeader={getAuthHeader} onNavigate={switchTab} />
-        )}
+        {activeTab === "home" && <HomeTab onNavigate={switchTab} />}
+
         {activeTab === "menu" && (
           <Suspense fallback={<TabFallback />}>
             <section data-testid="menu-tab">
               <header className="mb-8">
-                <p className="ds-eyebrow mb-1">Menu &amp; site content</p>
-                <h2 className="ds-display text-3xl sm:text-4xl">Edit your menu</h2>
+                <p className="ds-eyebrow mb-1">Restaurant operations</p>
+                <h2 className="ds-display text-3xl sm:text-4xl">Menu</h2>
                 <p className="text-sm text-navy/60 mt-2 max-w-xl">
-                  Update dishes, prices, descriptions, Today's Pick, gallery, and public website content.
+                  Keep dishes, prices and descriptions current. Nothing extra.
                 </p>
               </header>
-              <div className="mb-10">
-                <TodaysPickCard getAuthHeader={getAuthHeader} />
-              </div>
-              <div className="space-y-10">
-                <MenuEditor getAuthHeader={getAuthHeader} />
-                <div className="pt-8 border-t border-navy/10">
-                  <p className="ds-eyebrow mb-1">Site content</p>
-                  <h3 className="ds-display text-xl sm:text-2xl mb-4">Public website copy</h3>
-                  <ContentEditor getAuthHeader={getAuthHeader} />
-                </div>
-              </div>
+              <MenuEditor getAuthHeader={getAuthHeader} />
             </section>
           </Suspense>
         )}
-        {activeTab === "workspace" && (
+
+        {activeTab === "marketing" && (
           <Suspense fallback={<TabFallback />}>
-            <WorkspaceTab getAuthHeader={getAuthHeader} />
+            <section data-testid="marketing-tab">
+              <header className="mb-8">
+                <p className="ds-eyebrow mb-1">Public website</p>
+                <h2 className="ds-display text-3xl sm:text-4xl">Marketing</h2>
+                <p className="text-sm text-navy/60 mt-2 max-w-xl">
+                  Update the words customers see on the Lakeview website.
+                </p>
+              </header>
+              <ContentEditor getAuthHeader={getAuthHeader} />
+            </section>
           </Suspense>
         )}
+
         {activeTab === "library" && (
           <Suspense fallback={<TabFallback />}>
-            <LibraryTab
-              getAuthHeader={getAuthHeader}
-              onRequestNavigate={(tab) => switchTab(tab)}
-            />
+            <LibraryTab getAuthHeader={getAuthHeader} />
           </Suspense>
         )}
-        {activeTab === "layout" && (
-          <Suspense fallback={<TabFallback />}>
-            <LayoutTab getAuthHeader={getAuthHeader} />
-          </Suspense>
-        )}
+
         {activeTab === "customers" && (
           <Suspense fallback={<TabFallback />}>
-            <CustomersTab getAuthHeader={getAuthHeader} initialFilter={customersInitialFilter} />
-          </Suspense>
-        )}
-        {activeTab === "analytics" && (
-          <Suspense fallback={<TabFallback />}>
-            <AnalyticsTab getAuthHeader={getAuthHeader} onSwitchTab={switchTab} />
+            <CustomersTab
+              getAuthHeader={getAuthHeader}
+              initialFilter={customersInitialFilter}
+            />
           </Suspense>
         )}
       </main>
