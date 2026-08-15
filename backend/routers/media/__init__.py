@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from . import assets, health, upload
+from . import assets, health, upload, library_manage
 
 # Re-exports for back-compat with callers that import from `routers.media`:
 from .shared import (  # noqa: F401
@@ -34,3 +34,4 @@ router = APIRouter(prefix="/media", tags=["media"])
 router.include_router(upload.router)
 router.include_router(assets.router)
 router.include_router(health.router)
+router.include_router(library_manage.router)

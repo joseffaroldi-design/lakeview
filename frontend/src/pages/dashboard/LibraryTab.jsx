@@ -11,9 +11,14 @@ import axios from "axios";
 import {
   Search, Upload, Video, Loader2, Trash2, Star,
   RotateCcw, Filter, X, Download, Copy as CopyIcon,
+  CheckSquare, Square, ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, EmptyState, LoadingState } from "@/components/dashboard/primitives";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const REMIX_KEY = "lakeview.photo_flyer.remix";
@@ -251,6 +256,103 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
   };
   const anyFilter = filterMenuKey || filterTheme || filterDate !== "any" || showFavOnly;
 
+  // --- Sprint (menu photos) — bulk-manage mode ---
+  const [managing, setManaging] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [confirmState, setConfirmState] = useState(null); // { mode, ids, usage, force }
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
+  useEffect(() => {
+    // Leaving manage mode clears the selection.
+    if (!managing) setSelectedIds(new Set());
+  }, [managing]);
+
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(assets.map((a) => a.id)));
+  };
+  const selectNone = () => setSelectedIds(new Set());
+
+  const openConfirm = async (mode) => {
+    // Compute the candidate id set the server will actually act on.
+    let ids = [];
+    if (mode === "selected") ids = Array.from(selectedIds);
+    // For "delete-unused" and "clear-library" we ask the server without ids
+    // (empty list means "everything currently in the Library" scoped to
+    // active images).
+    setConfirmBusy(true);
+    let usage = {};
+    try {
+      const r = await axios.post(`${API}/media/usage`,
+        { asset_ids: ids }, { headers: getAuthHeader() });
+      usage = r.data?.usage || {};
+    } catch (_) {
+      toast.error("Could not check which photos are in use. Try again.");
+      setConfirmBusy(false);
+      return;
+    }
+    setConfirmBusy(false);
+    setConfirmState({ mode, ids, usage, force: false });
+  };
+
+  const closeConfirm = () => setConfirmState(null);
+
+  const confirmDelete = async () => {
+    if (!confirmState) return;
+    setConfirmBusy(true);
+    try {
+      const body = confirmState.mode === "selected"
+        ? { asset_ids: confirmState.ids, only_unused: !confirmState.force, force: confirmState.force }
+        : { asset_ids: [], only_unused: true, force: false };
+      const r = await axios.post(`${API}/media/bulk-delete`, body, { headers: getAuthHeader() });
+      const { deleted, skipped_referenced } = r.data || {};
+      toast.success(
+        `Permanently deleted ${deleted || 0} photo${deleted === 1 ? "" : "s"}` +
+        (skipped_referenced?.length ? ` · ${skipped_referenced.length} still in use, kept` : "")
+      );
+      setSelectedIds(new Set());
+      setConfirmState(null);
+      refresh();
+    } catch (e) {
+      toast.error("Could not delete", { description: String(e?.response?.data?.detail || e.message) });
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  // --- Confirmation modal contents (memoized for readability) ---
+  const confirmInfo = useMemo(() => {
+    if (!confirmState) return null;
+    const ids = confirmState.ids;
+    const usage = confirmState.usage || {};
+    if (confirmState.mode === "selected") {
+      const referenced = ids.filter((id) => (usage[id] || []).length > 0);
+      const unused = ids.filter((id) => (usage[id] || []).length === 0);
+      return {
+        title: `Permanently delete ${ids.length} selected photo${ids.length === 1 ? "" : "s"}?`,
+        summary: `${unused.length} unused · ${referenced.length} currently in use on your site`,
+        referenced,
+        unused,
+        totalTargeted: ids.length,
+      };
+    }
+    // "delete unused" / "clear library"
+    return {
+      title: "Permanently delete every unused photo?",
+      summary: "Only photos NOT currently in use on your site or menu will be deleted. Photos in use are always kept.",
+      referenced: [],
+      unused: [],
+      totalTargeted: null,
+    };
+  }, [confirmState]);
+
   return (
     <div className="space-y-5 ds-fade" data-testid="library-tab">
       <PageHeader
@@ -339,7 +441,74 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
             <X className="h-3 w-3" /> Clear
           </button>
         ) : null}
+
+        <div className="flex-1" />
+
+        <button
+          type="button"
+          onClick={() => setManaging((v) => !v)}
+          className={`text-xs inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 border font-medium transition-colors ${
+            managing ? "bg-navy text-cream border-navy" : "bg-white border-navy/15 text-navy/70 hover:border-navy/30"
+          }`}
+          data-testid="library-manage-toggle"
+        >
+          {managing ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />}
+          {managing ? "Done" : "Manage"}
+        </button>
       </div>
+
+      {managing ? (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-navy/15 bg-navy/[0.03]"
+             data-testid="library-bulk-toolbar">
+          <span className="text-xs font-semibold text-navy/70 mr-1">
+            {selectedIds.size} selected
+          </span>
+          <button type="button" onClick={selectAllVisible}
+            className="text-xs text-navy/70 hover:text-navy underline"
+            data-testid="library-select-all">Select all visible</button>
+          {selectedIds.size > 0 ? (
+            <button type="button" onClick={selectNone}
+              className="text-xs text-navy/60 hover:text-navy underline"
+              data-testid="library-select-none">Deselect</button>
+          ) : null}
+          <div className="flex-1" />
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => openConfirm("selected")}
+            disabled={selectedIds.size === 0 || confirmBusy}
+            className="text-navy border border-navy/20 hover:bg-navy/5 disabled:opacity-40"
+            data-testid="library-delete-selected"
+          >
+            {confirmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Trash2 className="h-3.5 w-3.5 mr-1" />}
+            Delete Selected
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => openConfirm("unused")}
+            disabled={confirmBusy}
+            className="text-navy border border-navy/20 hover:bg-navy/5"
+            data-testid="library-delete-unused"
+          >
+            Delete Unused
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => openConfirm("clear")}
+            disabled={confirmBusy}
+            className="text-red-700 border border-red-200 hover:bg-red-50"
+            data-testid="library-clear"
+          >
+            <ShieldAlert className="h-3.5 w-3.5 mr-1" />
+            Clear Current Library
+          </Button>
+        </div>
+      ) : null}
 
       {loading ? (
         <LoadingState message="Loading assets…" />
@@ -354,7 +523,7 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
              data-testid="library-grid">
           {assets.map((a) => (
-            <div key={a.id} className="ds-card ds-card-interactive overflow-hidden"
+            <div key={a.id} className={`ds-card ds-card-interactive overflow-hidden ${managing && selectedIds.has(a.id) ? "ring-2 ring-gold" : ""}`}
                   data-testid={`library-asset-${a.id}`}>
               <div className="aspect-square relative bg-stone-100 ds-thumb !rounded-none">
                 {a.kind === "image" ? (
@@ -365,6 +534,20 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
                     <Video className="h-10 w-10 text-stone-400" />
                   </div>
                 )}
+                {managing ? (
+                  <button
+                    onClick={() => toggleSelected(a.id)}
+                    className="absolute inset-0 flex items-start justify-start p-2 bg-navy/0 hover:bg-navy/30"
+                    data-testid={`library-select-${a.id}`}
+                    aria-pressed={selectedIds.has(a.id)}
+                  >
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
+                      selectedIds.has(a.id) ? "bg-gold text-navy border-gold" : "bg-white/80 border-white text-transparent"
+                    }`}>
+                      <CheckSquare className="w-3.5 h-3.5" />
+                    </span>
+                  </button>
+                ) : null}
                 <button
                   onClick={() => toggleFav(a)}
                   className="absolute top-1 right-1 p-1 rounded-full bg-white/80 hover:bg-white"
@@ -427,6 +610,64 @@ const LibraryTab = ({ getAuthHeader, onRequestNavigate }) => {
           ))}
         </div>
       )}
+
+      {/* Bulk delete confirmation */}
+      <Dialog open={Boolean(confirmState)} onOpenChange={(v) => { if (!v) closeConfirm(); }}>
+        <DialogContent className="max-w-md bg-cream border-navy/10">
+          <DialogHeader>
+            <DialogTitle className="ds-display text-xl text-navy">
+              {confirmInfo?.title || "Confirm"}
+            </DialogTitle>
+          </DialogHeader>
+          {confirmState ? (
+            <div className="text-sm text-navy/70 space-y-3">
+              <p>{confirmInfo?.summary}</p>
+              {confirmState.mode === "selected" && confirmInfo?.referenced?.length ? (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 text-xs space-y-2">
+                  <p className="font-semibold flex items-center gap-1">
+                    <ShieldAlert className="w-4 h-4" />
+                    {confirmInfo.referenced.length} of the selected photos are currently in use.
+                  </p>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={confirmState.force}
+                      onChange={(e) => setConfirmState((s) => ({ ...s, force: e.target.checked }))}
+                      className="mt-0.5"
+                      data-testid="library-confirm-force"
+                    />
+                    <span>
+                      Also delete the {confirmInfo.referenced.length} in-use photo{confirmInfo.referenced.length === 1 ? "" : "s"}. Website Images and menu items will fall back to their defaults / drop the missing photo.
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+              <p className="text-xs text-navy/50">
+                Deletion is permanent — the photos are removed from your Library. Underlying file bytes may persist in storage backup until purged out-of-band.
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter className="pt-2">
+            <Button
+              variant="ghost"
+              onClick={closeConfirm}
+              className="text-navy/60 hover:text-navy"
+              data-testid="library-confirm-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              disabled={confirmBusy}
+              className="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              data-testid="library-confirm-delete"
+            >
+              {confirmBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Permanently delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
