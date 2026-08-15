@@ -25,6 +25,7 @@ from routers import (
     media,
     misc,
     newsletter,
+    site_images,
     specials,
 )
 from seed_data import seed_defaults
@@ -50,6 +51,7 @@ api_router.include_router(loyalty.router)       # public/admin loyalty
 api_router.include_router(catering.router)      # public inquiry + admin follow-up
 api_router.include_router(newsletter.router)    # public signup + admin subscribers
 api_router.include_router(media.router)         # library files/images
+api_router.include_router(site_images.router)   # slot→asset mapping for public-site photos
 api_router.include_router(home.router)          # public homepage layout
 api_router.include_router(html_template.router) # public featured-special image endpoint
 app.include_router(api_router)

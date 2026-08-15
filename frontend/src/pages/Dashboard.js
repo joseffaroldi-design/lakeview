@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import {
-  ArrowLeft, LogOut, Pencil, Users, Home, Image as ImageIcon, UtensilsCrossed,
+  ArrowLeft, LogOut, Pencil, Users, Home, Image as ImageIcon, UtensilsCrossed, ImagePlus,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -11,6 +11,7 @@ const MenuEditor = lazy(() => import("@/pages/ContentEditor").then(m => ({ defau
 const CustomersTab = lazy(() => import("@/pages/dashboard/CustomersTab"));
 const LibraryTab = lazy(() => import("@/pages/dashboard/LibraryTab"));
 const CateringTab = lazy(() => import("@/pages/dashboard/CateringTab").then(m => ({ default: m.CateringTab })));
+const WebsiteImagesTab = lazy(() => import("@/pages/dashboard/WebsiteImagesTab"));
 
 const TabFallback = () => (
   <div className="py-16 text-center text-sm text-navy/50" data-testid="tab-loading">
@@ -23,6 +24,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TABS = [
   { id: "home", label: "Home", icon: Home },
   { id: "menu", label: "Menu & Website", icon: Pencil },
+  { id: "images", label: "Website Images", icon: ImagePlus },
   { id: "library", label: "Library", icon: ImageIcon },
   { id: "customers", label: "Customers", icon: Users },
   { id: "catering", label: "Catering", icon: UtensilsCrossed },
@@ -167,6 +169,12 @@ const Dashboard = () => {
               getAuthHeader={getAuthHeader}
               onRequestNavigate={(tab) => switchTab(tab)}
             />
+          </Suspense>
+        )}
+
+        {activeTab === "images" && (
+          <Suspense fallback={<TabFallback />}>
+            <WebsiteImagesTab getAuthHeader={getAuthHeader} />
           </Suspense>
         )}
 
