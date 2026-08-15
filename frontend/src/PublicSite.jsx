@@ -239,6 +239,9 @@ const Footer = () => (
   <footer className="lv-footer">
     <div className="lv-footer-cta"><p>What's for dinner?</p><span>Burgers • Seafood • Po'boys • New Orleans Favorites</span><OrderButton /></div>
     <div className="lv-footer-grid"><img src={LOGO} alt="Lakeview Burgers & Seafood" /><div><b>Lakeview Burgers & Seafood</b><p>872 Harrison Ave<br />New Orleans, LA 70124<br />{PHONE}</p></div><div><b>Quick Links</b><Link to="/menu">Menu</Link><a href="/#catering">Catering</a><a href="/#story">Our Story</a><a href="/#visit">Contact</a></div><div><b>Hours</b><p>Mon–Sat<br />11:30 AM – 11:00 PM<br />Sunday: Closed</p></div></div>
+    <div style={{ maxWidth: 1200, margin: "24px auto 0", padding: "0 4px", textAlign: "right" }}>
+      <Link to="/login" style={{ fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(246,241,219,0.38)", textDecoration: "none" }}>Admin</Link>
+    </div>
   </footer>
 );
 
