@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import "@/public-site.css";
+import { DEFAULT_IMAGES } from "@/config/siteImages";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const LOGO = "/logo.webp";
@@ -27,21 +28,55 @@ const ADDRESS = "872 Harrison Ave, New Orleans, LA 70124";
 const SQUARE_URL = "https://lakeview-burgers-seafood.square.site";
 const UBER_URL = "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY";
 
-// PHOTO PLAN
-// These are temporary development references only. Do not treat them as final
-// production photography. The public redesign is intentionally structured so
-// each URL below can be replaced one-for-one with approved Lakeview photos
-// without changing layout, data, or backend behavior.
-const IMAGES = {
-  hero: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1600&q=82&auto=format&fit=crop",
-  homeHero: "/hero-burger.jpg",
-  burger: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1000&q=82&auto=format&fit=crop",
-  poboy: "/shrimp-poboy.jpg",
-  fries: "/cafe-fries.jpg",
-  tenders: "/chicken-tenders.jpg",
-  tacos: "/tacos.jpg",
-  catering: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=1400&q=82&auto=format&fit=crop",
-  about: "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg",
+// Backend serves overrides as `/api/media/file/{id}`. Convert relative URLs
+// returned by the API to absolute so <img> works regardless of origin.
+const absolutize = (url) => {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/api/")) return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+  return url;
+};
+
+// Public-site image slots may be overridden per-slot by the admin via
+// `/api/site-images`. Fetch once at module import and merge with the shared
+// DEFAULT_IMAGES map so components see a single resolved `IMAGES` object.
+// If the API is down we silently fall back to defaults — the site must
+// never render blank photos.
+let IMAGES = { ...DEFAULT_IMAGES };
+const imageListeners = new Set();
+const notifyImageListeners = () => imageListeners.forEach((cb) => cb(IMAGES));
+
+const loadSiteImages = async () => {
+  try {
+    const res = await axios.get(`${API}/site-images`);
+    const overrides = res?.data?.slots || {};
+    const merged = { ...DEFAULT_IMAGES };
+    for (const [slot, url] of Object.entries(overrides)) {
+      if (url && DEFAULT_IMAGES[slot] !== undefined) merged[slot] = absolutize(url);
+    }
+    IMAGES = merged;
+    notifyImageListeners();
+  } catch (_) {
+    // Public site keeps its default photography — never break on API failure.
+  }
+};
+
+// Kick off the fetch once at module import so most components see the
+// resolved URLs on their first render. A subscription hook keeps
+// already-mounted components in sync when the response lands after the
+// initial paint.
+loadSiteImages();
+
+const useSiteImages = () => {
+  const [imgs, setImgs] = useState(IMAGES);
+  useEffect(() => {
+    const cb = (next) => setImgs(next);
+    imageListeners.add(cb);
+    // Ensure late-mounted components pick up the latest merged object.
+    setImgs(IMAGES);
+    return () => imageListeners.delete(cb);
+  }, []);
+  return imgs;
 };
 
 const track = async (buttonName) => {
@@ -132,7 +167,9 @@ const TrustBand = () => (
   </section>
 );
 
-const Hero = () => (
+const Hero = () => {
+  const IMAGES = useSiteImages();
+  return (
   <section className="lv-hero">
     <div className="lv-hero-copy">
       <p className="lv-script">Lakeview, New Orleans</p>
@@ -148,7 +185,8 @@ const Hero = () => (
     </div>
     <div className="lv-hero-photo"><img src={IMAGES.homeHero} alt="Lakeview Burgers & Seafood burger" fetchPriority="high" /></div>
   </section>
-);
+  );
+};
 
 const FavoriteCard = ({ image, name }) => (
   <Link to="/menu" className="lv-favorite-card">
@@ -158,6 +196,7 @@ const FavoriteCard = ({ image, name }) => (
 );
 
 const Favorites = () => {
+  const IMAGES = useSiteImages();
   const items = [
     [IMAGES.burger, "Lakeview Burger"],
     [IMAGES.tacos, "Shrimp Tacos"],
@@ -188,7 +227,9 @@ const OrderBand = () => (
   </section>
 );
 
-const StoryCatering = () => (
+const StoryCatering = () => {
+  const IMAGES = useSiteImages();
+  return (
   <section className="lv-story-catering">
     <article id="story" className="lv-story">
       <div className="lv-story-copy"><p className="lv-kicker">Our Story</p><h2>New Orleans Cooking.<br />Lakeview Family.</h2><p>Lakeview Burgers & Seafood has been part of the neighborhood since 2015. Built on decades of restaurant experience and a love for good food, we're proud to serve the community we call home.</p><a className="lv-btn lv-btn-outline" href="#visit">Meet the Family <ChevronRight /></a></div>
@@ -199,7 +240,8 @@ const StoryCatering = () => (
       <img src={IMAGES.catering} alt="Temporary catering food photography placeholder" loading="lazy" />
     </article>
   </section>
-);
+  );
+};
 
 const Specials = ({ specials }) => {
   if (!specials?.length) return null;
