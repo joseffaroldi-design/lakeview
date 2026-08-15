@@ -352,12 +352,34 @@ export const PublicMenu = () => {
                 <div className="lv-menu-category-heading"><span></span><h2>{cat.display_name || cat.name}</h2><span></span></div>
                 {cat.subtitle ? <p className="lv-menu-subtitle">{cat.subtitle}</p> : null}
                 <div className="lv-menu-items">
-                  {(cat.items || []).map((item, itemIndex) => (
-                    <article className="lv-menu-item" key={`${id}-${item.name || itemIndex}`}>
-                      <div className="lv-menu-item-copy"><div className="lv-menu-item-title"><h3>{item.name}</h3><span></span><strong>{item.price !== undefined && item.price !== null ? `$${item.price}` : ""}</strong></div>{item.description ? <p>{item.description}</p> : null}</div>
-                      {catIndex === 0 && itemIndex < 4 ? <img src={[IMAGES.burger, IMAGES.hero, IMAGES.burger, IMAGES.hero][itemIndex]} alt="" aria-hidden="true" loading="lazy" /> : null}
-                    </article>
-                  ))}
+                  {(cat.items || []).map((item, itemIndex) => {
+                    // Prefer the admin-assigned primary photo when the item
+                    // has a gallery. Falls back to the decorative appetizer
+                    // thumb rotation for the very first four items on the
+                    // first category (unchanged legacy behavior) so items
+                    // without photos still render exactly as before.
+                    const primary = Array.isArray(item.photos) && item.photos[0]
+                      ? `${API}/media/file/${item.photos[0]}`
+                      : null;
+                    const legacyThumb = catIndex === 0 && itemIndex < 4
+                      ? [IMAGES.burger, IMAGES.hero, IMAGES.burger, IMAGES.hero][itemIndex]
+                      : null;
+                    const thumb = primary || legacyThumb;
+                    return (
+                      <article className="lv-menu-item" key={`${id}-${item.name || itemIndex}`}>
+                        <div className="lv-menu-item-copy"><div className="lv-menu-item-title"><h3>{item.name}</h3><span></span><strong>{item.price !== undefined && item.price !== null ? `$${item.price}` : ""}</strong></div>{item.description ? <p>{item.description}</p> : null}</div>
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt=""
+                            aria-hidden="true"
+                            loading="lazy"
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                          />
+                        ) : null}
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
             );
