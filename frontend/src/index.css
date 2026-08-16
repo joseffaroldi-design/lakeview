@@ -7,31 +7,33 @@
 
 @layer base {
     :root {
-        --background: 40 33% 96%;
-        --foreground: 217 33% 17%;
-        --card: 40 33% 98%;
-        --card-foreground: 217 33% 17%;
-        --popover: 40 33% 98%;
-        --popover-foreground: 217 33% 17%;
-        --primary: 217 33% 17%;
-        --primary-foreground: 40 33% 96%;
+        /* Aligned with public-site Lakeview palette
+           navy #102839 · cream #f6f1db · gold #dd9a3a */
+        --background: 49 60% 91%;
+        --foreground: 205 56% 14%;
+        --card: 47 70% 95%;
+        --card-foreground: 205 56% 14%;
+        --popover: 47 70% 95%;
+        --popover-foreground: 205 56% 14%;
+        --primary: 205 56% 14%;
+        --primary-foreground: 49 60% 91%;
         --secondary: 140 30% 30%;
-        --secondary-foreground: 40 33% 96%;
-        --muted: 40 20% 90%;
-        --muted-foreground: 217 20% 40%;
-        --accent: 45 29% 50%;
-        --accent-foreground: 217 33% 17%;
+        --secondary-foreground: 49 60% 91%;
+        --muted: 47 54% 86%;
+        --muted-foreground: 208 17% 43%;
+        --accent: 35 71% 55%;
+        --accent-foreground: 205 56% 14%;
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 0 0% 98%;
-        --border: 217 33% 17%;
-        --input: 217 33% 17%;
-        --ring: 45 29% 50%;
+        --border: 205 56% 14%;
+        --input: 205 56% 14%;
+        --ring: 35 71% 55%;
         --radius: 0.25rem;
-        
-        --navy: #1d2a3b;
+
+        --navy: #102839;
         --forest-green: #366343;
-        --cream: #fcfbf7;
-        --gold: #a5935b;
+        --cream: #f6f1db;
+        --gold: #dd9a3a;
     }
 }
 
@@ -143,13 +145,13 @@ html {
     width: 6rem;
     height: 2px;
     margin: 0 auto;
-    background: linear-gradient(90deg, transparent, #a5935b, transparent);
+    background: linear-gradient(90deg, transparent, #dd9a3a, transparent);
 }
 
 /* Decorative vintage border for framed content */
 .decorative-border {
-    border: 1px double rgba(165, 147, 91, 0.6);
-    outline: 1px double rgba(165, 147, 91, 0.6);
+    border: 1px double rgba(221, 154, 58, 0.6);
+    outline: 1px double rgba(221, 154, 58, 0.6);
     outline-offset: 4px;
     background-color: hsl(var(--card));
 }
@@ -190,7 +192,7 @@ html {
 
 .dashboard-shell {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    color: #1d2a3b;
+    color: #102839;
     background: #fafaf7;
     --ds-border: rgba(29, 42, 59, 0.08);
     --ds-border-strong: rgba(29, 42, 59, 0.14);
@@ -210,7 +212,7 @@ html {
     font-family: 'Outfit', system-ui, sans-serif;
     letter-spacing: -0.015em;
     font-weight: 600;
-    color: #1d2a3b;
+    color: #102839;
 }
 
 .dashboard-shell .font-serif {
@@ -244,12 +246,12 @@ html {
 }
 .dashboard-shell .ds-card-interactive:hover {
     box-shadow: var(--ds-shadow-lg);
-    border-color: rgba(165, 147, 91, 0.45);
+    border-color: rgba(221, 154, 58, 0.45);
     transform: translateY(-2px);
 }
 
 .dashboard-shell .ds-hero {
-    background: linear-gradient(135deg, #ffffff 0%, #fcfbf7 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f6f1db 100%);
     border: 1px solid var(--ds-border);
     border-radius: 24px;
     box-shadow: var(--ds-shadow);
@@ -257,13 +259,13 @@ html {
 
 /* --- buttons --- */
 .dashboard-shell .ds-btn-primary {
-    background: #1d2a3b;
-    color: #fcfbf7;
+    background: #102839;
+    color: #f6f1db;
     border-radius: 9999px;
     padding: 0.625rem 1.25rem;
     font-weight: 600;
     font-size: 0.875rem;
-    border: 1px solid #1d2a3b;
+    border: 1px solid #102839;
     transition: all 180ms ease;
     box-shadow: var(--ds-shadow-sm);
     display: inline-flex;
@@ -276,7 +278,7 @@ html {
 }
 .dashboard-shell .ds-btn-secondary {
     background: #ffffff;
-    color: #1d2a3b;
+    color: #102839;
     border-radius: 9999px;
     padding: 0.625rem 1.25rem;
     font-weight: 600;
@@ -289,17 +291,17 @@ html {
 }
 .dashboard-shell .ds-btn-secondary:hover {
     background: #f5f3ec;
-    border-color: rgba(165, 147, 91, 0.4);
+    border-color: rgba(221, 154, 58, 0.4);
 }
 .dashboard-shell .ds-btn-gold {
-    background: linear-gradient(135deg, #b8a164 0%, #a5935b 100%);
-    color: #ffffff;
+    background: linear-gradient(135deg, #e8a94a 0%, #dd9a3a 100%);
+    color: #102839;
     border-radius: 9999px;
     padding: 0.625rem 1.25rem;
     font-weight: 600;
     font-size: 0.875rem;
     border: none;
-    box-shadow: 0 4px 12px -2px rgba(165, 147, 91, 0.45);
+    box-shadow: 0 4px 12px -2px rgba(221, 154, 58, 0.45);
     transition: all 180ms ease;
     display: inline-flex;
     align-items: center;
@@ -307,7 +309,7 @@ html {
 }
 .dashboard-shell .ds-btn-gold:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px -2px rgba(165, 147, 91, 0.6);
+    box-shadow: 0 6px 18px -2px rgba(221, 154, 58, 0.6);
 }
 
 /* --- top nav --- */
@@ -333,11 +335,11 @@ html {
     cursor: pointer;
 }
 .dashboard-shell .ds-tab:hover {
-    color: #1d2a3b;
+    color: #102839;
     background: rgba(29, 42, 59, 0.04);
 }
 .dashboard-shell .ds-tab.is-active {
-    color: #1d2a3b;
+    color: #102839;
     background: rgba(29, 42, 59, 0.07);
     font-weight: 600;
 }
@@ -348,7 +350,7 @@ html {
     right: 12%;
     bottom: -1px;
     height: 2px;
-    background: #a5935b;
+    background: #dd9a3a;
     border-radius: 2px;
 }
 
@@ -362,10 +364,10 @@ html {
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 600;
-    color: #1d2a3b;
+    color: #102839;
 }
 .dashboard-shell .ds-stat-gold {
-    background: rgba(165, 147, 91, 0.12);
+    background: rgba(221, 154, 58, 0.12);
     color: #7a6a3c;
 }
 
@@ -387,12 +389,12 @@ html {
     font-size: 0.875rem;
     transition: border-color 180ms ease, box-shadow 180ms ease;
     width: 100%;
-    color: #1d2a3b;
+    color: #102839;
 }
 .dashboard-shell .ds-input:focus {
     outline: none;
-    border-color: #a5935b;
-    box-shadow: 0 0 0 3px rgba(165, 147, 91, 0.12);
+    border-color: #dd9a3a;
+    box-shadow: 0 0 0 3px rgba(221, 154, 58, 0.12);
 }
 
 /* --- staggered entrance for grids --- */
@@ -425,7 +427,7 @@ html {
 
 /* --- gold accent badge --- */
 .dashboard-shell .ds-badge-gold {
-    background: #a5935b;
+    background: #dd9a3a;
     color: #ffffff;
     font-size: 0.625rem;
     font-weight: 700;

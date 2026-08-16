@@ -53,10 +53,10 @@ module.exports = {
                 border: 'hsl(var(--border))',
                 input: 'hsl(var(--input))',
                 ring: 'hsl(var(--ring))',
-                navy: '#1d2a3b',
+                navy: '#102839',
                 forest: '#366343',
-                cream: '#fcfbf7',
-                gold: '#a5935b',
+                cream: '#f6f1db',
+                gold: '#dd9a3a',
             },
             keyframes: {
                 'accordion-down': {
