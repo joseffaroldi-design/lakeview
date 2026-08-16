@@ -1,0 +1,97 @@
+/* Final roadmap polish: reduce dead space without changing the approved visual language. */
+
+.lv-open-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-family: 'Oswald', sans-serif;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.lv-open-status span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.10);
+}
+.lv-open-status.is-open { color: #93b06f; }
+.lv-open-status.is-closed { color: #dd9a3a; }
+.lv-visit .lv-open-status { margin: -10px 0 22px; }
+.lv-visit .lv-open-status.is-open { color: #364526; }
+.lv-visit .lv-open-status.is-closed { color: #965d26; }
+
+.lv-catering-inquiry {
+  padding: 38px max(22px,5vw) 42px;
+  background: #fbf7e8;
+  border-top: 1px solid rgba(221,154,58,.30);
+}
+.lv-catering-inquiry-inner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 30px;
+  align-items: start;
+}
+.lv-catering-inquiry h2 {
+  font-size: clamp(2.5rem,5vw,4.25rem);
+  line-height: .96;
+  margin: 8px 0 14px;
+}
+.lv-catering-inquiry p {
+  color: rgba(16,40,57,.72);
+  line-height: 1.6;
+  max-width: 500px;
+}
+.lv-catering-inquiry p a { font-weight: 700; }
+.lv-catering-inquiry form { display: grid; gap: 11px; }
+.lv-catering-inquiry label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  font-size: .82rem;
+}
+.lv-form-row { display: grid; gap: 11px; }
+.lv-form-row.two { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.lv-form-row.three { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.lv-catering-inquiry .lv-btn { justify-self: start; cursor: pointer; }
+.lv-catering-inquiry .lv-btn:disabled { cursor: wait; opacity: .7; }
+.lv-form-success,.lv-form-error { margin: 0; font-weight: 700; }
+.lv-form-success { color: #364526 !important; }
+.lv-form-error { color: #965d26 !important; }
+
+@media (min-width: 768px) {
+  .lv-hero { min-height: 580px; }
+  .lv-hero-copy { padding-top: 76px; padding-bottom: 48px; }
+  .lv-favorites { padding-top: 38px; padding-bottom: 44px; }
+  .lv-order-band { padding-top: 30px; padding-bottom: 30px; }
+  .lv-story { min-height: 405px; padding-top: 44px; padding-bottom: 44px; }
+  .lv-story-photos { height: 330px; }
+  .lv-catering { min-height: 405px; }
+  .lv-catering-copy { padding-top: 44px; padding-bottom: 40px; }
+  .lv-specials { padding-top: 40px; padding-bottom: 40px; }
+  .lv-visit-copy { padding-top: 44px; padding-bottom: 44px; }
+  .lv-map-wrap,.lv-map-wrap iframe { min-height: 410px; }
+  .lv-footer { padding-top: 40px; padding-bottom: 30px; }
+  .lv-footer-cta { padding-bottom: 26px; margin-bottom: 24px; }
+}
+
+@media (max-width: 767px) {
+  .lv-open-status { margin-top: 14px; font-size: .70rem; }
+  .lv-hero-copy { min-height: 465px; padding-top: 70px; padding-bottom: 24px; }
+  .lv-favorites { padding-top: 30px; padding-bottom: 36px; }
+  .lv-order-band { padding-top: 26px; padding-bottom: 26px; }
+  .lv-story { padding-top: 32px; padding-bottom: 24px; }
+  .lv-story-photos { height: 260px; }
+  .lv-catering-copy { padding-top: 30px; }
+  .lv-catering-inquiry { padding: 32px 22px 36px; }
+  .lv-catering-inquiry-inner { grid-template-columns: 1fr; gap: 22px; }
+  .lv-form-row.two,.lv-form-row.three { grid-template-columns: 1fr; }
+  .lv-specials { padding-top: 30px; padding-bottom: 30px; }
+  .lv-visit-copy { padding-top: 32px; padding-bottom: 32px; }
+  .lv-footer { padding-top: 32px; padding-bottom: 24px; }
+}
