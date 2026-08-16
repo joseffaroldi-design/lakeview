@@ -230,6 +230,68 @@ const StoryCatering = () => {
   );
 };
 
+const CateringInquiry = () => {
+  const [form, setForm] = useState({ name: "", email: "", phone: "", event_date: "", guest_count: "", message: "" });
+  const [status, setStatus] = useState("idle");
+  const [feedback, setFeedback] = useState("");
+
+  const fieldStyle = {
+    width: "100%",
+    minHeight: 46,
+    border: "1px solid rgba(16,40,57,.22)",
+    background: "#fbf7e8",
+    color: "#102839",
+    padding: "11px 12px",
+    font: "inherit",
+    borderRadius: 4,
+  };
+
+  const setField = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (status === "sending") return;
+    setStatus("sending");
+    setFeedback("");
+    try {
+      const response = await axios.post(`${API}/catering/inquiry`, form);
+      setStatus("success");
+      setFeedback(response?.data?.message || "Thank you! We'll be in touch soon.");
+      setForm({ name: "", email: "", phone: "", event_date: "", guest_count: "", message: "" });
+      track("catering_inquiry_submit");
+    } catch (error) {
+      setStatus("error");
+      setFeedback(error?.response?.data?.detail || "We couldn't send your request. Please call us and we'll help you directly.");
+    }
+  };
+
+  return (
+    <section aria-labelledby="catering-inquiry-title" style={{ padding: "44px max(22px,5vw) 50px", background: "#fbf7e8", borderTop: "1px solid rgba(221,154,58,.3)" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 34, alignItems: "start" }}>
+        <div>
+          <p className="lv-kicker">Planning an Event?</p>
+          <h2 id="catering-inquiry-title" style={{ fontSize: "clamp(2.5rem,5vw,4.4rem)", lineHeight: .96, margin: "8px 0 16px" }}>Tell Us What You Need.</h2>
+          <p style={{ color: "rgba(16,40,57,.72)", lineHeight: 1.65, maxWidth: 500 }}>Send the basics and we'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF} style={{ fontWeight: 700 }}>{PHONE}</a>.</p>
+        </div>
+        <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Name<input aria-label="Name" required value={form.name} onChange={setField("name")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
+            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Email<input aria-label="Email" type="email" required value={form.email} onChange={setField("email")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Phone<input aria-label="Phone" value={form.phone} onChange={setField("phone")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
+            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Event date<input aria-label="Event date" type="date" value={form.event_date} onChange={setField("event_date")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
+            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Guests<input aria-label="Approximate guest count" inputMode="numeric" value={form.guest_count} onChange={setField("guest_count")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
+          </div>
+          <label style={{ fontWeight: 700, fontSize: ".82rem" }}>What are you planning?<textarea aria-label="Catering message" required rows={4} value={form.message} onChange={setField("message")} style={{ ...fieldStyle, resize: "vertical", marginTop: 6 }} /></label>
+          <button type="submit" className="lv-btn lv-btn-green" disabled={status === "sending"} style={{ justifySelf: "start", cursor: status === "sending" ? "wait" : "pointer" }}>{status === "sending" ? "Sending…" : "Send Catering Request"}</button>
+          {feedback ? <p role="status" style={{ margin: 0, fontWeight: 700, color: status === "error" ? "#965d26" : "#364526" }}>{feedback}</p> : null}
+        </form>
+      </div>
+    </section>
+  );
+};
+
 const Specials = ({ specials }) => {
   if (!specials?.length) return null;
   return (
@@ -275,7 +337,7 @@ export const PublicHome = () => {
       if (specialsResult.status === "fulfilled") setSpecials(specialsResult.value.data || []);
     });
   }, []);
-  return <div className="lv-site"><Header /><main><Hero /><TrustBand /><Favorites /><OrderBand /><StoryCatering /><Specials specials={specials} /><Visit contact={content?.contact} /></main><Footer /><MobileBottomNav /></div>;
+  return <div className="lv-site"><Header /><main><Hero /><TrustBand /><Favorites /><OrderBand /><StoryCatering /><CateringInquiry /><Specials specials={specials} /><Visit contact={content?.contact} /></main><Footer /><MobileBottomNav /></div>;
 };
 
 const categoryAliases = {
