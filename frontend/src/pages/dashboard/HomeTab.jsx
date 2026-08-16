@@ -5,7 +5,7 @@ import {
   Image as ImageIcon,
   MousePointerClick,
   Pencil,
-  Smartphone,
+  TrendingUp,
   Users,
   UtensilsCrossed,
 } from "lucide-react";
@@ -80,12 +80,11 @@ const HomeTab = ({ onNavigate, getAuthHeader }) => {
     }, 0);
   }, [analytics]);
 
-  const mobileShare = useMemo(() => {
-    const devices = analytics?.device_breakdown || {};
-    const total = Object.values(devices).reduce((sum, count) => sum + Number(count || 0), 0);
-    if (!total) return 0;
-    return Math.round(((Number(devices.mobile || 0) + Number(devices.tablet || 0)) / total) * 100);
-  }, [analytics]);
+  const orderIntent = useMemo(() => {
+    const visitors = Number(analytics?.unique_sessions_today || 0);
+    if (!visitors) return 0;
+    return Math.round((orderClicksToday / visitors) * 1000) / 10;
+  }, [analytics, orderClicksToday]);
 
   return (
     <section data-testid="home-tab" className="ds-fade">
@@ -98,20 +97,14 @@ const HomeTab = ({ onNavigate, getAuthHeader }) => {
       <div className="mb-8" data-testid="traffic-overview">
         <div className="flex items-end justify-between gap-4 mb-3">
           <div>
-            <p className="ds-eyebrow">Website traffic</p>
-            <h2 className="ds-display text-xl">Traffic at a glance</h2>
+            <p className="ds-eyebrow">Website performance</p>
+            <h2 className="ds-display text-xl">Business at a glance</h2>
           </div>
           <p className="text-xs text-navy/45">Live from Lakeview website activity</p>
         </div>
 
         {analytics ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <TrafficCard
-              label="Views today"
-              value={analytics.views_today ?? 0}
-              sub={`${analytics.views_this_week ?? 0} this week`}
-              icon={Eye}
-            />
             <TrafficCard
               label="Visitors today"
               value={analytics.unique_sessions_today ?? 0}
@@ -121,14 +114,20 @@ const HomeTab = ({ onNavigate, getAuthHeader }) => {
             <TrafficCard
               label="Order clicks"
               value={orderClicksToday}
-              sub="Uber Eats + Square today"
+              sub="Pickup + delivery today"
               icon={MousePointerClick}
             />
             <TrafficCard
-              label="Mobile traffic"
-              value={`${mobileShare}%`}
-              sub={`${analytics.views_this_month ?? 0} views this month`}
-              icon={Smartphone}
+              label="Order intent"
+              value={`${orderIntent}%`}
+              sub="Order clicks ÷ visitors"
+              icon={TrendingUp}
+            />
+            <TrafficCard
+              label="Views today"
+              value={analytics.views_today ?? 0}
+              sub={`${analytics.views_this_week ?? 0} this week`}
+              icon={Eye}
             />
           </div>
         ) : analyticsError ? (
