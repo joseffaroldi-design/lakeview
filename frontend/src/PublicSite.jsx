@@ -8,7 +8,6 @@ import {
   Home,
   MapPin,
   Menu as MenuIcon,
-  MoreHorizontal,
   Phone,
   ShoppingBag,
   Star,
@@ -28,8 +27,6 @@ const ADDRESS = "872 Harrison Ave, New Orleans, LA 70124";
 const SQUARE_URL = "https://lakeview-burgers-seafood.square.site";
 const UBER_URL = "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY";
 
-// Backend serves overrides as `/api/media/file/{id}`. Convert relative URLs
-// returned by the API to absolute so <img> works regardless of origin.
 const absolutize = (url) => {
   if (!url) return url;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -37,11 +34,6 @@ const absolutize = (url) => {
   return url;
 };
 
-// Public-site image slots may be overridden per-slot by the admin via
-// `/api/site-images`. Fetch once at module import and merge with the shared
-// DEFAULT_IMAGES map so components see a single resolved `IMAGES` object.
-// If the API is down we silently fall back to defaults — the site must
-// never render blank photos.
 let IMAGES = { ...DEFAULT_IMAGES };
 const imageListeners = new Set();
 const notifyImageListeners = () => imageListeners.forEach((cb) => cb(IMAGES));
@@ -57,14 +49,10 @@ const loadSiteImages = async () => {
     IMAGES = merged;
     notifyImageListeners();
   } catch (_) {
-    // Public site keeps its default photography — never break on API failure.
+    // Public pages always retain safe default photography.
   }
 };
 
-// Kick off the fetch once at module import so most components see the
-// resolved URLs on their first render. A subscription hook keeps
-// already-mounted components in sync when the response lands after the
-// initial paint.
 loadSiteImages();
 
 const useSiteImages = () => {
@@ -72,7 +60,6 @@ const useSiteImages = () => {
   useEffect(() => {
     const cb = (next) => setImgs(next);
     imageListeners.add(cb);
-    // Ensure late-mounted components pick up the latest merged object.
     setImgs(IMAGES);
     return () => imageListeners.delete(cb);
   }, []);
@@ -90,7 +77,7 @@ const track = async (buttonName) => {
   }
 };
 
-const OrderButton = ({ className = "", children = "Order Online" }) => (
+const OrderButton = ({ className = "", children = "Order Pickup" }) => (
   <a
     href={SQUARE_URL}
     target="_blank"
@@ -136,8 +123,8 @@ const Header = () => {
           <a href="/#specials" onClick={() => setOpen(false)}>Specials</a>
           <a href="/#catering" onClick={() => setOpen(false)}>Catering</a>
           <a href="/#story" onClick={() => setOpen(false)}>Our Story</a>
-          <a href="/#visit" onClick={() => setOpen(false)}>Contact</a>
-          <a href={SQUARE_URL} target="_blank" rel="noopener noreferrer">Order Online</a>
+          <a href="/#visit" onClick={() => setOpen(false)}>Visit</a>
+          <a href={SQUARE_URL} target="_blank" rel="noopener noreferrer">Order Pickup</a>
         </nav>
       )}
     </header>
@@ -153,7 +140,7 @@ const MobileBottomNav = () => {
       <Link className={onMenu ? "active" : ""} to="/menu"><UtensilsCrossed /><span>Menu</span></Link>
       <a className="lv-bottom-order" href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("square_bottom_nav")}><span><ShoppingBag /></span><b>Order</b></a>
       <a href="/#catering"><ShoppingBag /><span>Catering</span></a>
-      <a href="/#visit"><MoreHorizontal /><span>More</span></a>
+      <a href="/#visit"><MapPin /><span>Visit</span></a>
     </nav>
   );
 };
@@ -168,41 +155,41 @@ const TrustBand = () => (
 );
 
 const Hero = () => {
-  const IMAGES = useSiteImages();
+  const images = useSiteImages();
   return (
-  <section className="lv-hero">
-    <div className="lv-hero-copy">
-      <p className="lv-script">Lakeview, New Orleans</p>
-      <h1>Burgers.<br />Seafood.<br /><span>Good Times.</span></h1>
-      <p className="lv-hero-sub">A family-owned neighborhood restaurant serving Lakeview since 2015.</p>
-      <div className="lv-hero-actions">
-        <OrderButton />
-        <Link className="lv-btn lv-btn-cream" to="/menu">View Menu</Link>
+    <section className="lv-hero">
+      <div className="lv-hero-copy">
+        <p className="lv-script">Lakeview, New Orleans</p>
+        <h1>Burgers.<br />Seafood.<br /><span>Good Times.</span></h1>
+        <p className="lv-hero-sub">A family-owned neighborhood restaurant serving Lakeview since 2015.</p>
+        <div className="lv-hero-actions">
+          <OrderButton />
+          <Link className="lv-btn lv-btn-cream" to="/menu">View Menu</Link>
+        </div>
+        <a className="lv-address" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer">
+          <MapPin /> 872 Harrison Ave, New Orleans, LA
+        </a>
       </div>
-      <a className="lv-address" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer">
-        <MapPin /> 872 Harrison Ave, New Orleans, LA
-      </a>
-    </div>
-    <div className="lv-hero-photo"><img src={IMAGES.homeHero} alt="Lakeview Burgers & Seafood burger" fetchPriority="high" /></div>
-  </section>
+      <div className="lv-hero-photo"><img src={images.homeHero} alt="Lakeview Burgers & Seafood burger" fetchPriority="high" /></div>
+    </section>
   );
 };
 
 const FavoriteCard = ({ image, name }) => (
   <Link to="/menu" className="lv-favorite-card">
-    <img src={image} alt={`Temporary ${name} photography placeholder`} loading="lazy" />
+    <img src={image} alt={`${name} from Lakeview Burgers & Seafood`} loading="lazy" />
     <strong>{name}</strong><span>★</span>
   </Link>
 );
 
 const Favorites = () => {
-  const IMAGES = useSiteImages();
+  const images = useSiteImages();
   const items = [
-    [IMAGES.burger, "Lakeview Burger"],
-    [IMAGES.tacos, "Shrimp Tacos"],
-    [IMAGES.poboy, "Shrimp Po'boy"],
-    [IMAGES.fries, "Café Fries"],
-    [IMAGES.tenders, "Chicken Tenders"],
+    [images.burger, "Lakeview Burger"],
+    [images.tacos, "Shrimp Tacos"],
+    [images.poboy, "Shrimp Po'boy"],
+    [images.fries, "Café Fries"],
+    [images.tenders, "Chicken Tenders"],
   ];
   return (
     <section className="lv-favorites" id="menu-preview">
@@ -221,25 +208,25 @@ const Favorites = () => {
 const OrderBand = () => (
   <section className="lv-order-band">
     <div className="lv-order-title"><p>How do you</p><h2>Want It?</h2></div>
-    <div className="lv-order-choice"><span className="mustard"><ShoppingBag /></span><div><h3>Pickup</h3><p>Order ahead and we'll have it ready.</p><a href={SQUARE_URL} target="_blank" rel="noopener noreferrer">Order pickup →</a></div></div>
-    <div className="lv-order-choice"><span className="blue"><Truck /></span><div><h3>Delivery</h3><p>Get Lakeview delivered to you.</p><a href={UBER_URL} target="_blank" rel="noopener noreferrer">Order delivery →</a></div></div>
-    <div className="lv-order-choice"><span className="orange"><Phone /></span><div><h3>Call It In</h3><p>Prefer the old-fashioned way?</p><a href={PHONE_HREF}>Call {PHONE} →</a></div></div>
+    <div className="lv-order-choice"><span className="mustard"><ShoppingBag /></span><div><h3>Pickup</h3><p>Order ahead and we'll have it ready.</p><a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("square_pickup_band")}>Order Pickup →</a></div></div>
+    <div className="lv-order-choice"><span className="blue"><Truck /></span><div><h3>Delivery</h3><p>Get Lakeview delivered to you.</p><a href={UBER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("uber_delivery_band")}>Get Delivery →</a></div></div>
+    <div className="lv-order-choice"><span className="orange"><Phone /></span><div><h3>Call It In</h3><p>Prefer the old-fashioned way?</p><a href={PHONE_HREF} onClick={() => track("call_order_band")}>Call an Order In →</a></div></div>
   </section>
 );
 
 const StoryCatering = () => {
-  const IMAGES = useSiteImages();
+  const images = useSiteImages();
   return (
-  <section className="lv-story-catering">
-    <article id="story" className="lv-story">
-      <div className="lv-story-copy"><p className="lv-kicker">Our Story</p><h2>New Orleans Cooking.<br />Lakeview Family.</h2><p>Lakeview Burgers & Seafood has been part of the neighborhood since 2015. Built on decades of restaurant experience and a love for good food, we're proud to serve the community we call home.</p><a className="lv-btn lv-btn-outline" href="#visit">Meet the Family <ChevronRight /></a></div>
-      <div className="lv-story-photos"><img className="main" src={IMAGES.about} alt="Temporary Lakeview story photography placeholder" loading="lazy" /><img className="small" src={IMAGES.burger} alt="Temporary Lakeview burger photography placeholder" loading="lazy" /></div>
-    </article>
-    <article id="catering" className="lv-catering">
-      <div className="lv-catering-copy"><p className="lv-kicker">Lakeview Catering</p><h2>Feed Everybody.</h2><p>Office lunches, game days, birthdays, family gatherings and events—we'll help you put together something everyone will want to eat.</p><a className="lv-btn lv-btn-cream" href={PHONE_HREF}>Call About Catering <ChevronRight /></a></div>
-      <img src={IMAGES.catering} alt="Temporary catering food photography placeholder" loading="lazy" />
-    </article>
-  </section>
+    <section className="lv-story-catering">
+      <article id="story" className="lv-story">
+        <div className="lv-story-copy"><p className="lv-kicker">Our Story</p><h2>New Orleans Cooking.<br />Lakeview Family.</h2><p>Lakeview Burgers & Seafood has been part of the neighborhood since 2015. Built on decades of restaurant experience and a love for good food, we're proud to serve the community we call home.</p><a className="lv-btn lv-btn-outline" href="#visit">Visit Us <ChevronRight /></a></div>
+        <div className="lv-story-photos"><img className="main" src={images.about} alt="Lakeview Burgers & Seafood restaurant and family story" loading="lazy" /><img className="small" src={images.burger} alt="Lakeview burger served at Lakeview Burgers & Seafood" loading="lazy" /></div>
+      </article>
+      <article id="catering" className="lv-catering">
+        <div className="lv-catering-copy"><p className="lv-kicker">Lakeview Catering</p><h2>Feed Everybody.</h2><p>Office lunches, game days, birthdays, family gatherings and events—we'll help you put together something everyone will want to eat.</p><a className="lv-btn lv-btn-cream" href={PHONE_HREF} onClick={() => track("call_catering")}>Call About Catering <ChevronRight /></a></div>
+        <img src={images.catering} alt="Catering from Lakeview Burgers & Seafood" loading="lazy" />
+      </article>
+    </section>
   );
 };
 
@@ -257,15 +244,6 @@ const Specials = ({ specials }) => {
   );
 };
 
-const Reviews = () => (
-  <section className="lv-reviews">
-    <div className="lv-reviews-heading"><p className="lv-kicker">What Our Neighbors Say</p><h2>Loved Around Lakeview.</h2></div>
-    <div className="lv-review"><div>★★★★★</div><p>“The kind of neighborhood restaurant you want right around the corner.”</p><span>Google review</span></div>
-    <div className="lv-review"><div>★★★★★</div><p>“Great seafood, burgers and friendly local service.”</p><span>Google review</span></div>
-    <div className="lv-review"><div>★★★★★</div><p>“Always one of our go-to spots in Lakeview.”</p><span>Google review</span></div>
-  </section>
-);
-
 const Visit = ({ contact }) => {
   const hours1 = contact?.hours_weekday || "Monday - Saturday: 11:30am - 11pm";
   const hours2 = contact?.hours_weekend || "Sunday: Closed";
@@ -280,7 +258,7 @@ const Visit = ({ contact }) => {
 const Footer = () => (
   <footer className="lv-footer">
     <div className="lv-footer-cta"><p>What's for dinner?</p><span>Burgers • Seafood • Po'boys • New Orleans Favorites</span><OrderButton /></div>
-    <div className="lv-footer-grid"><img src={LOGO} alt="Lakeview Burgers & Seafood" /><div><b>Lakeview Burgers & Seafood</b><p>872 Harrison Ave<br />New Orleans, LA 70124<br />{PHONE}</p></div><div><b>Quick Links</b><Link to="/menu">Menu</Link><a href="/#catering">Catering</a><a href="/#story">Our Story</a><a href="/#visit">Contact</a></div><div><b>Hours</b><p>Mon–Sat<br />11:30 AM – 11:00 PM<br />Sunday: Closed</p></div></div>
+    <div className="lv-footer-grid"><img src={LOGO} alt="Lakeview Burgers & Seafood" /><div><b>Lakeview Burgers & Seafood</b><p>872 Harrison Ave<br />New Orleans, LA 70124<br />{PHONE}</p></div><div><b>Quick Links</b><Link to="/menu">Menu</Link><a href="/#catering">Catering</a><a href="/#story">Our Story</a><a href="/#visit">Visit</a></div><div><b>Hours</b><p>Mon–Sat<br />11:30 AM – 11:00 PM<br />Sunday: Closed</p></div></div>
     <div style={{ maxWidth: 1200, margin: "24px auto 0", padding: "0 4px", textAlign: "right" }}>
       <Link to="/login" style={{ fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(246,241,219,0.38)", textDecoration: "none" }}>Admin</Link>
     </div>
@@ -297,7 +275,7 @@ export const PublicHome = () => {
       if (specialsResult.status === "fulfilled") setSpecials(specialsResult.value.data || []);
     });
   }, []);
-  return <div className="lv-site"><Header /><main><Hero /><TrustBand /><Favorites /><OrderBand /><StoryCatering /><Specials specials={specials} /><Reviews /><Visit contact={content?.contact} /></main><Footer /><MobileBottomNav /></div>;
+  return <div className="lv-site"><Header /><main><Hero /><TrustBand /><Favorites /><OrderBand /><StoryCatering /><Specials specials={specials} /><Visit contact={content?.contact} /></main><Footer /><MobileBottomNav /></div>;
 };
 
 const categoryAliases = {
@@ -313,6 +291,7 @@ const categoryAliases = {
 };
 
 export const PublicMenu = () => {
+  const images = useSiteImages();
   const [categories, setCategories] = useState([]);
   const [active, setActive] = useState("");
   useEffect(() => {
@@ -335,7 +314,7 @@ export const PublicMenu = () => {
       <main>
         <section className="lv-menu-hero">
           <div className="lv-menu-hero-copy"><p className="lv-script">Made in Lakeview; Loved in New Orleans.</p><h1>Our Menu</h1><div className="lv-rule">⚜</div><p>From big, juicy burgers to fresh Gulf seafood and New Orleans favorites—there's something here for every appetite.</p></div>
-          <img src={IMAGES.hero} alt="Temporary Lakeview menu hero photography placeholder" />
+          <img src={images.hero} alt="Lakeview Burgers & Seafood menu favorites" />
         </section>
         <nav className="lv-category-nav" aria-label="Menu categories">
           {navCategories.map((cat, index) => {
@@ -353,26 +332,16 @@ export const PublicMenu = () => {
                 {cat.subtitle ? <p className="lv-menu-subtitle">{cat.subtitle}</p> : null}
                 <div className="lv-menu-items">
                   {(cat.items || []).map((item, itemIndex) => {
-                    // Prefer the admin-assigned primary photo when the item
-                    // has a gallery. Falls back to the decorative appetizer
-                    // thumb rotation for the very first four items on the
-                    // first category (unchanged legacy behavior) so items
-                    // without photos still render exactly as before.
                     const primary = Array.isArray(item.photos) && item.photos[0]
                       ? `${API}/media/file/${item.photos[0]}`
                       : null;
-                    const legacyThumb = catIndex === 0 && itemIndex < 4
-                      ? [IMAGES.burger, IMAGES.hero, IMAGES.burger, IMAGES.hero][itemIndex]
-                      : null;
-                    const thumb = primary || legacyThumb;
                     return (
                       <article className="lv-menu-item" key={`${id}-${item.name || itemIndex}`}>
                         <div className="lv-menu-item-copy"><div className="lv-menu-item-title"><h3>{item.name}</h3><span></span><strong>{item.price !== undefined && item.price !== null ? `$${item.price}` : ""}</strong></div>{item.description ? <p>{item.description}</p> : null}</div>
-                        {thumb ? (
+                        {primary ? (
                           <img
-                            src={thumb}
-                            alt=""
-                            aria-hidden="true"
+                            src={primary}
+                            alt={`${item.name} from Lakeview Burgers & Seafood`}
                             loading="lazy"
                             onError={(e) => { e.currentTarget.style.display = "none"; }}
                           />
