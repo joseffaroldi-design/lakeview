@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import "@/public-site.css";
+import "@/public-site-polish.css";
 import { DEFAULT_IMAGES } from "@/config/siteImages";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -26,12 +27,49 @@ const PHONE_HREF = "tel:+15042891032";
 const ADDRESS = "872 Harrison Ave, New Orleans, LA 70124";
 const SQUARE_URL = "https://lakeview-burgers-seafood.square.site";
 const UBER_URL = "https://www.ubereats.com/store-browse-uuid/de2b0e6b-0fdf-44bc-92e9-2c223008bd36?diningMode=DELIVERY";
+const BUSINESS_TIME_ZONE = "America/Chicago";
+const DEFAULT_OPEN_TIME = "11:30";
+const DEFAULT_CLOSE_TIME = "23:00";
 
 const absolutize = (url) => {
   if (!url) return url;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   if (url.startsWith("/api/")) return `${process.env.REACT_APP_BACKEND_URL}${url}`;
   return url;
+};
+
+const timeToMinutes = (value, fallback) => {
+  const match = String(value || fallback).match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return timeToMinutes(fallback, "00:00");
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const getBusinessStatus = (contact) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const weekday = values.weekday;
+  const nowMinutes = Number(values.hour) * 60 + Number(values.minute);
+  const openMinutes = timeToMinutes(contact?.hours_open, DEFAULT_OPEN_TIME);
+  const closeMinutes = timeToMinutes(contact?.hours_close, DEFAULT_CLOSE_TIME);
+  const sundayClosed = contact?.sunday_closed !== false;
+
+  if (weekday === "Sunday" && sundayClosed) {
+    return { open: false, label: "Closed today · Opens Monday at 11:30 AM" };
+  }
+
+  if (nowMinutes < openMinutes) {
+    return { open: false, label: `Closed · Opens at ${contact?.hours_open_label || "11:30 AM"}` };
+  }
+  if (nowMinutes >= closeMinutes) {
+    return { open: false, label: weekday === "Saturday" ? "Closed · Opens Monday at 11:30 AM" : `Closed · Opens tomorrow at ${contact?.hours_open_label || "11:30 AM"}` };
+  }
+  return { open: true, label: `Open now · Until ${contact?.hours_close_label || "11:00 PM"}` };
 };
 
 let IMAGES = { ...DEFAULT_IMAGES };
@@ -154,8 +192,9 @@ const TrustBand = () => (
   </section>
 );
 
-const Hero = () => {
+const Hero = ({ contact }) => {
   const images = useSiteImages();
+  const status = getBusinessStatus(contact);
   return (
     <section className="lv-hero">
       <div className="lv-hero-copy">
@@ -166,6 +205,7 @@ const Hero = () => {
           <OrderButton />
           <Link className="lv-btn lv-btn-cream" to="/menu">View Menu</Link>
         </div>
+        <div className={`lv-open-status ${status.open ? "is-open" : "is-closed"}`}><span></span>{status.label}</div>
         <a className="lv-address" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer">
           <MapPin /> 872 Harrison Ave, New Orleans, LA
         </a>
@@ -266,26 +306,26 @@ const CateringInquiry = () => {
   };
 
   return (
-    <section aria-labelledby="catering-inquiry-title" style={{ padding: "44px max(22px,5vw) 50px", background: "#fbf7e8", borderTop: "1px solid rgba(221,154,58,.3)" }}>
-      <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 34, alignItems: "start" }}>
+    <section className="lv-catering-inquiry" aria-labelledby="catering-inquiry-title">
+      <div className="lv-catering-inquiry-inner">
         <div>
           <p className="lv-kicker">Planning an Event?</p>
-          <h2 id="catering-inquiry-title" style={{ fontSize: "clamp(2.5rem,5vw,4.4rem)", lineHeight: .96, margin: "8px 0 16px" }}>Tell Us What You Need.</h2>
-          <p style={{ color: "rgba(16,40,57,.72)", lineHeight: 1.65, maxWidth: 500 }}>Send the basics and we'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF} style={{ fontWeight: 700 }}>{PHONE}</a>.</p>
+          <h2 id="catering-inquiry-title">Tell Us What You Need.</h2>
+          <p>Send the basics and we'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF}>{PHONE}</a>.</p>
         </div>
-        <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Name<input aria-label="Name" required value={form.name} onChange={setField("name")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
-            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Email<input aria-label="Email" type="email" required value={form.email} onChange={setField("email")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
+        <form onSubmit={submit}>
+          <div className="lv-form-row two">
+            <label>Name<input aria-label="Name" required value={form.name} onChange={setField("name")} style={fieldStyle} /></label>
+            <label>Email<input aria-label="Email" type="email" required value={form.email} onChange={setField("email")} style={fieldStyle} /></label>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
-            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Phone<input aria-label="Phone" value={form.phone} onChange={setField("phone")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
-            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Event date<input aria-label="Event date" type="date" value={form.event_date} onChange={setField("event_date")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
-            <label style={{ fontWeight: 700, fontSize: ".82rem" }}>Guests<input aria-label="Approximate guest count" inputMode="numeric" value={form.guest_count} onChange={setField("guest_count")} style={{ ...fieldStyle, marginTop: 6 }} /></label>
+          <div className="lv-form-row three">
+            <label>Phone<input aria-label="Phone" value={form.phone} onChange={setField("phone")} style={fieldStyle} /></label>
+            <label>Event date<input aria-label="Event date" type="date" value={form.event_date} onChange={setField("event_date")} style={fieldStyle} /></label>
+            <label>Guests<input aria-label="Approximate guest count" inputMode="numeric" value={form.guest_count} onChange={setField("guest_count")} style={fieldStyle} /></label>
           </div>
-          <label style={{ fontWeight: 700, fontSize: ".82rem" }}>What are you planning?<textarea aria-label="Catering message" required rows={4} value={form.message} onChange={setField("message")} style={{ ...fieldStyle, resize: "vertical", marginTop: 6 }} /></label>
-          <button type="submit" className="lv-btn lv-btn-green" disabled={status === "sending"} style={{ justifySelf: "start", cursor: status === "sending" ? "wait" : "pointer" }}>{status === "sending" ? "Sending…" : "Send Catering Request"}</button>
-          {feedback ? <p role="status" style={{ margin: 0, fontWeight: 700, color: status === "error" ? "#965d26" : "#364526" }}>{feedback}</p> : null}
+          <label>What are you planning?<textarea aria-label="Catering message" required rows={4} value={form.message} onChange={setField("message")} style={{ ...fieldStyle, resize: "vertical" }} /></label>
+          <button type="submit" className="lv-btn lv-btn-green" disabled={status === "sending"}>{status === "sending" ? "Sending…" : "Send Catering Request"}</button>
+          {feedback ? <p role="status" className={status === "error" ? "lv-form-error" : "lv-form-success"}>{feedback}</p> : null}
         </form>
       </div>
     </section>
@@ -309,9 +349,10 @@ const Specials = ({ specials }) => {
 const Visit = ({ contact }) => {
   const hours1 = contact?.hours_weekday || "Monday - Saturday: 11:30am - 11pm";
   const hours2 = contact?.hours_weekend || "Sunday: Closed";
+  const status = getBusinessStatus(contact);
   return (
     <section id="visit" className="lv-visit">
-      <div className="lv-visit-copy"><p className="lv-script">Come See Us</p><h2>Right Here on Harrison.</h2><div className="lv-visit-details"><MapPin /><p><strong>Lakeview Burgers & Seafood</strong><br />872 Harrison Ave<br />New Orleans, LA 70124</p><Clock /><p><strong>Hours</strong><br />{hours1}<br />{hours2}</p><Phone /><p><strong>Phone</strong><br /><a href={PHONE_HREF}>{PHONE}</a></p></div><div className="lv-visit-actions"><a className="lv-btn lv-btn-green" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer">Get Directions <ExternalLink /></a><a className="lv-btn lv-btn-outline" href={PHONE_HREF}>Call Us</a></div></div>
+      <div className="lv-visit-copy"><p className="lv-script">Come See Us</p><h2>Right Here on Harrison.</h2><div className={`lv-open-status ${status.open ? "is-open" : "is-closed"}`}><span></span>{status.label}</div><div className="lv-visit-details"><MapPin /><p><strong>Lakeview Burgers & Seafood</strong><br />872 Harrison Ave<br />New Orleans, LA 70124</p><Clock /><p><strong>Hours</strong><br />{hours1}<br />{hours2}</p><Phone /><p><strong>Phone</strong><br /><a href={PHONE_HREF}>{PHONE}</a></p></div><div className="lv-visit-actions"><a className="lv-btn lv-btn-green" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer">Get Directions <ExternalLink /></a><a className="lv-btn lv-btn-outline" href={PHONE_HREF}>Call Us</a></div></div>
       <div className="lv-map-wrap"><iframe title="Lakeview Burgers & Seafood location" src="https://maps.google.com/maps?q=872%20Harrison%20Ave%2C%20New%20Orleans%2C%20LA%2070124&t=&z=15&ie=UTF8&iwloc=&output=embed" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div>
     </section>
   );
@@ -337,7 +378,7 @@ export const PublicHome = () => {
       if (specialsResult.status === "fulfilled") setSpecials(specialsResult.value.data || []);
     });
   }, []);
-  return <div className="lv-site"><Header /><main><Hero /><TrustBand /><Favorites /><OrderBand /><StoryCatering /><CateringInquiry /><Specials specials={specials} /><Visit contact={content?.contact} /></main><Footer /><MobileBottomNav /></div>;
+  return <div className="lv-site"><Header /><main><Hero contact={content?.contact} /><TrustBand /><Favorites /><OrderBand /><StoryCatering /><CateringInquiry /><Specials specials={specials} /><Visit contact={content?.contact} /></main><Footer /><MobileBottomNav /></div>;
 };
 
 const categoryAliases = {
