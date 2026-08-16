@@ -1,0 +1,347 @@
+/*
+ * MOBILE POLISH v2 — final responsive refinement.
+ * Public-site only. No backend, data, route, or desktop behavior changes.
+ */
+
+@media (max-width: 768px) {
+  .lv-site {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .lv-site a,
+  .lv-site button,
+  .lv-site .lv-favorite-card,
+  .lv-site .lv-order-choice {
+    transition: transform 140ms cubic-bezier(.2,.7,.3,1),
+                box-shadow 140ms cubic-bezier(.2,.7,.3,1),
+                background-color 140ms cubic-bezier(.2,.7,.3,1),
+                color 140ms cubic-bezier(.2,.7,.3,1),
+                opacity 140ms cubic-bezier(.2,.7,.3,1);
+  }
+
+  .lv-site a:active,
+  .lv-site button:active,
+  .lv-site .lv-favorite-card:active,
+  .lv-site .lv-order-choice:active {
+    transform: scale(.985);
+  }
+
+  /* Header — compact but still thumb-safe. */
+  .lv-header-inner {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .lv-mobile-trigger,
+  .lv-mobile-call {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 10px;
+  }
+
+  .lv-mobile-trigger:active,
+  .lv-mobile-call:active {
+    background: rgba(246,241,219,.08);
+  }
+
+  .lv-brand {
+    min-height: 44px;
+  }
+
+  .lv-brand:active {
+    transform: scale(.99);
+  }
+
+  /* Hero — clearer CTA hierarchy, quieter supporting copy. */
+  .lv-hero-sub {
+    max-width: 82%;
+    color: rgba(16,40,57,.82);
+  }
+
+  .lv-hero-actions {
+    gap: 9px;
+  }
+
+  .lv-hero-actions .lv-btn-gold {
+    box-shadow: 0 8px 18px rgba(150,93,38,.20), 0 2px 0 rgba(16,40,57,.12);
+    letter-spacing: .105em;
+  }
+
+  .lv-hero-actions .lv-btn-gold:active {
+    box-shadow: 0 3px 8px rgba(150,93,38,.15);
+  }
+
+  .lv-hero .lv-btn-cream {
+    background: rgba(246,241,219,.72);
+  }
+
+  .lv-address {
+    color: rgba(16,40,57,.78);
+    font-size: .72rem;
+  }
+
+  /* Trust band — if present on a mobile variant, keep it readable and compact. */
+  .lv-trust {
+    gap: 12px 20px;
+  }
+
+  .lv-trust > div {
+    font-size: .66rem;
+    letter-spacing: .08em;
+    line-height: 1.3;
+  }
+
+  .lv-trust svg,
+  .lv-trust > div > span {
+    transform: scale(1.08);
+  }
+
+  /* Favorites — editorial swipe row with a visible next-card affordance. */
+  .lv-favorites-scroll {
+    gap: 12px;
+    padding-left: 18px;
+    padding-right: 18px;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .lv-favorites-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lv-favorite-card {
+    flex: 0 0 76%;
+    scroll-snap-align: start;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(16,40,57,.13);
+  }
+
+  .lv-favorite-card img {
+    border-radius: 14px;
+  }
+
+  .lv-favorite-card:active {
+    box-shadow: 0 5px 12px rgba(16,40,57,.10);
+  }
+
+  /* Ordering strip — one cohesive surface rather than three floating cards. */
+  .lv-order-band {
+    row-gap: 10px;
+  }
+
+  .lv-order-choice {
+    min-height: 54px;
+    border-radius: 12px;
+  }
+
+  .lv-order-choice:active {
+    background: rgba(246,241,219,.055);
+  }
+
+  /* Story / catering — softer, more editorial image treatment. */
+  .lv-story,
+  .lv-catering-copy {
+    padding-top: 42px;
+    padding-bottom: 42px;
+  }
+
+  .lv-story-photos img,
+  .lv-catering > img {
+    border-radius: 12px;
+    box-shadow: 0 14px 24px rgba(16,40,57,.12);
+  }
+
+  /* Visit — quiet dividers instead of boxed rows. */
+  .lv-visit-details > p {
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(16,40,57,.12);
+  }
+
+  .lv-visit-details > p:last-of-type {
+    border-bottom: 0;
+  }
+
+  /* Menu category navigation: full labels, native horizontal scrolling. */
+  .lv-category-nav {
+    position: sticky;
+    top: 0;
+    z-index: 55;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 12px;
+    background: rgba(16,40,57,.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .lv-category-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lv-category-nav button {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+    min-width: max-content;
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    scroll-snap-align: start;
+    font-size: .72rem;
+    line-height: 1;
+    letter-spacing: .075em;
+  }
+
+  .lv-category-nav button.active {
+    background: #dd9a3a;
+    color: #102839;
+    border-color: #dd9a3a;
+    box-shadow: 0 3px 8px rgba(0,0,0,.13);
+  }
+
+  /* Menu sheet — restaurant-menu rhythm, no card wall. */
+  .lv-menu-item {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .lv-menu-item-title {
+    align-items: baseline;
+  }
+
+  .lv-menu-item-title > span {
+    min-width: 18px;
+    border-bottom-style: dotted;
+    opacity: .38;
+  }
+
+  .lv-menu-item-title h3 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: auto;
+  }
+
+  .lv-menu-item-title strong {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lv-menu-item > img {
+    width: 74px;
+    height: 74px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+
+  /* Bottom PWA navigation — notch-safe and tactile. */
+  .lv-bottom-nav {
+    min-height: calc(78px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -12px 24px rgba(16,40,57,.10);
+  }
+
+  .lv-bottom-nav > a {
+    position: relative;
+    min-height: 44px;
+    border-radius: 10px;
+  }
+
+  .lv-bottom-nav > a:active {
+    background: rgba(16,40,57,.055);
+  }
+
+  .lv-bottom-nav > a.active::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    border-radius: 999px;
+    background: #dd9a3a;
+    transform: translateX(-50%);
+  }
+
+  .lv-bottom-order:active > span {
+    transform: scale(.97);
+  }
+
+  /* Footer — less vertical drag on phones. */
+  .lv-footer {
+    padding-top: 34px;
+    padding-bottom: calc(34px + env(safe-area-inset-bottom));
+  }
+
+  .lv-footer-grid {
+    border-top: 1px solid rgba(246,241,219,.12);
+    padding-top: 22px;
+  }
+
+  .lv-footer-grid > img {
+    width: 96px;
+    height: auto;
+  }
+
+  .lv-footer-grid b,
+  .lv-footer-grid a {
+    font-size: .72rem;
+    letter-spacing: .09em;
+  }
+}
+
+@media (max-width: 430px) {
+  .lv-favorite-card {
+    flex-basis: 78%;
+  }
+
+  .lv-menu-item > img {
+    width: 66px;
+    height: 66px;
+  }
+
+  .lv-category-nav {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .lv-category-nav button {
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: .70rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .lv-favorite-card {
+    flex-basis: 82%;
+  }
+
+  .lv-category-nav button {
+    font-size: .68rem;
+    letter-spacing: .065em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-site a,
+  .lv-site button,
+  .lv-site .lv-favorite-card,
+  .lv-site .lv-order-choice {
+    transition: none !important;
+  }
+}
