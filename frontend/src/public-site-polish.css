@@ -95,3 +95,413 @@
   .lv-visit-copy { padding-top: 32px; padding-bottom: 32px; }
   .lv-footer { padding-top: 32px; padding-bottom: 24px; }
 }
+
+/* Mobile homepage art direction — matches the approved Lakeview mockup while leaving tablet/desktop unchanged. */
+@media (max-width: 767px) {
+  .lv-site {
+    background: #f6f1db;
+  }
+
+  /* Header: navy field, oversized badge, menu at left, clean right side, shallow gold wave. */
+  .lv-header {
+    position: sticky;
+    top: 0;
+    min-height: 118px;
+    overflow: visible;
+    background: #102839;
+    border-bottom: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .lv-header::after {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    left: -3%;
+    right: -3%;
+    bottom: -16px;
+    height: 25px;
+    background: #102839;
+    border-bottom: 3px solid #dd9a3a;
+    border-radius: 0 0 50% 50% / 0 0 100% 100%;
+    pointer-events: none;
+  }
+  .lv-header-inner {
+    min-height: 118px;
+    grid-template-columns: 1fr 190px 1fr;
+    padding: 0 18px;
+    z-index: 2;
+  }
+  .lv-brand img {
+    width: 190px;
+    height: 190px;
+    top: 5px;
+    filter: drop-shadow(0 8px 8px rgba(0,0,0,.22));
+  }
+  .lv-mobile-trigger {
+    justify-self: start;
+    gap: 5px;
+    padding: 6px 4px;
+    font-size: .72rem;
+    letter-spacing: .12em;
+  }
+  .lv-mobile-trigger svg {
+    width: 31px;
+    height: 31px;
+    stroke-width: 2.2;
+  }
+  .lv-mobile-call {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .lv-mobile-drawer {
+    top: 118px;
+    z-index: 5;
+  }
+
+  /* Hero: editorial cream field with the real food image cutting into the right edge. */
+  .lv-hero {
+    position: relative;
+    display: block;
+    min-height: 1115px;
+    padding-top: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 20% 12%, rgba(150,93,38,.055) 0 1px, transparent 1.4px) 0 0 / 9px 9px,
+      #f6f1db;
+    color: #102839;
+  }
+  .lv-hero::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 125px;
+    opacity: .20;
+    background:
+      linear-gradient(to top, rgba(16,40,57,.20), transparent 68%),
+      repeating-linear-gradient(90deg, transparent 0 25px, rgba(16,40,57,.17) 25px 27px, transparent 27px 54px);
+    clip-path: polygon(0 80%,5% 70%,10% 76%,14% 58%,19% 74%,24% 64%,29% 80%,35% 62%,40% 75%,45% 56%,50% 74%,55% 66%,60% 78%,66% 59%,72% 76%,78% 64%,84% 79%,90% 58%,96% 72%,100% 66%,100% 100%,0 100%);
+    pointer-events: none;
+  }
+  .lv-hero-copy {
+    position: relative;
+    z-index: 3;
+    min-height: 1115px;
+    padding: 112px 22px 34px;
+    overflow: visible;
+    background: transparent;
+    color: #102839;
+  }
+  .lv-hero-copy::after {
+    display: none;
+  }
+  .lv-hero .lv-script {
+    position: relative;
+    z-index: 4;
+    width: 74%;
+    margin: 0 0 18px;
+    color: #455832;
+    font-size: clamp(2rem, 8.5vw, 2.65rem);
+    line-height: 1;
+    transform: rotate(-1.2deg);
+  }
+  .lv-hero h1 {
+    position: relative;
+    z-index: 4;
+    max-width: 73%;
+    margin: 0;
+    color: #102839;
+    font-size: clamp(4.15rem, 17.5vw, 5.8rem);
+    line-height: .86;
+    letter-spacing: -.012em;
+  }
+  .lv-hero h1 span {
+    color: #364526;
+  }
+  .lv-hero-sub {
+    position: relative;
+    z-index: 4;
+    max-width: 72%;
+    margin: 28px 0 0;
+    color: rgba(16,40,57,.86);
+    font-size: 1.03rem;
+    line-height: 1.55;
+  }
+  .lv-hero-actions {
+    position: relative;
+    z-index: 4;
+    display: grid;
+    width: 72%;
+    max-width: none;
+    gap: 10px;
+    margin-top: 26px;
+  }
+  .lv-hero-actions .lv-btn {
+    min-height: 54px;
+    padding: 12px 16px;
+    font-size: .82rem;
+    letter-spacing: .12em;
+  }
+  .lv-hero-actions .lv-btn-gold {
+    background: #dd9a3a;
+    border-color: #dd9a3a;
+    color: #102839;
+  }
+  .lv-hero .lv-btn-cream {
+    background: rgba(246,241,219,.84);
+    border: 2px solid #102839;
+    color: #102839;
+  }
+  .lv-hero .lv-open-status {
+    display: none;
+  }
+  .lv-address {
+    position: absolute;
+    z-index: 4;
+    left: 22px;
+    bottom: 73px;
+    width: calc(100% - 44px);
+    max-width: none;
+    margin: 0;
+    color: #102839;
+    font-size: .72rem;
+    line-height: 1.35;
+    letter-spacing: .075em;
+  }
+  .lv-address svg {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    stroke-width: 2.25;
+  }
+
+  .lv-hero-photo {
+    position: absolute;
+    z-index: 2;
+    top: 145px;
+    right: -18%;
+    width: 65%;
+    height: 700px;
+    margin: 0;
+    clip-path: polygon(24% 0,100% 0,100% 100%,16% 100%,8% 93%,14% 85%,7% 76%,14% 66%,5% 55%,14% 45%,6% 35%,13% 25%,7% 15%);
+    filter: saturate(1.02) contrast(1.02);
+  }
+  .lv-hero-photo::before {
+    display: none;
+  }
+  .lv-hero-photo::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 -1px;
+    width: 38px;
+    background: linear-gradient(90deg,#f6f1db 4%,rgba(246,241,219,.56) 34%,transparent 100%);
+    pointer-events: none;
+  }
+  .lv-hero-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 48% 50%;
+  }
+
+  /* The mockup moves directly from the hero into a dark favorites strip. */
+  .lv-trust {
+    display: none;
+  }
+  .lv-favorites {
+    position: relative;
+    z-index: 4;
+    display: block;
+    margin: 0;
+    padding: 25px 0 21px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 18% 24%, rgba(246,241,219,.06) 0 1px, transparent 1.5px) 0 0 / 8px 8px,
+      #102839;
+    border: 0;
+    color: #f6f1db;
+  }
+  .lv-favorites-intro {
+    position: relative;
+    padding: 0 20px 6px;
+    text-align: center;
+  }
+  .lv-favorites-intro .lv-kicker {
+    display: inline-block;
+    margin: 0;
+    color: #dd9a3a;
+    font-family: 'Great Vibes', cursive;
+    font-size: 1.65rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .lv-favorites-intro .lv-kicker::before {
+    content: '★';
+    margin-right: 12px;
+    font-family: sans-serif;
+    font-size: .58rem;
+    vertical-align: middle;
+  }
+  .lv-favorites-intro .lv-kicker::after {
+    content: ' ★';
+    margin-left: 12px;
+    font-family: sans-serif;
+    font-size: .58rem;
+    vertical-align: middle;
+  }
+  .lv-favorites-intro h2 {
+    display: inline;
+    margin: 0 0 0 6px;
+    color: #dd9a3a;
+    font-family: 'Great Vibes', cursive;
+    font-size: 1.65rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .lv-favorites-intro::after {
+    content: 'MADE FRESH. MADE LOCAL.';
+    display: block;
+    margin-top: 2px;
+    color: #f6f1db;
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.22rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  .lv-favorites-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 16px 8px;
+    scroll-snap-type: x mandatory;
+  }
+  .lv-favorite-card {
+    flex: 0 0 29%;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    scroll-snap-align: start;
+  }
+  .lv-favorite-card img {
+    width: 100%;
+    aspect-ratio: 1.08 / .82;
+    object-fit: cover;
+    border-radius: 7px;
+  }
+  .lv-favorite-card strong,
+  .lv-favorite-card span {
+    display: none;
+  }
+
+  /* Bottom app nav: cream dock with oversized centered order action and visual “More” at the end. */
+  .lv-bottom-nav {
+    min-height: 78px;
+    background: rgba(246,241,219,.985);
+    border-top: 1px solid rgba(16,40,57,.16);
+    box-shadow: 0 -5px 18px rgba(16,40,57,.08);
+  }
+  .lv-bottom-nav > a {
+    color: #102839;
+  }
+  .lv-bottom-nav > a.active {
+    color: #dd9a3a;
+  }
+  .lv-bottom-order > span {
+    width: 64px;
+    height: 64px;
+    margin-top: -27px;
+    background: #dd9a3a;
+    border: 5px solid #f6f1db;
+    box-shadow: 0 4px 10px rgba(16,40,57,.20);
+  }
+  .lv-bottom-nav > a:last-child svg {
+    display: none;
+  }
+  .lv-bottom-nav > a:last-child::before {
+    content: '•••';
+    display: block;
+    height: 27px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    line-height: 18px;
+  }
+  .lv-bottom-nav > a:last-child span {
+    font-size: 0;
+  }
+  .lv-bottom-nav > a:last-child span::after {
+    content: 'More';
+    font-size: .67rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .lv-hero {
+    min-height: 1065px;
+  }
+  .lv-hero-copy {
+    min-height: 1065px;
+    padding-top: 106px;
+  }
+  .lv-hero-photo {
+    top: 150px;
+    right: -21%;
+    width: 67%;
+    height: 665px;
+  }
+  .lv-hero h1 {
+    font-size: clamp(4rem,17vw,5.15rem);
+  }
+}
+
+@media (max-width: 375px) {
+  .lv-header-inner {
+    grid-template-columns: 1fr 170px 1fr;
+  }
+  .lv-brand img {
+    width: 172px;
+    height: 172px;
+  }
+  .lv-hero {
+    min-height: 1010px;
+  }
+  .lv-hero-copy {
+    min-height: 1010px;
+    padding: 98px 18px 30px;
+  }
+  .lv-hero .lv-script {
+    width: 76%;
+    font-size: 1.92rem;
+  }
+  .lv-hero h1 {
+    max-width: 76%;
+    font-size: clamp(3.85rem,16.8vw,4.7rem);
+  }
+  .lv-hero-sub,
+  .lv-hero-actions {
+    width: 74%;
+    max-width: 74%;
+  }
+  .lv-address {
+    left: 18px;
+    width: calc(100% - 36px);
+  }
+  .lv-hero-photo {
+    right: -24%;
+    width: 69%;
+    height: 625px;
+  }
+  .lv-favorites-intro::after {
+    font-size: 1.08rem;
+  }
+}
