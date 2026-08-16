@@ -1,17 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
-  Eye,
   Image as ImageIcon,
   MousePointerClick,
   Pencil,
-  TrendingUp,
   Users,
   UtensilsCrossed,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/primitives";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BUSINESS_TIME_ZONE = "America/Chicago";
 
 const QuickAction = ({ icon: Icon, label, sub, onClick, testId }) => (
   <button
@@ -28,8 +27,8 @@ const QuickAction = ({ icon: Icon, label, sub, onClick, testId }) => (
   </button>
 );
 
-const TrafficCard = ({ label, value, sub, icon: Icon }) => (
-  <div className="ds-card p-4" data-testid={`traffic-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+const MetricCard = ({ label, value, sub, icon: Icon }) => (
+  <div className="ds-card p-4" data-testid={`metric-${label.toLowerCase().replace(/\s+/g, "-")}`}>
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-navy/50">{label}</p>
@@ -43,29 +42,58 @@ const TrafficCard = ({ label, value, sub, icon: Icon }) => (
   </div>
 );
 
+const businessDateKey = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+};
+
 const HomeTab = ({ onNavigate, getAuthHeader }) => {
   const [analytics, setAnalytics] = useState(null);
+  const [operations, setOperations] = useState({ cateringLeads: 0, newCustomersToday: 0 });
   const [analyticsError, setAnalyticsError] = useState(false);
   const go = (tab, subTab) => onNavigate && onNavigate(tab, subTab);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadAnalytics = async () => {
-      try {
-        const response = await axios.get(`${API}/analytics`, {
-          headers: getAuthHeader ? getAuthHeader() : {},
-        });
-        if (!cancelled) {
-          setAnalytics(response.data);
-          setAnalyticsError(false);
-        }
-      } catch (error) {
-        if (!cancelled) setAnalyticsError(true);
+    const loadDashboard = async () => {
+      const headers = getAuthHeader ? getAuthHeader() : {};
+      const [analyticsResult, cateringResult, loyaltyResult, newsletterResult] = await Promise.allSettled([
+        axios.get(`${API}/analytics`, { headers }),
+        axios.get(`${API}/catering/inquiries`, { headers }),
+        axios.get(`${API}/loyalty/members`, { headers }),
+        axios.get(`${API}/newsletter/subscribers`, { headers }),
+      ]);
+
+      if (cancelled) return;
+
+      if (analyticsResult.status === "fulfilled") {
+        setAnalytics(analyticsResult.value.data);
+        setAnalyticsError(false);
+      } else {
+        setAnalyticsError(true);
       }
+
+      const today = businessDateKey();
+      const inquiries = cateringResult.status === "fulfilled" ? (cateringResult.value.data?.inquiries || []) : [];
+      const members = loyaltyResult.status === "fulfilled" ? (loyaltyResult.value.data?.members || []) : [];
+      const subscribers = newsletterResult.status === "fulfilled" ? (newsletterResult.value.data?.subscribers || []) : [];
+
+      setOperations({
+        cateringLeads: inquiries.filter((item) => item.status === "new").length,
+        newCustomersToday:
+          members.filter((item) => businessDateKey(item.joined_at) === today).length +
+          subscribers.filter((item) => businessDateKey(item.subscribed_at) === today).length,
+      });
     };
 
-    loadAnalytics();
+    loadDashboard();
     return () => {
       cancelled = true;
     };
@@ -97,37 +125,41 @@ const HomeTab = ({ onNavigate, getAuthHeader }) => {
       <div className="mb-8" data-testid="traffic-overview">
         <div className="flex items-end justify-between gap-4 mb-3">
           <div>
-            <p className="ds-eyebrow">Website performance</p>
+            <p className="ds-eyebrow">Today</p>
             <h2 className="ds-display text-xl">Business at a glance</h2>
           </div>
-          <p className="text-xs text-navy/45">Live from Lakeview website activity</p>
+          {analytics ? (
+            <p className="text-xs text-navy/45 text-right">
+              {orderIntent}% order intent · {analytics.views_this_week ?? 0} views this week
+            </p>
+          ) : null}
         </div>
 
         {analytics ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <TrafficCard
-              label="Visitors today"
+            <MetricCard
+              label="Visitors"
               value={analytics.unique_sessions_today ?? 0}
-              sub={`${analytics.unique_sessions ?? 0} tracked visitors total`}
+              sub="Website visitors today"
               icon={Users}
             />
-            <TrafficCard
+            <MetricCard
               label="Order clicks"
               value={orderClicksToday}
               sub="Pickup + delivery today"
               icon={MousePointerClick}
             />
-            <TrafficCard
-              label="Order intent"
-              value={`${orderIntent}%`}
-              sub="Order clicks ÷ visitors"
-              icon={TrendingUp}
+            <MetricCard
+              label="Catering leads"
+              value={operations.cateringLeads}
+              sub="New inquiries to follow up"
+              icon={UtensilsCrossed}
             />
-            <TrafficCard
-              label="Views today"
-              value={analytics.views_today ?? 0}
-              sub={`${analytics.views_this_week ?? 0} this week`}
-              icon={Eye}
+            <MetricCard
+              label="New customers"
+              value={operations.newCustomersToday}
+              sub="Loyalty + email signups today"
+              icon={Users}
             />
           </div>
         ) : analyticsError ? (
