@@ -54,18 +54,18 @@
     height: 171px;
     min-height: 0;
     margin: 0;
-    background: url('/logo.png') center / contain no-repeat;
   }
 
   .lv-brand img {
     position: static !important;
+    display: block;
     width: 171px !important;
     height: 171px !important;
     max-width: 171px !important;
     max-height: 171px !important;
-    opacity: 0;
+    object-fit: contain;
     transform: none !important;
-    filter: none !important;
+    filter: drop-shadow(0 5px 7px rgba(0,0,0,.18)) !important;
   }
 
   .lv-mobile-trigger {
