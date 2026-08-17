@@ -389,3 +389,181 @@
     padding-right: 6px;
   }
 }
+
+
+/* ============================================================================
+   Mobile homepage polish v3 — refinements on top of the approved composition.
+   CSS-only, mobile only, homepage only. No layout/section-order changes.
+   Only touches: hero text rhythm, CTA styling, status-pill treatment,
+   PICKUP/DELIVERY/CALL-IN row spacing + typography.
+   ============================================================================ */
+@media (max-width: 767px) {
+  /* ---- Hero headline: tighter rhythm + stronger legibility on photo ---- */
+  .lv-hero .lv-script {
+    margin: 0 0 14px;
+    font-size: clamp(1.85rem, 7.4vw, 2.35rem);
+    letter-spacing: 0;
+    color: rgba(246,241,219,.95);
+    text-shadow: 0 2px 12px rgba(0,0,0,.48);
+    transform: rotate(-1deg);
+  }
+
+  .lv-hero h1 {
+    line-height: .92;
+    letter-spacing: -.005em;
+    text-shadow: 0 4px 20px rgba(0,0,0,.48);
+  }
+
+  .lv-hero h1 span {
+    color: #dd9a3a;
+  }
+
+  .lv-hero-sub {
+    max-width: 88%;
+    margin: 22px 0 0;
+    font-size: 1rem;
+    line-height: 1.55;
+    color: rgba(255,253,243,.96);
+    text-shadow: 0 2px 12px rgba(0,0,0,.5);
+  }
+
+  /* ---- CTAs: stronger hierarchy, safer tap, refined spacing ---- */
+  .lv-hero-actions {
+    max-width: 100%;
+    margin-top: 28px;
+    gap: 12px;
+  }
+
+  .lv-hero-actions .lv-btn {
+    min-height: 58px;
+    padding: 15px 22px;
+    font-size: .9rem;
+    font-weight: 700;
+    letter-spacing: .11em;
+    border-radius: 4px;
+  }
+
+  .lv-hero-actions .lv-btn-gold {
+    box-shadow: 0 12px 26px rgba(0,0,0,.28),
+                0 2px 0 rgba(0,0,0,.12);
+  }
+
+  .lv-hero-actions .lv-btn-gold:active {
+    box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    transform: scale(.995);
+  }
+
+  .lv-hero .lv-btn-cream {
+    background: rgba(7,22,31,.34);
+    border: 2px solid rgba(246,241,219,.92);
+    color: #f6f1db;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+
+  .lv-hero .lv-btn-cream:active {
+    background: rgba(7,22,31,.52);
+  }
+
+  /* ---- Status pill: cleaner, more presence, gold outline hint ---- */
+  .lv-hero .lv-open-status {
+    margin: 22px 0 0;
+    padding: 14px 20px;
+    min-height: 54px;
+    gap: 12px;
+    border-radius: 8px;
+    background: rgba(7,22,31,.92);
+    border: 1px solid rgba(221,154,58,.32);
+    color: #dd9a3a;
+    font-size: .78rem;
+    letter-spacing: .09em;
+    font-weight: 700;
+    text-shadow: none;
+  }
+
+  .lv-hero .lv-open-status span {
+    box-shadow: 0 0 0 2px rgba(221,154,58,.22);
+  }
+
+  /* ---- Order strip: more breathing room, refined typography ---- */
+  .lv-order-band {
+    padding: 28px 10px 24px;
+    gap: 4px;
+    border-bottom-color: rgba(16,40,57,.10);
+  }
+
+  .lv-order-choice {
+    min-height: 128px;
+    gap: 10px;
+    padding: 10px 6px;
+    border-right-color: rgba(16,40,57,.10);
+  }
+
+  .lv-order-choice > span {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 2px;
+  }
+
+  .lv-order-choice > span svg {
+    width: 34px;
+    height: 34px;
+    stroke-width: 1.9;
+  }
+
+  .lv-order-choice h3 {
+    margin: 0;
+    font-family: 'Oswald', sans-serif;
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    line-height: 1.05;
+    color: #102839;
+  }
+
+  .lv-order-choice p {
+    margin: 4px 0 0;
+    font-size: .72rem;
+    line-height: 1.35;
+    color: rgba(16,40,57,.68);
+  }
+}
+
+@media (max-width: 430px) {
+  .lv-hero h1 {
+    font-size: clamp(3.75rem, 16vw, 4.85rem);
+  }
+  .lv-order-choice {
+    min-height: 120px;
+  }
+  .lv-order-choice > span {
+    width: 44px;
+    height: 44px;
+  }
+  .lv-order-choice > span svg {
+    width: 32px;
+    height: 32px;
+  }
+  .lv-order-choice h3 {
+    font-size: .9rem;
+    letter-spacing: .08em;
+  }
+}
+
+@media (max-width: 375px) {
+  .lv-hero h1 {
+    font-size: clamp(3.5rem, 15vw, 4.5rem);
+  }
+  .lv-order-choice {
+    min-height: 116px;
+    padding: 8px 4px;
+  }
+  .lv-order-choice h3 {
+    font-size: .86rem;
+    letter-spacing: .07em;
+  }
+  .lv-order-choice p {
+    font-size: .68rem;
+  }
+}
