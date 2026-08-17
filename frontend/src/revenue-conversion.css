@@ -1,0 +1,200 @@
+/* Revenue / conversion pass — isolated public-site enhancements only. */
+
+.lv-order-modes {
+  margin: 12px 0 0;
+  color: rgba(246,241,219,.72);
+  font-family: 'Oswald', sans-serif;
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.lv-favorite-card small {
+  display: block;
+  margin: 5px auto 0;
+  max-width: 150px;
+  color: rgba(16,40,57,.68);
+  font-size: .72rem;
+  line-height: 1.3;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.lv-special-list article {
+  padding-bottom: 48px;
+}
+
+.lv-special-order {
+  position: absolute;
+  left: 0;
+  bottom: 18px;
+  color: #f6f1db;
+  font-family: 'Oswald', sans-serif;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(246,241,219,.45);
+  padding-bottom: 2px;
+}
+
+.lv-special-list article:nth-child(even) .lv-special-order {
+  left: 28px;
+}
+
+.lv-review-proof {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 28px;
+  align-items: center;
+  padding: 58px max(24px,5vw);
+  background: #fbf7e8;
+  border-top: 1px solid rgba(150,93,38,.2);
+  border-bottom: 1px solid rgba(150,93,38,.2);
+  background-image: radial-gradient(rgba(16,40,57,.035) .7px, transparent .7px);
+  background-size: 8px 8px;
+}
+
+.lv-review-proof h2 {
+  margin: 4px 0 10px;
+  max-width: 760px;
+  font-size: clamp(2.3rem,4.2vw,4.7rem);
+  line-height: .98;
+}
+
+.lv-review-proof p:not(.lv-kicker) {
+  margin: 8px 0 0;
+  color: rgba(16,40,57,.72);
+  line-height: 1.6;
+}
+
+.lv-review-stars {
+  color: #dd9a3a;
+  letter-spacing: .14em;
+  font-size: 1.15rem;
+}
+
+.lv-menu-conversion-strip {
+  position: sticky;
+  top: var(--menu-cat-sticky-top, 82px);
+  z-index: 47;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 54px;
+  padding: 8px 18px;
+  background: rgba(16,40,57,.97);
+  color: #f6f1db;
+  border-bottom: 1px solid rgba(221,154,58,.45);
+  box-shadow: 0 7px 18px rgba(16,40,57,.12);
+  backdrop-filter: blur(10px);
+}
+
+.lv-menu-conversion-strip > span {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.lv-menu-conversion-strip .lv-btn {
+  min-height: 38px;
+  padding: 8px 14px;
+  font-size: .7rem;
+}
+
+.lv-popular-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 4px;
+  color: #965d26;
+  font-family: 'Oswald', sans-serif;
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.lv-menu-item.is-popular {
+  background: linear-gradient(90deg, rgba(221,154,58,.07), transparent 70%);
+}
+
+.lv-menu-item.is-popular .lv-menu-item-title h3 {
+  color: #102839;
+}
+
+#catering-quote {
+  scroll-margin-top: 100px;
+}
+
+.lv-visit {
+  border-top: 1px solid rgba(221,154,58,.2);
+  border-bottom: 1px solid rgba(221,154,58,.2);
+}
+
+@media (max-width: 767px) {
+  .lv-order-modes {
+    margin-top: 10px;
+    font-size: .68rem;
+    letter-spacing: .1em;
+  }
+
+  .lv-favorite-card small {
+    font-size: .68rem;
+    min-height: 34px;
+  }
+
+  .lv-review-proof {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 42px 22px 46px;
+    text-align: center;
+  }
+
+  .lv-review-proof h2 {
+    font-size: clamp(2.25rem,11vw,3.25rem);
+  }
+
+  .lv-review-proof .lv-btn {
+    width: 100%;
+  }
+
+  .lv-menu-conversion-strip {
+    top: calc(env(safe-area-inset-top, 0px) + 102px);
+    justify-content: space-between;
+    min-height: 50px;
+    padding: 7px 12px;
+  }
+
+  .lv-menu-conversion-strip > span {
+    font-size: .72rem;
+  }
+
+  .lv-menu-conversion-strip .lv-btn {
+    min-height: 40px;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+
+  .lv-popular-badge {
+    margin-bottom: 5px;
+    font-size: .64rem;
+  }
+
+  .lv-special-list article,
+  .lv-special-list article:nth-child(even) {
+    padding-bottom: 50px;
+  }
+
+  .lv-special-list article:nth-child(even) .lv-special-order {
+    left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-menu-conversion-strip {
+    backdrop-filter: none;
+  }
+}
