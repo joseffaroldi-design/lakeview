@@ -1,0 +1,391 @@
+/*
+ * FINAL MOBILE HOMEPAGE COMPOSITION
+ * Approved visual: contained centered logo + full-bleed real Lakeview hero photography.
+ * Mobile homepage only. Desktop, menu page, backend, data, and PWA behavior are untouched.
+ */
+
+@media (max-width: 767px) {
+  /* Allow homepage sections to be reordered without touching desktop markup. */
+  .lv-site:not(.lv-menu-page) > main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lv-site:not(.lv-menu-page) .lv-hero { order: 1; }
+  .lv-site:not(.lv-menu-page) .lv-order-band { order: 2; }
+  .lv-site:not(.lv-menu-page) .lv-favorites { order: 3; }
+  .lv-site:not(.lv-menu-page) .lv-visit { order: 4; }
+  .lv-site:not(.lv-menu-page) .lv-specials { order: 5; }
+  .lv-site:not(.lv-menu-page) .lv-story-catering { order: 6; }
+  .lv-site:not(.lv-menu-page) .lv-catering-inquiry { order: 7; }
+  .lv-site:not(.lv-menu-page) .lv-review-proof { order: 8; }
+
+  /* Header: fully contained badge, centered on the true viewport center. */
+  .lv-header {
+    min-height: 184px;
+    overflow: hidden;
+    background: #102839;
+    border-bottom: 0;
+  }
+
+  .lv-header::after {
+    left: -4%;
+    right: -4%;
+    bottom: -8px;
+    height: 24px;
+    border-bottom: 3px solid #dd9a3a;
+  }
+
+  .lv-header-inner {
+    position: relative;
+    min-height: 184px;
+    display: grid;
+    grid-template-columns: 1fr 171px 1fr;
+    align-items: center;
+    padding: 0 18px;
+  }
+
+  .lv-brand {
+    position: relative;
+    z-index: 3;
+    justify-self: center;
+    align-self: center;
+    width: 171px;
+    height: 171px;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .lv-brand img {
+    position: static !important;
+    display: block;
+    width: 171px !important;
+    height: 171px !important;
+    max-width: 171px !important;
+    max-height: 171px !important;
+    object-fit: contain;
+    transform: none !important;
+    filter: drop-shadow(0 5px 7px rgba(0,0,0,.18)) !important;
+  }
+
+  .lv-mobile-trigger {
+    position: relative;
+    z-index: 4;
+    justify-self: start;
+    align-self: center;
+    color: #f6f1db;
+  }
+
+  .lv-mobile-trigger svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .lv-mobile-call {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .lv-mobile-drawer {
+    top: 184px;
+  }
+
+  /* Hero: use the real Lakeview photo as a true full background, not a side cutout. */
+  .lv-hero {
+    position: relative;
+    min-height: 910px;
+    overflow: hidden;
+    background: #102839;
+    color: #f6f1db;
+  }
+
+  .lv-hero::before {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(7,22,31,.18) 0%, rgba(7,22,31,.06) 25%, rgba(7,22,31,.36) 58%, rgba(7,22,31,.78) 100%),
+      linear-gradient(90deg, rgba(7,22,31,.50) 0%, rgba(7,22,31,.18) 68%, rgba(7,22,31,.05) 100%);
+    pointer-events: none;
+  }
+
+  .lv-hero::after {
+    display: none;
+  }
+
+  .lv-hero-photo {
+    position: absolute !important;
+    z-index: 1 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    clip-path: none !important;
+    filter: none !important;
+  }
+
+  .lv-hero-photo::before,
+  .lv-hero-photo::after {
+    display: none !important;
+  }
+
+  .lv-hero-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 54% 50%;
+    filter: saturate(1.04) contrast(1.03);
+  }
+
+  .lv-hero-copy {
+    position: relative;
+    z-index: 3;
+    min-height: 910px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 74px 30px 34px;
+    background: transparent;
+    color: #f6f1db;
+  }
+
+  .lv-hero .lv-script {
+    width: 100%;
+    margin: 0 0 15px;
+    color: #f6f1db;
+    font-size: clamp(2rem, 8vw, 2.55rem);
+    line-height: 1;
+    text-shadow: 0 2px 12px rgba(0,0,0,.42);
+    transform: rotate(-1deg);
+  }
+
+  .lv-hero h1 {
+    max-width: 100%;
+    margin: 0;
+    color: #f6f1db;
+    font-size: clamp(4.15rem, 17vw, 5.55rem);
+    line-height: .88;
+    letter-spacing: -.015em;
+    text-shadow: 0 3px 14px rgba(0,0,0,.32);
+  }
+
+  .lv-hero h1 span {
+    color: #dd9a3a;
+  }
+
+  .lv-hero-sub {
+    max-width: 90%;
+    margin: 24px 0 0;
+    color: #fffdf3;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    text-shadow: 0 2px 10px rgba(0,0,0,.38);
+  }
+
+  .lv-hero-actions {
+    width: 100%;
+    max-width: 470px;
+    margin-top: 24px;
+    gap: 10px;
+  }
+
+  .lv-hero-actions .lv-btn {
+    min-height: 57px;
+    font-size: .88rem;
+    letter-spacing: .12em;
+  }
+
+  .lv-hero-actions .lv-btn-gold {
+    background: #dd9a3a;
+    border-color: #dd9a3a;
+    color: #102839;
+    box-shadow: 0 10px 24px rgba(0,0,0,.22);
+  }
+
+  .lv-hero .lv-btn-cream {
+    background: rgba(7,22,31,.23);
+    border: 2px solid #f6f1db;
+    color: #f6f1db;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .lv-order-modes,
+  .lv-address {
+    display: none !important;
+  }
+
+  .lv-hero .lv-open-status {
+    display: flex;
+    width: 100%;
+    min-height: 58px;
+    margin: 18px 0 0;
+    padding: 12px 18px;
+    justify-content: center;
+    border: 1px solid rgba(246,241,219,.22);
+    border-radius: 10px;
+    background: rgba(16,40,57,.90);
+    color: #dd9a3a;
+    text-align: center;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+
+  /* Put fulfillment choices immediately below the hero like the approved mockup. */
+  .lv-order-band {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 0;
+    padding: 22px 12px 20px;
+    background: #f7f1df;
+    color: #102839;
+    border-top: 0;
+    border-bottom: 1px solid rgba(16,40,57,.12);
+  }
+
+  .lv-order-title {
+    display: none;
+  }
+
+  .lv-order-choice {
+    min-width: 0;
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 7px;
+    border: 0;
+    border-right: 1px solid rgba(16,40,57,.14);
+    border-radius: 0;
+    background: transparent;
+    text-align: center;
+  }
+
+  .lv-order-choice:last-child {
+    border-right: 0;
+  }
+
+  .lv-order-choice > span {
+    width: 42px;
+    height: 42px;
+    margin: 0 auto 2px;
+    background: transparent !important;
+  }
+
+  .lv-order-choice > span svg {
+    width: 31px;
+    height: 31px;
+  }
+
+  .lv-order-choice .mustard { color: #dd9a3a; }
+  .lv-order-choice .blue { color: #455832; }
+  .lv-order-choice .orange { color: #dd9a3a; }
+
+  .lv-order-choice h3 {
+    margin: 0;
+    color: #102839;
+    font-size: .92rem;
+    line-height: 1.05;
+    letter-spacing: .06em;
+  }
+
+  .lv-order-choice p {
+    margin: 3px 0 0;
+    color: rgba(16,40,57,.82);
+    font-size: .72rem;
+    line-height: 1.25;
+  }
+
+  .lv-order-choice a {
+    display: none;
+  }
+
+  /* Keep the app navigation visually aligned with the approved mobile mockup. */
+  .lv-bottom-nav {
+    background: rgba(247,241,223,.98);
+    border-top: 1px solid rgba(16,40,57,.10);
+  }
+
+  .lv-bottom-order > span {
+    background: #dd9a3a;
+    color: #fffdf3;
+  }
+}
+
+@media (max-width: 430px) {
+  .lv-header,
+  .lv-header-inner {
+    min-height: 172px;
+  }
+
+  .lv-header-inner {
+    grid-template-columns: 1fr 154px 1fr;
+  }
+
+  .lv-brand,
+  .lv-brand img {
+    width: 154px !important;
+    height: 154px !important;
+    max-width: 154px !important;
+    max-height: 154px !important;
+  }
+
+  .lv-mobile-drawer {
+    top: 172px;
+  }
+
+  .lv-hero,
+  .lv-hero-copy {
+    min-height: 875px;
+  }
+
+  .lv-hero-copy {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .lv-hero h1 {
+    font-size: clamp(4rem, 17vw, 5rem);
+  }
+}
+
+@media (max-width: 375px) {
+  .lv-header,
+  .lv-header-inner {
+    min-height: 162px;
+  }
+
+  .lv-header-inner {
+    grid-template-columns: 1fr 144px 1fr;
+  }
+
+  .lv-brand,
+  .lv-brand img {
+    width: 144px !important;
+    height: 144px !important;
+    max-width: 144px !important;
+    max-height: 144px !important;
+  }
+
+  .lv-mobile-drawer {
+    top: 162px;
+  }
+
+  .lv-hero,
+  .lv-hero-copy {
+    min-height: 840px;
+  }
+
+  .lv-hero-copy {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .lv-order-band {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
