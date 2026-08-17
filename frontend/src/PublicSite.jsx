@@ -215,6 +215,15 @@ const OrderBand = () => (
   </section>
 );
 
+const MobileStatusBar = ({ contact }) => {
+  const status = getBusinessStatus(contact);
+  return (
+    <aside className={`lv-mobile-status-bar lv-open-status ${status.open ? "is-open" : "is-closed"}`} aria-label="Business hours status">
+      <Clock aria-hidden="true" /><span aria-hidden="true"></span>{status.label}
+    </aside>
+  );
+};
+
 const StoryCatering = () => {
   const images = useSiteImages();
   return (
@@ -315,7 +324,7 @@ export const PublicHome = () => {
       if (specialsResult.status === "fulfilled") setSpecials(specialsResult.value.data || []);
     });
   }, []);
-  return <div className="lv-site"><Header /><main><Hero contact={content?.contact} /><TrustBand /><Favorites /><OrderBand /><Visit contact={content?.contact} /><Specials specials={specials} /><StoryCatering /><CateringInquiry /><ReviewProof /></main><Footer /><MobileBottomNav /></div>;
+  return <div className="lv-site"><Header /><main><Hero contact={content?.contact} /><TrustBand /><Favorites /><OrderBand /><MobileStatusBar contact={content?.contact} /><Visit contact={content?.contact} /><Specials specials={specials} /><StoryCatering /><CateringInquiry /><ReviewProof /></main><Footer /><MobileBottomNav /></div>;
 };
 
 const categoryAliases = {

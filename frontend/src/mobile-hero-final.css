@@ -13,12 +13,13 @@
 
   .lv-site:not(.lv-menu-page) .lv-hero { order: 1; }
   .lv-site:not(.lv-menu-page) .lv-order-band { order: 2; }
-  .lv-site:not(.lv-menu-page) .lv-favorites { order: 3; }
-  .lv-site:not(.lv-menu-page) .lv-visit { order: 4; }
-  .lv-site:not(.lv-menu-page) .lv-specials { order: 5; }
-  .lv-site:not(.lv-menu-page) .lv-story-catering { order: 6; }
-  .lv-site:not(.lv-menu-page) .lv-catering-inquiry { order: 7; }
-  .lv-site:not(.lv-menu-page) .lv-review-proof { order: 8; }
+  .lv-site:not(.lv-menu-page) .lv-mobile-status-bar { order: 3; }
+  .lv-site:not(.lv-menu-page) .lv-favorites { order: 4; }
+  .lv-site:not(.lv-menu-page) .lv-visit { order: 5; }
+  .lv-site:not(.lv-menu-page) .lv-specials { order: 6; }
+  .lv-site:not(.lv-menu-page) .lv-story-catering { order: 7; }
+  .lv-site:not(.lv-menu-page) .lv-catering-inquiry { order: 8; }
+  .lv-site:not(.lv-menu-page) .lv-review-proof { order: 9; }
 
   /* Header: fully contained badge, centered on the true viewport center. */
   .lv-header {
@@ -567,3 +568,80 @@
     font-size: .68rem;
   }
 }
+
+/* ============================================================================
+   Structure alignment with approved mockup:
+   A · H1 sizing so "GOOD TIMES." wraps to two lines like "BURGERS." can't fit
+   C · Full-width navy status bar rendered AFTER the order strip on mobile
+       (hidden on desktop). Retires the in-hero pill treatment to avoid a
+       duplicate status display on mobile.
+   Mobile only. No effect on desktop, /menu, backend, or data.
+   ============================================================================ */
+@media (min-width: 768px) {
+  /* MobileStatusBar is mobile-only */
+  .lv-mobile-status-bar {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  /* --- A: H1 bump so "GOOD TIMES." wraps to two lines --- */
+  .lv-hero h1 {
+    font-size: clamp(4.6rem, 20vw, 5.9rem);
+    line-height: .9;
+    letter-spacing: -.01em;
+  }
+
+  /* --- C: Retire the in-hero status pill on mobile (moved to a real bar) --- */
+  .lv-hero .lv-open-status {
+    display: none !important;
+  }
+
+  /* --- C: Full-width navy status bar between OrderBand and next section
+         (order is set alongside the other section orders above) --- */
+  .lv-mobile-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 62px;
+    margin: 0;
+    padding: 14px 22px;
+    background: #102839;
+    color: #f6f1db;
+    font-family: 'Oswald', sans-serif;
+    font-size: .82rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    text-align: center;
+    border: 0;
+    border-radius: 0;
+    box-shadow: 0 -1px 0 rgba(0,0,0,.15);
+  }
+  .lv-mobile-status-bar > svg {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    color: #f6f1db;
+    stroke-width: 2;
+  }
+  .lv-mobile-status-bar > span {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #dd9a3a;
+    box-shadow: 0 0 0 3px rgba(221,154,58,.22);
+    display: inline-block;
+  }
+  .lv-mobile-status-bar.is-closed > span {
+    background: #dd9a3a;
+  }
+  .lv-mobile-status-bar.is-open > span {
+    background: #7cbf5c;
+    box-shadow: 0 0 0 3px rgba(124,191,92,.28);
+  }
+}
+
