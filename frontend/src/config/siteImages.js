@@ -26,14 +26,14 @@ export const SITE_IMAGE_SLOTS = [
     label: "Menu Page Hero",
     sub: "Large photo at the top of /menu",
     ratio: "Landscape (16:9 or 3:2)",
-    default: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1600&q=82&auto=format&fit=crop",
+    default: "/hero-burger.jpg",
   },
   {
     key: "burger",
     label: "Lakeview Burger",
     sub: "Favorites carousel · card 1",
     ratio: "Square (1:1)",
-    default: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1000&q=82&auto=format&fit=crop",
+    default: "/hero-burger.jpg",
   },
   {
     key: "tacos",
