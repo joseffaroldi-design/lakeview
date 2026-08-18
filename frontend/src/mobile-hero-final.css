@@ -645,3 +645,378 @@
   }
 }
 
+
+/* ============================================================================
+   EDITORIAL POLISH v4 — mobile homepage
+   One cohesive pass: tighter header + logo, hero hierarchy refinement,
+   consistent 8-pt vertical rhythm across every section, cleaner section
+   transitions. CSS-only. Mobile homepage (/) only.
+   ============================================================================ */
+@media (max-width: 767px) {
+  /* ─── HEADER: 108 px tall, 92 px logo, centered, gold curve refined ─── */
+  .lv-header,
+  .lv-header-inner {
+    min-height: 108px !important;
+  }
+  .lv-header-inner {
+    grid-template-columns: 1fr 100px 1fr;
+    align-items: center;
+    padding: 0 14px;
+  }
+  .lv-header::after {
+    height: 16px;
+    bottom: -10px;
+    border-radius: 0 0 46% 46% / 0 0 100% 100%;
+    border-bottom-width: 2px;
+  }
+  .lv-brand {
+    justify-content: center;
+    align-self: center;
+    width: 92px !important;
+    height: 92px !important;
+    min-height: 0 !important;
+  }
+  .lv-brand img {
+    position: static;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 92px !important;
+    height: 92px !important;
+    max-width: 92px !important;
+    max-height: 92px !important;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,.25));
+  }
+  .lv-mobile-drawer {
+    top: 108px !important;
+  }
+  .lv-mobile-trigger {
+    justify-self: start;
+    padding: 6px;
+    gap: 3px;
+    font-size: .62rem;
+    letter-spacing: .14em;
+  }
+  .lv-mobile-trigger svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 2.2;
+  }
+
+  /* ─── HERO: tighter, more focused vertical rhythm ─── */
+  .lv-site:not(.lv-menu-page) .lv-hero,
+  .lv-site:not(.lv-menu-page) .lv-hero-copy {
+    min-height: 640px !important;
+  }
+  .lv-hero-copy {
+    padding: 40px 24px 44px !important;
+    justify-content: center !important;
+  }
+  .lv-hero .lv-script {
+    margin: 0 0 14px !important;
+    font-size: clamp(1.7rem, 6.6vw, 2.1rem) !important;
+  }
+  .lv-hero h1 {
+    margin: 0 !important;
+    font-size: clamp(4.4rem, 19vw, 5.6rem) !important;
+    line-height: .9 !important;
+    letter-spacing: -.008em !important;
+  }
+  .lv-hero-sub {
+    max-width: 92% !important;
+    margin: 22px 0 0 !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+  }
+  .lv-hero-actions {
+    max-width: 100% !important;
+    margin-top: 26px !important;
+    gap: 12px !important;
+  }
+  .lv-hero-actions .lv-btn {
+    min-height: 56px !important;
+    padding: 15px 20px !important;
+    font-size: .88rem !important;
+    letter-spacing: .11em !important;
+  }
+  .lv-hero .lv-address {
+    display: none !important;
+  }
+
+  /* ─── ORDER STRIP: tighter, professional 3-col ─── */
+  .lv-order-band {
+    padding: 26px 12px 24px !important;
+  }
+  .lv-order-choice {
+    min-height: 112px !important;
+    gap: 8px !important;
+    padding: 6px 8px !important;
+  }
+  .lv-order-choice > span {
+    width: 42px !important;
+    height: 42px !important;
+    margin: 0 auto 2px !important;
+  }
+  .lv-order-choice > span svg {
+    width: 30px !important;
+    height: 30px !important;
+    stroke-width: 1.9 !important;
+  }
+  .lv-order-choice h3 {
+    font-size: .86rem !important;
+    letter-spacing: .08em !important;
+    line-height: 1.05 !important;
+  }
+  .lv-order-choice p {
+    margin: 3px 0 0 !important;
+    font-size: .7rem !important;
+    line-height: 1.35 !important;
+  }
+
+  /* ─── STATUS BAR: slightly tighter, cleaner typography ─── */
+  .lv-mobile-status-bar {
+    min-height: 54px !important;
+    padding: 12px 20px !important;
+    font-size: .78rem !important;
+    letter-spacing: .11em !important;
+    gap: 10px !important;
+  }
+  .lv-mobile-status-bar > svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .lv-mobile-status-bar > span {
+    width: 8px !important;
+    height: 8px !important;
+  }
+
+  /* ─── UNIVERSAL SECTION RHYTHM (target CHILDREN, not containers, to avoid padding stack-up) ─── */
+  .lv-favorites {
+    padding: 40px 0 28px !important;
+  }
+  .lv-favorites .lv-favorites-intro {
+    padding: 0 22px !important;
+    margin-bottom: 18px !important;
+  }
+  .lv-favorites .lv-favorites-scroll {
+    padding: 6px 18px 16px !important;
+  }
+
+  /* ─── SECTION HEADINGS: consistent script + H2 rhythm ─── */
+  .lv-site:not(.lv-menu-page) main section .lv-script {
+    font-size: 1.7rem;
+    line-height: 1;
+    margin: 0 0 6px;
+  }
+  .lv-site:not(.lv-menu-page) main section h2 {
+    letter-spacing: 0;
+    line-height: 1.02;
+  }
+
+  /* ─── VISIT: tighten copy + map wrap ─── */
+  .lv-visit-copy {
+    padding: 32px 22px 30px !important;
+  }
+  .lv-visit-copy h2 {
+    margin: 6px 0 14px !important;
+  }
+  .lv-visit .lv-open-status {
+    margin: 6px 0 20px !important;
+    padding: 12px 18px;
+    min-height: 52px;
+  }
+  .lv-visit-details {
+    gap: 12px 12px !important;
+  }
+  .lv-visit-details p {
+    line-height: 1.5;
+  }
+  .lv-visit-actions {
+    gap: 10px !important;
+    margin-top: 22px !important;
+  }
+  .lv-visit-actions .lv-btn {
+    min-height: 48px;
+    padding: 12px 18px;
+  }
+  .lv-map-wrap,
+  .lv-map-wrap iframe {
+    min-height: 260px !important;
+  }
+
+  /* ─── SPECIALS: tighter section, cleaner card rhythm ─── */
+  .lv-specials {
+    padding: 32px 22px !important;
+    gap: 18px !important;
+  }
+  .lv-specials h2 {
+    margin: 4px 0 6px;
+  }
+  .lv-special-list article {
+    padding: 16px 0 !important;
+  }
+  .lv-special-list h3 {
+    font-size: 1.2rem;
+  }
+  .lv-special-list p {
+    margin: 6px 62px 0 0;
+    line-height: 1.5;
+  }
+
+  /* ─── STORY / CATERING: pull excess whitespace ─── */
+  .lv-story {
+    padding: 32px 22px 22px !important;
+  }
+  .lv-story h2,
+  .lv-catering h2 {
+    font-size: clamp(2.6rem, 8.5vw, 3rem) !important;
+    margin: 6px 0 14px !important;
+  }
+  .lv-story-photos {
+    height: 240px !important;
+    margin-top: 18px !important;
+  }
+  .lv-catering-copy {
+    padding: 30px 22px 200px !important;
+  }
+  .lv-catering .lv-btn {
+    min-height: 50px;
+    margin-top: 12px;
+  }
+
+  /* ─── CATERING INQUIRY: form spacing + consistent input rhythm ─── */
+  .lv-catering-inquiry {
+    padding: 34px 22px 40px !important;
+  }
+  .lv-catering-inquiry h2 {
+    margin: 6px 0 8px !important;
+  }
+  .lv-catering-inquiry p {
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  .lv-catering-inquiry form {
+    gap: 12px !important;
+    margin-top: 4px;
+  }
+  .lv-catering-inquiry input,
+  .lv-catering-inquiry textarea,
+  .lv-catering-inquiry select {
+    min-height: 50px;
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+  }
+  .lv-catering-inquiry textarea {
+    min-height: 110px;
+  }
+  .lv-catering-inquiry .lv-btn,
+  .lv-catering-inquiry button[type='submit'] {
+    min-height: 54px;
+    font-size: .9rem;
+    letter-spacing: .1em;
+    margin-top: 6px;
+  }
+
+  /* ─── REVIEW PROOF: cleaner card + CTA ─── */
+  .lv-review-proof {
+    padding: 34px 22px !important;
+  }
+  .lv-review-proof h2 {
+    margin: 6px 0 10px;
+  }
+  .lv-review-proof p,
+  .lv-review-proof blockquote {
+    font-size: 1rem;
+    line-height: 1.55;
+    margin: 6px 0 16px;
+  }
+  .lv-review-proof .lv-btn {
+    min-height: 50px;
+    font-size: .88rem;
+    letter-spacing: .1em;
+  }
+
+  /* ─── FOOTER: reduce vertical bulk, cleaner columns ─── */
+  .lv-footer {
+    padding: 34px 22px 96px !important;
+  }
+  .lv-footer > * {
+    margin-bottom: 18px;
+  }
+  .lv-footer-cta > p {
+    font-size: 2.5rem !important;
+    line-height: 1;
+  }
+  .lv-footer h3 {
+    font-size: .78rem;
+    letter-spacing: .12em;
+    margin-bottom: 10px;
+  }
+  .lv-footer a,
+  .lv-footer p {
+    line-height: 1.5;
+    font-size: .9rem;
+  }
+  .lv-footer-grid {
+    gap: 18px !important;
+  }
+  .lv-footer-grid > img {
+    width: 76px !important;
+  }
+
+  /* ─── SMOOTHER SECTION TRANSITIONS ─── */
+  .lv-favorites,
+  .lv-visit,
+  .lv-story-catering,
+  .lv-catering-inquiry,
+  .lv-review-proof {
+    scroll-margin-top: 108px;
+  }
+}
+
+@media (max-width: 430px) {
+  .lv-hero h1 {
+    font-size: clamp(4.2rem, 18vw, 5.2rem) !important;
+  }
+}
+
+@media (max-width: 375px) {
+  .lv-header,
+  .lv-header-inner {
+    min-height: 100px !important;
+  }
+  .lv-brand img {
+    width: 84px !important;
+    height: 84px !important;
+  }
+  .lv-mobile-drawer {
+    top: 100px !important;
+  }
+  .lv-hero h1 {
+    font-size: clamp(4rem, 17vw, 4.8rem) !important;
+  }
+  .lv-hero-copy {
+    padding: 36px 20px 40px !important;
+  }
+  .lv-order-choice {
+    padding: 6px 4px !important;
+  }
+  .lv-order-choice h3 {
+    font-size: .82rem !important;
+  }
+  .lv-order-choice p {
+    font-size: .66rem !important;
+  }
+  .lv-visit,
+  .lv-specials,
+  .lv-story-catering,
+  .lv-catering-inquiry,
+  .lv-review-proof,
+  footer,
+  .lv-footer {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+}
+
