@@ -20,6 +20,7 @@ import "@/public-site.css";
 import "@/public-site-polish.css";
 import "@/revenue-conversion.css";
 import { DEFAULT_IMAGES } from "@/config/siteImages";
+import { event as gaEvent } from "@/lib/gaAnalytics";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const LOGO = "/logo.webp";
@@ -101,7 +102,45 @@ const useSiteImages = () => {
   return imgs;
 };
 
+// Map internal button_name values → GA4 event names. Only names in this
+// map fire a GA4 event; everything else stays local-only. Each mapping
+// entry returns { name, params } so we can attach lightweight context
+// (link_url, location) without inflating the payload.
+const GA_EVENTS = {
+  // Menu views & clicks
+  menu_view_hero:          { name: "menu_view",           params: { location: "hero" } },
+  menu_view_favorites:     { name: "menu_view",           params: { location: "favorites" } },
+  menu_view:               { name: "menu_view",           params: { location: "menu_page" } },
+  // Order Now / pickup clicks (Square)
+  order_online:            { name: "order_pickup_click",  params: { location: "generic",     link_url: SQUARE_URL } },
+  order_online_hero:       { name: "order_pickup_click",  params: { location: "hero",        link_url: SQUARE_URL } },
+  order_online_header:     { name: "order_pickup_click",  params: { location: "header",      link_url: SQUARE_URL } },
+  order_online_drawer:     { name: "order_pickup_click",  params: { location: "mobile_menu", link_url: SQUARE_URL } },
+  order_online_bottom_nav: { name: "order_pickup_click",  params: { location: "bottom_nav",  link_url: SQUARE_URL } },
+  order_online_footer:     { name: "order_pickup_click",  params: { location: "footer",      link_url: SQUARE_URL } },
+  order_online_menu_strip: { name: "order_pickup_click",  params: { location: "menu_strip",  link_url: SQUARE_URL } },
+  pickup_click:            { name: "order_pickup_click",  params: { location: "order_band",  link_url: SQUARE_URL } },
+  // Uber Eats / delivery clicks
+  delivery_click:          { name: "order_delivery_click", params: { location: "order_band", link_url: UBER_URL } },
+  // Catering
+  catering_quote_click:    { name: "catering_quote_click", params: { location: "story_catering" } },
+  catering_inquiry_submit: { name: "catering_submit",      params: { location: "catering_form" } },
+  // Phone
+  call_header:             { name: "phone_click", params: { location: "header",      link_url: PHONE_HREF } },
+  call_mobile_header:      { name: "phone_click", params: { location: "mobile_header", link_url: PHONE_HREF } },
+  call_order_click:        { name: "phone_click", params: { location: "order_band",  link_url: PHONE_HREF } },
+  call_visit_click:        { name: "phone_click", params: { location: "visit",       link_url: PHONE_HREF } },
+  // Directions / map
+  directions_hero:         { name: "directions_click", params: { location: "hero" } },
+  directions_click:        { name: "directions_click", params: { location: "visit" } },
+};
+
 const track = async (buttonName) => {
+  // Fire GA4 event first (synchronous, non-blocking, guarded no-op if
+  // GA4 isn't configured). Backend analytics call follows and its errors
+  // are swallowed so a customer action never blocks on analytics.
+  const mapped = GA_EVENTS[buttonName];
+  if (mapped) gaEvent(mapped.name, mapped.params);
   try {
     await axios.post(`${API}/analytics/button-click`, {
       button_name: buttonName,
