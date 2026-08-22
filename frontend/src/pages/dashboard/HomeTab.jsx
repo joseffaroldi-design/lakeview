@@ -8,6 +8,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/primitives";
+import Ga4Summary from "@/pages/dashboard/Ga4Summary";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const BUSINESS_TIME_ZONE = "America/Chicago";
@@ -174,6 +175,8 @@ const HomeTab = ({ onNavigate, getAuthHeader }) => {
           </div>
         )}
       </div>
+
+      <Ga4Summary getAuthHeader={getAuthHeader} />
 
       <div className="mb-8" data-testid="home-quick-actions">
         <p className="ds-eyebrow mb-3">Quick actions</p>

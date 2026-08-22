@@ -32,6 +32,7 @@ flatbuffers==25.12.19
 frozenlist==1.8.0
 fsspec==2026.1.0
 google-ai-generativelanguage==0.6.15
+google-analytics-data==0.23.0
 google-api-core==2.29.0
 google-api-python-client==2.189.0
 google-auth==2.49.0.dev0
@@ -85,6 +86,7 @@ pandas==3.0.0
 passlib==1.7.4
 pathspec==1.0.4
 pillow==12.1.0
+pillow_heif==1.5.0
 platformdirs==4.5.1
 playwright==1.60.0
 pluggy==1.6.0
@@ -121,6 +123,7 @@ requests-oauthlib==2.0.0
 rich==14.3.2
 rpds-py==0.30.0
 rsa==4.9.1
+ruff==0.15.20
 s3transfer==0.16.0
 s5cmd==0.2.0
 scikit-image==0.26.0
