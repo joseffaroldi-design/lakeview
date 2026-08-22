@@ -8,6 +8,7 @@
 const MEASUREMENT_ID = process.env.REACT_APP_GA_MEASUREMENT_ID || "";
 
 let initialized = false;
+let lastPageviewPath = null;
 
 const hasWindow = () => typeof window !== "undefined";
 
@@ -37,6 +38,13 @@ export const initGA = () => {
 
 export const pageview = (path, title) => {
   if (!isEnabled() || !initialized || !window.gtag) return;
+  // Idempotency guard: back-to-back calls with the same path fire once.
+  // Prevents duplicate page_views from React 18 StrictMode double-invocation
+  // of effects in dev, and from any accidental double-mount in production.
+  // Real navigations always change `path`, so this never drops a legitimate
+  // page view.
+  if (path === lastPageviewPath) return;
+  lastPageviewPath = path;
   window.gtag("event", "page_view", {
     page_path: path,
     page_location: window.location.href,

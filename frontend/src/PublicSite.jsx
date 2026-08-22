@@ -105,17 +105,18 @@ const useSiteImages = () => {
 // Map internal button_name values → GA4 event names. Only names in this
 // map fire a GA4 event; everything else stays local-only. Each mapping
 // entry returns { name, params } so we can attach lightweight context
-// (link_url, location) without inflating the payload.
+// (link_url, location) without inflating the payload. NO PII is passed.
 const GA_EVENTS = {
-  // Menu views & clicks
-  menu_view_hero:          { name: "menu_view",           params: { location: "hero" } },
-  menu_view_favorites:     { name: "menu_view",           params: { location: "favorites" } },
-  menu_view:               { name: "menu_view",           params: { location: "menu_page" } },
+  // Menu CTA clicks — distinct from the /menu page_view that GA4 fires
+  // automatically via the SPA route listener. `menu_view` on /menu mount
+  // is intentionally NOT mapped here (page_view already covers it).
+  menu_view_hero:          { name: "menu_click", params: { location: "hero" } },
+  menu_view_favorites:     { name: "menu_click", params: { location: "favorites" } },
   // Order Now / pickup clicks (Square)
   order_online:            { name: "order_pickup_click",  params: { location: "generic",     link_url: SQUARE_URL } },
   order_online_hero:       { name: "order_pickup_click",  params: { location: "hero",        link_url: SQUARE_URL } },
   order_online_header:     { name: "order_pickup_click",  params: { location: "header",      link_url: SQUARE_URL } },
-  order_online_drawer:     { name: "order_pickup_click",  params: { location: "mobile_menu", link_url: SQUARE_URL } },
+  order_online_drawer:     { name: "order_pickup_click",  params: { location: "drawer",      link_url: SQUARE_URL } },
   order_online_bottom_nav: { name: "order_pickup_click",  params: { location: "bottom_nav",  link_url: SQUARE_URL } },
   order_online_footer:     { name: "order_pickup_click",  params: { location: "footer",      link_url: SQUARE_URL } },
   order_online_menu_strip: { name: "order_pickup_click",  params: { location: "menu_strip",  link_url: SQUARE_URL } },
@@ -124,7 +125,7 @@ const GA_EVENTS = {
   delivery_click:          { name: "order_delivery_click", params: { location: "order_band", link_url: UBER_URL } },
   // Catering
   catering_quote_click:    { name: "catering_quote_click", params: { location: "story_catering" } },
-  catering_inquiry_submit: { name: "catering_submit",      params: { location: "catering_form" } },
+  catering_inquiry_submit: { name: "generate_lead",        params: { lead_type: "catering" } },
   // Phone
   call_header:             { name: "phone_click", params: { location: "header",      link_url: PHONE_HREF } },
   call_mobile_header:      { name: "phone_click", params: { location: "mobile_header", link_url: PHONE_HREF } },
