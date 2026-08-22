@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /login
 Disallow: /dashboard
+Disallow: /template-designer
 Disallow: /api/
 
 Sitemap: https://lakeview-grill.emergent.host/sitemap.xml

@@ -21,6 +21,7 @@ import "@/public-site-polish.css";
 import "@/revenue-conversion.css";
 import { DEFAULT_IMAGES } from "@/config/siteImages";
 import { event as gaEvent } from "@/lib/gaAnalytics";
+import { useSeo } from "@/lib/seo";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const LOGO = "/logo.webp";
@@ -356,6 +357,11 @@ const Footer = () => (
 export const PublicHome = () => {
   const [content, setContent] = useState(null);
   const [specials, setSpecials] = useState([]);
+  useSeo({
+    title: "Lakeview Burgers & Seafood | New Orleans Burgers, Seafood & Po'boys",
+    description: "Family-owned Lakeview restaurant serving burgers, Gulf seafood, po'boys and New Orleans favorites since 2015. Dine-in, pickup, delivery and catering at 872 Harrison Ave, New Orleans.",
+    path: "/",
+  });
   useEffect(() => {
     window.scrollTo(0, 0);
     track("home_view");
@@ -379,6 +385,12 @@ export const PublicMenu = () => {
   const location = useLocation();
   const [categories, setCategories] = useState([]);
   const [active, setActive] = useState("");
+
+  useSeo({
+    title: "Menu | Lakeview Burgers & Seafood — New Orleans",
+    description: "Explore the full Lakeview Burgers & Seafood menu: burgers, Gulf seafood, po'boys, fried plates, tacos, sides and family dinners. Order pickup or delivery in New Orleans.",
+    path: "/menu",
+  });
 
   useEffect(() => {
     window.scrollTo(0, 0);
