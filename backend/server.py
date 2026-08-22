@@ -19,7 +19,6 @@ from routers import (
     analytics,
     catering,
     cms,
-    ga4,
     home,
     html_template,
     loyalty,
@@ -48,7 +47,6 @@ api_router.include_router(auth.router)          # admin login/session
 api_router.include_router(cms.router)           # public content + menu editing
 api_router.include_router(specials.router)      # public specials
 api_router.include_router(analytics.router)     # lightweight public analytics
-api_router.include_router(ga4.router)           # GA4 dashboard summary (admin-only)
 api_router.include_router(loyalty.router)       # public/admin loyalty
 api_router.include_router(catering.router)      # public inquiry + admin follow-up
 api_router.include_router(newsletter.router)    # public signup + admin subscribers
