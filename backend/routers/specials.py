@@ -43,13 +43,25 @@ def _pack_to_special(pack: Dict[str, Any]) -> Dict[str, Any]:
             created = datetime.now(timezone.utc)
     elif not isinstance(created, datetime):
         created = datetime.now(timezone.utc)
+    raw_price = item.get("price")
+    if raw_price is None or raw_price == "":
+        price_str = ""
+    elif isinstance(raw_price, str):
+        price_str = raw_price
+    else:
+        # Legacy specials may store numeric price (int/float); Pydantic model
+        # requires str, so coerce defensively and format cents cleanly.
+        try:
+            price_str = f"${float(raw_price):.2f}"
+        except (TypeError, ValueError):
+            price_str = ""
     return {
         # Stable public id: prefer the original special id (preserved during 12A
         # migration). This keeps any external bookmarks / SEO URLs valid.
         "id": pack.get("migrated_from_special_id") or pack.get("id"),
         "title": item.get("name") or pack.get("title") or "Special",
         "description": item.get("description") or "",
-        "price": item.get("price"),
+        "price": price_str,
         "image_url": image_url,
         "is_active": bool(pack.get("is_active", True)),
         "created_at": created,

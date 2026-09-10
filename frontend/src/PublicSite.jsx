@@ -23,6 +23,40 @@ import { DEFAULT_IMAGES } from "@/config/siteImages";
 import { event as gaEvent } from "@/lib/gaAnalytics";
 import { useSeo } from "@/lib/seo";
 
+// Ensure a per-tab visitor session id exists in sessionStorage, then fire a
+// single /api/analytics/track POST for the given page. This is the backend
+// beacon that powers the admin Analytics tab + Home visitor tiles.
+// The GA4 tracking in gaAnalytics.js is independent of this — it stays firing
+// exactly as before.
+const usePageViewBeacon = (page) => {
+  useEffect(() => {
+    let mounted = true;
+    try {
+      let sid = sessionStorage.getItem("visitor_session");
+      if (!sid) {
+        sid =
+          (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
+          `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        sessionStorage.setItem("visitor_session", sid);
+      }
+      const payload = {
+        page,
+        user_agent: (typeof navigator !== "undefined" && navigator.userAgent) || "",
+        referrer: (typeof document !== "undefined" && document.referrer) || "",
+        session_id: sid,
+        screen_width: (typeof window !== "undefined" && window.screen && window.screen.width) || 0,
+        screen_height: (typeof window !== "undefined" && window.screen && window.screen.height) || 0,
+      };
+      axios.post(`${API}/analytics/track`, payload).catch(() => {
+        // Analytics must never block a customer.
+      });
+    } catch (_) {
+      // sessionStorage / crypto may fail in edge browsers — never block render.
+    }
+    return () => { mounted = false; };
+  }, [page]);
+};
+
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const LOGO = "/logo.webp";
 const PHONE = "(504) 289-1032";
@@ -362,6 +396,7 @@ export const PublicHome = () => {
     description: "Family-owned Lakeview restaurant serving burgers, Gulf seafood, po'boys and New Orleans favorites since 2015. Dine-in, pickup, delivery and catering at 872 Harrison Ave, New Orleans.",
     path: "/",
   });
+  usePageViewBeacon("home");
   useEffect(() => {
     window.scrollTo(0, 0);
     track("home_view");
@@ -391,6 +426,7 @@ export const PublicMenu = () => {
     description: "Explore the full Lakeview Burgers & Seafood menu: burgers, Gulf seafood, po'boys, fried plates, tacos, sides and family dinners. Order pickup or delivery in New Orleans.",
     path: "/menu",
   });
+  usePageViewBeacon("menu");
 
   useEffect(() => {
     window.scrollTo(0, 0);

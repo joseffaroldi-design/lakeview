@@ -74,6 +74,8 @@ async def track_button_click(request: Request, data: ButtonClickData):
 
     doc = button_click.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
+    # Match page_views retention — drop button-click rows after 180 days (BSON Date)
+    doc['expires_at'] = datetime.now(timezone.utc) + timedelta(days=180)
     await db.button_clicks.insert_one(doc)
     return {"message": "Button click tracked"}
 

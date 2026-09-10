@@ -93,6 +93,9 @@ async def on_startup():
         await db.page_views.create_index(
             "expires_at", name="pv_ttl", expireAfterSeconds=0
         )
+        await db.button_clicks.create_index(
+            "expires_at", name="bc_ttl", expireAfterSeconds=0
+        )
         await db.admin_sessions.create_index(
             "expires_at", name="as_ttl", expireAfterSeconds=0
         )
