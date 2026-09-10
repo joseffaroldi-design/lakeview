@@ -1,0 +1,493 @@
+/* Lakeview menu editorial redesign — presentation only.
+   Uses the existing live menu data and each item's own uploaded photo. */
+
+.lv-menu-page {
+  --menu-paper: #f8f3e5;
+  --menu-paper-2: #fffaf0;
+  --menu-ink: #102839;
+  --menu-forest: #26371f;
+  --menu-gold: #d9972f;
+  --menu-rule: rgba(16, 40, 57, .16);
+  background:
+    radial-gradient(rgba(16,40,57,.035) .7px, transparent .7px),
+    var(--menu-paper);
+  background-size: 8px 8px;
+}
+
+/* Compact the generic menu hero so the food reaches the viewport sooner. */
+.lv-menu-page .lv-menu-hero {
+  min-height: 250px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 42%);
+  border-bottom: 0;
+}
+
+.lv-menu-page .lv-menu-hero-copy {
+  padding: 42px max(28px, 5vw) 38px;
+}
+
+.lv-menu-page .lv-menu-hero-copy h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  text-transform: none;
+  letter-spacing: -.035em;
+  font-size: clamp(3.7rem, 6vw, 6.5rem);
+  line-height: .9;
+  margin: 8px 0 14px;
+  color: var(--menu-forest);
+}
+
+.lv-menu-page .lv-menu-hero-copy > p:last-child {
+  max-width: 650px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* Strong, horizontally scrollable category rail. */
+.lv-menu-page .lv-category-nav {
+  position: sticky;
+  top: 96px;
+  z-index: 55;
+  display: flex;
+  justify-content: flex-start;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--menu-ink);
+  border-top: 1px solid rgba(217,151,47,.38);
+  border-bottom: 1px solid rgba(217,151,47,.38);
+  padding: 0 max(18px, 3vw);
+}
+
+.lv-menu-page .lv-category-nav::-webkit-scrollbar { display: none; }
+
+.lv-menu-page .lv-category-nav button {
+  flex: 0 0 auto;
+  min-height: 68px;
+  padding: 0 26px;
+  border: 0;
+  border-right: 1px solid rgba(246,241,219,.14);
+  background: transparent;
+  color: rgba(248,243,229,.86);
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .065em;
+  font-size: .84rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lv-menu-page .lv-category-nav button:first-child {
+  border-left: 1px solid rgba(246,241,219,.14);
+}
+
+.lv-menu-page .lv-category-nav button:hover,
+.lv-menu-page .lv-category-nav button.active {
+  color: var(--menu-gold);
+  background: rgba(255,255,255,.025);
+  box-shadow: inset 0 -4px 0 var(--menu-gold);
+}
+
+.lv-menu-page .lv-menu-conversion-strip {
+  margin: 0;
+  padding: 11px max(24px,5vw);
+  background: #efe5ce;
+  border-bottom: 1px solid rgba(16,40,57,.10);
+}
+
+/* Paper menu canvas. */
+.lv-menu-page .lv-menu-sheet {
+  width: min(1460px, 100%);
+  margin: 0 auto;
+  padding: 28px clamp(24px, 4vw, 64px) 70px;
+  background: transparent;
+}
+
+.lv-menu-page .lv-menu-category {
+  scroll-margin-top: 190px;
+  padding: 50px 0 58px;
+  border-bottom: 1px solid var(--menu-rule);
+}
+
+.lv-menu-page .lv-menu-category-heading {
+  justify-content: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.lv-menu-page .lv-menu-category-heading span:first-child { display: none; }
+.lv-menu-page .lv-menu-category-heading span:last-child {
+  width: 86px;
+  height: 2px;
+  flex: 0 0 86px;
+  background: var(--menu-gold);
+}
+
+.lv-menu-page .lv-menu-category-heading h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  text-transform: none;
+  letter-spacing: -.03em;
+  color: var(--menu-forest);
+  font-size: clamp(3rem, 5vw, 5.5rem);
+  line-height: .94;
+  margin: 0;
+}
+
+.lv-menu-page .lv-menu-subtitle {
+  max-width: 670px;
+  margin: 0 0 28px;
+  color: rgba(16,40,57,.68);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+/* Editorial split: normal items form the left list, Lakeview Favorite becomes the feature. */
+.lv-menu-page .lv-menu-items {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, .82fr);
+  grid-auto-flow: row;
+  gap: 0 42px;
+  align-items: stretch;
+}
+
+.lv-menu-page .lv-menu-item {
+  grid-column: 1;
+  min-height: 148px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px;
+  gap: 22px;
+  align-items: center;
+  padding: 18px 0;
+  border: 0;
+  border-bottom: 1px solid var(--menu-rule);
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.lv-menu-page .lv-menu-item-copy { min-width: 0; }
+
+.lv-menu-page .lv-menu-item-title {
+  display: grid;
+  grid-template-columns: auto minmax(24px, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.lv-menu-page .lv-menu-item-title h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  text-transform: none;
+  letter-spacing: -.02em;
+  color: var(--menu-ink);
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  line-height: 1.08;
+  margin: 0;
+}
+
+.lv-menu-page .lv-menu-item-title > span {
+  min-width: 20px;
+  border-bottom: 2px dotted rgba(16,40,57,.20);
+}
+
+.lv-menu-page .lv-menu-item-title strong {
+  font-family: 'Oswald', sans-serif;
+  color: var(--menu-ink);
+  font-size: 1.25rem;
+  white-space: nowrap;
+}
+
+.lv-menu-page .lv-menu-item-copy > p {
+  margin: 8px 0 0;
+  max-width: 620px;
+  color: rgba(16,40,57,.70);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: .98rem;
+  line-height: 1.45;
+}
+
+.lv-menu-page .lv-menu-item > img {
+  width: 176px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(16,40,57,.12);
+}
+
+.lv-menu-page .lv-popular-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 9px;
+  color: #a8680e;
+  font-family: 'Oswald', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .10em;
+  font-weight: 700;
+  font-size: .72rem;
+}
+
+/* The first/only favorite in a category is the large authentic-photo feature. */
+.lv-menu-page .lv-menu-item.is-popular {
+  grid-column: 2;
+  grid-row: 1 / span 4;
+  align-self: stretch;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--menu-ink);
+  color: var(--menu-paper-2);
+  box-shadow: 0 16px 38px rgba(16,40,57,.12);
+}
+
+.lv-menu-page .lv-menu-item.is-popular > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  border-radius: 0;
+  z-index: 0;
+}
+
+.lv-menu-page .lv-menu-item.is-popular::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(7,18,25,.02) 15%, rgba(7,18,25,.22) 48%, rgba(7,18,25,.94) 100%);
+  pointer-events: none;
+}
+
+.lv-menu-page .lv-menu-item.is-popular .lv-menu-item-copy {
+  position: relative;
+  z-index: 2;
+  padding: 220px 34px 34px;
+  width: 100%;
+}
+
+.lv-menu-page .lv-menu-item.is-popular .lv-popular-badge {
+  color: #f0b04e;
+  margin-bottom: 14px;
+}
+
+.lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title {
+  display: block;
+}
+
+.lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title h3 {
+  color: white;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.6rem, 4.1vw, 4.8rem);
+  line-height: .92;
+  margin-bottom: 10px;
+}
+
+.lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title > span { display: none; }
+
+.lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title strong {
+  display: inline-block;
+  margin-top: 6px;
+  color: #f0b04e;
+  font-size: 1.45rem;
+}
+
+.lv-menu-page .lv-menu-item.is-popular .lv-menu-item-copy > p {
+  max-width: 470px;
+  margin-top: 12px;
+  color: rgba(255,255,255,.90);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* If a favorite is missing a photo, keep it in the standard list instead of making an empty feature. */
+.lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
+  grid-column: 1;
+  grid-row: auto;
+  min-height: 148px;
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--menu-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--menu-ink);
+  box-shadow: none;
+}
+.lv-menu-page .lv-menu-item.is-popular:not(:has(> img))::after { display: none; }
+.lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-copy { padding: 0; }
+.lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-title { display: grid; }
+.lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-title h3 { color: var(--menu-ink); font-size: 1.6rem; margin: 0; }
+.lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-title strong { color: var(--menu-ink); margin: 0; }
+.lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-copy > p { color: rgba(16,40,57,.70); }
+
+/* Tablet/mobile: no giant feature. Every item becomes a quick, scan-friendly row. */
+@media (max-width: 900px) {
+  .lv-menu-page .lv-menu-hero {
+    min-height: 0;
+    display: block;
+  }
+
+  .lv-menu-page .lv-menu-hero > img { display: none; }
+
+  .lv-menu-page .lv-menu-hero-copy {
+    padding: 30px 22px 27px;
+  }
+
+  .lv-menu-page .lv-menu-hero-copy h1 {
+    font-size: clamp(3rem, 15vw, 4.5rem);
+  }
+
+  .lv-menu-page .lv-category-nav {
+    top: 76px;
+    padding: 0 8px;
+  }
+
+  .lv-menu-page .lv-category-nav button {
+    min-height: 54px;
+    padding: 0 16px;
+    font-size: .73rem;
+  }
+
+  .lv-menu-page .lv-menu-conversion-strip {
+    padding: 9px 16px;
+  }
+
+  .lv-menu-page .lv-menu-sheet {
+    padding: 10px 18px 92px;
+  }
+
+  .lv-menu-page .lv-menu-category {
+    scroll-margin-top: 145px;
+    padding: 36px 0 38px;
+  }
+
+  .lv-menu-page .lv-menu-category-heading h2 {
+    font-size: clamp(2.75rem, 13vw, 4rem);
+  }
+
+  .lv-menu-page .lv-menu-category-heading span:last-child {
+    width: 50px;
+    flex-basis: 50px;
+  }
+
+  .lv-menu-page .lv-menu-items {
+    display: block;
+  }
+
+  .lv-menu-page .lv-menu-item,
+  .lv-menu-page .lv-menu-item.is-popular,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
+    min-height: 124px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 108px;
+    gap: 14px;
+    align-items: center;
+    padding: 15px 0;
+    border: 0;
+    border-bottom: 1px solid var(--menu-rule);
+    border-radius: 0;
+    background: transparent;
+    color: var(--menu-ink);
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .lv-menu-page .lv-menu-item.is-popular::after { display: none; }
+
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-copy,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-copy {
+    position: static;
+    z-index: auto;
+    padding: 0;
+  }
+
+  .lv-menu-page .lv-menu-item > img,
+  .lv-menu-page .lv-menu-item.is-popular > img {
+    position: static;
+    width: 108px;
+    height: 92px;
+    object-fit: cover;
+    border: 1px solid rgba(16,40,57,.12);
+    border-radius: 6px;
+  }
+
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-title,
+  .lv-menu-page .lv-menu-item-title {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(8px, 1fr) auto;
+    gap: 8px;
+    align-items: baseline;
+  }
+
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title > span { display: block; }
+
+  .lv-menu-page .lv-menu-item-title h3,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title h3,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) .lv-menu-item-title h3 {
+    color: var(--menu-ink);
+    font-size: 1.16rem;
+    line-height: 1.08;
+    margin: 0;
+  }
+
+  .lv-menu-page .lv-menu-item-title strong,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title strong {
+    color: var(--menu-ink);
+    font-size: .98rem;
+    margin: 0;
+  }
+
+  .lv-menu-page .lv-menu-item-copy > p,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-copy > p {
+    color: rgba(16,40,57,.68);
+    font-size: .86rem;
+    line-height: 1.35;
+    margin-top: 6px;
+  }
+
+  .lv-menu-page .lv-popular-badge,
+  .lv-menu-page .lv-menu-item.is-popular .lv-popular-badge {
+    color: #a8680e;
+    font-size: .62rem;
+    margin-bottom: 6px;
+  }
+}
+
+@media (max-width: 520px) {
+  .lv-menu-page .lv-menu-hero-copy > p:last-child { font-size: .92rem; }
+
+  .lv-menu-page .lv-menu-sheet { padding-inline: 14px; }
+
+  .lv-menu-page .lv-menu-item,
+  .lv-menu-page .lv-menu-item.is-popular,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 10px;
+  }
+
+  .lv-menu-page .lv-menu-item > img,
+  .lv-menu-page .lv-menu-item.is-popular > img {
+    width: 92px;
+    height: 82px;
+  }
+
+  .lv-menu-page .lv-menu-item-title {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .lv-menu-page .lv-menu-item-title > span { display: none !important; }
+
+  .lv-menu-page .lv-menu-item-title h3,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title h3 {
+    font-size: 1.04rem;
+  }
+}
