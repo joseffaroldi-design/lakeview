@@ -1,4 +1,106 @@
-/* Final roadmap polish: reduce dead space without changing the approved visual language. */
+/* Lakeview unified public visual system.
+   Replaces the prior accumulated polish/mobile overrides while preserving
+   existing content, data, links, analytics and public-site behavior. */
+
+.lv-site {
+  --lv-paper: #f8f3e5;
+  --lv-paper-2: #fffaf0;
+  --lv-ink: #102839;
+  --lv-forest: #26371f;
+  --lv-gold: #d9972f;
+  --lv-rule: rgba(16,40,57,.16);
+  background:
+    radial-gradient(rgba(16,40,57,.03) .7px, transparent .7px),
+    var(--lv-paper);
+  background-size: 8px 8px;
+  color: var(--lv-ink);
+}
+
+/* Shared editorial type language. */
+.lv-site .lv-hero h1,
+.lv-site .lv-favorites-intro h2,
+.lv-site .lv-order-title h2,
+.lv-site .lv-story h2,
+.lv-site .lv-catering h2,
+.lv-site .lv-specials h2,
+.lv-site .lv-reviews h2,
+.lv-site .lv-visit h2,
+.lv-site .lv-catering-inquiry h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  text-transform: none;
+  letter-spacing: -.035em;
+  line-height: .94;
+}
+
+.lv-site .lv-kicker {
+  color: var(--lv-gold);
+  letter-spacing: .16em;
+  font-size: .78rem;
+}
+
+.lv-site .lv-kicker::before { content: '—'; font-size: 1rem; }
+
+/* Header becomes the same restrained cream/navy/gold system as the menu. */
+.lv-header {
+  background: rgba(248,243,229,.97);
+  border-bottom: 1px solid var(--lv-rule);
+  backdrop-filter: blur(12px);
+}
+
+.lv-header-inner { min-height: 96px; }
+.lv-brand img { filter: drop-shadow(0 5px 6px rgba(16,40,57,.18)); }
+.lv-desktop-nav { letter-spacing: .065em; }
+.lv-desktop-nav span { color: var(--lv-gold); }
+
+.lv-btn {
+  border-radius: 3px;
+  letter-spacing: .09em;
+  box-shadow: none;
+}
+.lv-btn-gold { background: var(--lv-gold); border-color: var(--lv-gold); color: var(--lv-ink); }
+.lv-btn-outline { border-color: var(--lv-ink); color: var(--lv-ink); }
+.lv-btn-green { background: var(--lv-forest); border-color: var(--lv-forest); }
+
+/* Hero: editorial split, matching menu hierarchy without copying its layout. */
+.lv-hero {
+  min-height: 600px;
+  grid-template-columns: minmax(0, 1.02fr) minmax(420px, .98fr);
+  background: var(--lv-paper);
+  color: var(--lv-ink);
+  border-bottom: 1px solid var(--lv-rule);
+}
+
+.lv-hero-copy {
+  padding: 88px clamp(28px,5vw,82px) 58px;
+  background:
+    radial-gradient(rgba(16,40,57,.035) .7px, transparent .7px),
+    var(--lv-paper);
+  background-size: 8px 8px;
+}
+.lv-hero .lv-script { color: var(--lv-forest); }
+.lv-hero h1 {
+  max-width: 720px;
+  margin: 12px 0 20px;
+  color: var(--lv-ink);
+  font-size: clamp(4.4rem,7.6vw,7.6rem);
+}
+.lv-hero h1 span { color: var(--lv-forest); }
+.lv-hero-sub {
+  max-width: 580px;
+  color: rgba(16,40,57,.76);
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.62;
+}
+.lv-hero .lv-btn-cream { border-color: var(--lv-ink); color: var(--lv-ink); background: transparent; }
+.lv-address { color: rgba(16,40,57,.72); }
+.lv-address svg { color: var(--lv-gold); }
+.lv-hero-photo::before {
+  width: 70px;
+  left: -1px;
+  background: linear-gradient(90deg,var(--lv-paper),rgba(248,243,229,.65),transparent);
+  clip-path: none;
+}
+.lv-hero-photo img { filter: saturate(.98) contrast(1.02); }
 
 .lv-open-status {
   display: inline-flex;
@@ -6,502 +108,279 @@
   gap: 8px;
   margin-top: 18px;
   font-family: 'Oswald', sans-serif;
-  font-size: .76rem;
+  font-size: .74rem;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
-.lv-open-status span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 3px rgba(255,255,255,.10);
+.lv-open-status span { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.lv-open-status.is-open { color: var(--lv-forest); }
+.lv-open-status.is-closed { color: #965d26; }
+
+/* Trust and order bands become clean editorial anchors. */
+.lv-trust {
+  min-height: 76px;
+  background: var(--lv-ink);
+  color: var(--lv-paper);
+  border-color: rgba(217,151,47,.4);
 }
-.lv-open-status.is-open { color: #93b06f; }
-.lv-open-status.is-closed { color: #dd9a3a; }
-.lv-visit .lv-open-status { margin: -10px 0 22px; }
-.lv-visit .lv-open-status.is-open { color: #364526; }
-.lv-visit .lv-open-status.is-closed { color: #965d26; }
+.lv-trust > div { border-color: rgba(248,243,229,.13); }
+.lv-trust svg,.lv-trust span { color: var(--lv-gold); }
+
+.lv-favorites {
+  padding: 58px max(24px,4vw) 64px;
+  grid-template-columns: minmax(190px,240px) minmax(0,1fr);
+  gap: 42px;
+  background: var(--lv-paper);
+  border-bottom: 1px solid var(--lv-rule);
+}
+.lv-favorites-intro h2 { margin: 6px 0 16px; color: var(--lv-forest); font-size: clamp(2.8rem,4vw,4.5rem); }
+.lv-favorites-intro > p:not(.lv-kicker) { color: rgba(16,40,57,.7); }
+.lv-favorite-card {
+  background: var(--lv-paper-2);
+  border: 1px solid var(--lv-rule);
+  box-shadow: none;
+  transform: none;
+  border-radius: 5px;
+  overflow: hidden;
+  padding: 8px 8px 14px;
+}
+.lv-favorite-card img { border-radius: 2px; }
+.lv-favorite-card strong { color: var(--lv-ink); }
+.lv-favorite-card small { color: rgba(16,40,57,.62); }
+.lv-favorite-link { color: var(--lv-gold) !important; }
+
+.lv-order-band {
+  background: var(--lv-ink);
+  color: var(--lv-paper);
+  border-top: 1px solid rgba(217,151,47,.4);
+  border-bottom: 1px solid rgba(217,151,47,.4);
+}
+.lv-order-title h2 { color: var(--lv-paper); font-size: clamp(2.8rem,4vw,4.5rem); }
+.lv-order-title p,.lv-order-choice a { color: var(--lv-gold); }
+.lv-order-choice > span { border-radius: 4px; }
+.lv-order-choice .mustard { background: var(--lv-gold); }
+.lv-order-choice .blue,.lv-order-choice .orange { background: rgba(248,243,229,.12); color: var(--lv-gold); }
+
+/* Story + catering: shared paper/forest editorial pair. */
+.lv-story-catering { background: var(--lv-paper); border-top: 0; border-bottom: 1px solid var(--lv-rule); }
+.lv-story {
+  min-height: 430px;
+  background:
+    radial-gradient(rgba(16,40,57,.03) .7px, transparent .7px),
+    var(--lv-paper);
+  background-size: 8px 8px;
+}
+.lv-story h2 { color: var(--lv-forest); }
+.lv-story-copy > p:not(.lv-kicker) { color: rgba(16,40,57,.72); }
+.lv-story-photos .main,.lv-story-photos .small {
+  border-color: var(--lv-paper-2);
+  box-shadow: 0 0 0 1px var(--lv-rule);
+  transform: none;
+  border-radius: 4px;
+}
+.lv-catering { background: var(--lv-forest); color: var(--lv-paper); }
+.lv-catering-copy { background: linear-gradient(90deg,var(--lv-forest) 84%,rgba(38,55,31,0)); }
+.lv-catering h2 { color: var(--lv-paper); }
+
+/* Specials no longer introduces an unrelated brown visual language. */
+.lv-specials {
+  background: var(--lv-paper-2);
+  color: var(--lv-ink);
+  border-bottom: 1px solid var(--lv-rule);
+}
+.lv-specials h2 { color: var(--lv-forest); }
+.lv-specials > div > p:last-child { color: rgba(16,40,57,.66); }
+.lv-special-list { border-top-color: var(--lv-rule); }
+.lv-special-list article { border-bottom-color: var(--lv-rule); }
+.lv-special-list article:nth-child(odd) { border-right-color: var(--lv-rule); }
+.lv-special-list p { color: rgba(16,40,57,.65); }
+.lv-special-list strong { color: var(--lv-gold); }
+
+/* Reviews read as editorial proof, not disconnected cards. */
+.lv-reviews {
+  background:
+    radial-gradient(rgba(16,40,57,.03) .7px, transparent .7px),
+    var(--lv-paper);
+  background-size: 8px 8px;
+  border-bottom: 1px solid var(--lv-rule);
+}
+.lv-reviews-heading h2 { color: var(--lv-forest); }
+.lv-review {
+  border: 1px solid var(--lv-rule);
+  background: var(--lv-paper-2);
+  box-shadow: none;
+  border-radius: 4px;
+}
+.lv-review > div { color: var(--lv-gold); }
+.lv-review p { color: var(--lv-ink); }
+
+/* Visit + catering form use the same paper canvas and form controls. */
+.lv-visit { background: var(--lv-paper-2); border-bottom: 1px solid var(--lv-rule); }
+.lv-visit h2 { color: var(--lv-forest); }
+.lv-visit-details svg { color: var(--lv-gold); }
+.lv-map-wrap iframe { filter: saturate(.88) contrast(.98); }
 
 .lv-catering-inquiry {
-  padding: 38px max(22px,5vw) 42px;
-  background: #fbf7e8;
-  border-top: 1px solid rgba(221,154,58,.30);
+  padding: 54px max(24px,5vw) 60px;
+  background: var(--lv-paper);
+  border-top: 0;
+  border-bottom: 1px solid var(--lv-rule);
 }
 .lv-catering-inquiry-inner {
-  max-width: 980px;
+  max-width: 1120px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 30px;
+  grid-template-columns: minmax(0,.85fr) minmax(0,1.15fr);
+  gap: 52px;
   align-items: start;
 }
-.lv-catering-inquiry h2 {
-  font-size: clamp(2.5rem,5vw,4.25rem);
-  line-height: .96;
-  margin: 8px 0 14px;
-}
-.lv-catering-inquiry p {
-  color: rgba(16,40,57,.72);
-  line-height: 1.6;
-  max-width: 500px;
-}
+.lv-catering-inquiry h2 { color: var(--lv-forest); font-size: clamp(2.8rem,4.5vw,4.8rem); margin: 8px 0 14px; }
+.lv-catering-inquiry p { color: rgba(16,40,57,.7); line-height: 1.65; max-width: 520px; }
 .lv-catering-inquiry p a { font-weight: 700; }
-.lv-catering-inquiry form { display: grid; gap: 11px; }
-.lv-catering-inquiry label {
-  display: grid;
-  gap: 6px;
-  font-weight: 700;
-  font-size: .82rem;
+.lv-catering-inquiry form { display: grid; gap: 12px; }
+.lv-catering-inquiry label { display: grid; gap: 6px; font-weight: 700; font-size: .8rem; }
+.lv-catering-inquiry input,.lv-catering-inquiry textarea,.lv-catering-inquiry select {
+  border: 1px solid rgba(16,40,57,.24);
+  background: var(--lv-paper-2);
+  color: var(--lv-ink);
+  border-radius: 3px;
 }
-.lv-form-row { display: grid; gap: 11px; }
+.lv-form-row { display: grid; gap: 12px; }
 .lv-form-row.two { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .lv-form-row.three { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .lv-catering-inquiry .lv-btn { justify-self: start; cursor: pointer; }
 .lv-catering-inquiry .lv-btn:disabled { cursor: wait; opacity: .7; }
 .lv-form-success,.lv-form-error { margin: 0; font-weight: 700; }
-.lv-form-success { color: #364526 !important; }
+.lv-form-success { color: var(--lv-forest) !important; }
 .lv-form-error { color: #965d26 !important; }
 
+/* Footer closes with the same navy editorial anchor used by ordering/menu navigation. */
+.lv-footer { background: var(--lv-ink); color: var(--lv-paper); }
+.lv-footer a:hover { color: var(--lv-gold); }
+
 @media (min-width: 768px) {
-  .lv-hero { min-height: 580px; }
-  .lv-hero-copy { padding-top: 76px; padding-bottom: 48px; }
-  .lv-favorites { padding-top: 38px; padding-bottom: 44px; }
-  .lv-order-band { padding-top: 30px; padding-bottom: 30px; }
-  .lv-story { min-height: 405px; padding-top: 44px; padding-bottom: 44px; }
+  .lv-story,.lv-catering { min-height: 420px; }
   .lv-story-photos { height: 330px; }
-  .lv-catering { min-height: 405px; }
-  .lv-catering-copy { padding-top: 44px; padding-bottom: 40px; }
-  .lv-specials { padding-top: 40px; padding-bottom: 40px; }
-  .lv-visit-copy { padding-top: 44px; padding-bottom: 44px; }
-  .lv-map-wrap,.lv-map-wrap iframe { min-height: 410px; }
-  .lv-footer { padding-top: 40px; padding-bottom: 30px; }
-  .lv-footer-cta { padding-bottom: 26px; margin-bottom: 24px; }
+  .lv-map-wrap,.lv-map-wrap iframe { min-height: 420px; }
 }
 
+/* Mobile: one consistent system across home and menu; compact and scan-first. */
 @media (max-width: 767px) {
-  .lv-open-status { margin-top: 14px; font-size: .70rem; }
-  .lv-hero-copy { min-height: 465px; padding-top: 70px; padding-bottom: 24px; }
-  .lv-favorites { padding-top: 30px; padding-bottom: 36px; }
-  .lv-order-band { padding-top: 26px; padding-bottom: 26px; }
-  .lv-story { padding-top: 32px; padding-bottom: 24px; }
-  .lv-story-photos { height: 260px; }
-  .lv-catering-copy { padding-top: 30px; }
-  .lv-catering-inquiry { padding: 32px 22px 36px; }
-  .lv-catering-inquiry-inner { grid-template-columns: 1fr; gap: 22px; }
-  .lv-form-row.two,.lv-form-row.three { grid-template-columns: 1fr; }
-  .lv-specials { padding-top: 30px; padding-bottom: 30px; }
-  .lv-visit-copy { padding-top: 32px; padding-bottom: 32px; }
-  .lv-footer { padding-top: 32px; padding-bottom: 24px; }
-}
+  .lv-site { padding-bottom: 74px; }
 
-/* Mobile homepage art direction — matches the approved Lakeview mockup while leaving tablet/desktop unchanged. */
-@media (max-width: 767px) {
-  .lv-site {
-    background: #f6f1db;
-  }
-
-  /* Header: navy field, oversized badge, menu at left, clean right side, shallow gold wave. */
   .lv-header {
-    position: sticky;
-    top: 0;
-    min-height: 118px;
+    min-height: 88px;
+    background: var(--lv-paper);
+    border-bottom: 1px solid var(--lv-rule);
     overflow: visible;
-    background: #102839;
-    border-bottom: 0;
-    box-shadow: none;
-    backdrop-filter: none;
   }
-  .lv-header::after {
-    content: '';
-    position: absolute;
-    z-index: 0;
-    left: -3%;
-    right: -3%;
-    bottom: -16px;
-    height: 25px;
-    background: #102839;
-    border-bottom: 3px solid #dd9a3a;
-    border-radius: 0 0 50% 50% / 0 0 100% 100%;
-    pointer-events: none;
-  }
+  .lv-header::after { display: none; }
   .lv-header-inner {
-    min-height: 118px;
-    grid-template-columns: 1fr 190px 1fr;
-    padding: 0 18px;
-    z-index: 2;
+    min-height: 88px;
+    grid-template-columns: 1fr 132px 1fr;
+    padding: 0 16px;
   }
+  .lv-brand { justify-content: center; }
   .lv-brand img {
-    width: 190px;
-    height: 190px;
-    top: 5px;
-    filter: drop-shadow(0 8px 8px rgba(0,0,0,.22));
+    width: 132px;
+    height: 132px;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 4px 5px rgba(16,40,57,.16));
   }
-  .lv-mobile-trigger {
-    justify-self: start;
-    gap: 5px;
-    padding: 6px 4px;
-    font-size: .72rem;
-    letter-spacing: .12em;
-  }
-  .lv-mobile-trigger svg {
-    width: 31px;
-    height: 31px;
-    stroke-width: 2.2;
-  }
-  .lv-mobile-call {
-    visibility: hidden;
-    pointer-events: none;
-  }
-  .lv-mobile-drawer {
-    top: 118px;
-    z-index: 5;
-  }
+  .lv-mobile-trigger,.lv-mobile-call { color: var(--lv-ink); }
+  .lv-mobile-trigger { justify-self: start; }
+  .lv-mobile-call { display: inline-flex; visibility: visible; pointer-events: auto; justify-self: end; }
+  .lv-mobile-drawer { top: 88px; background: var(--lv-paper-2); border-top: 1px solid var(--lv-rule); }
 
-  /* Hero: editorial cream field with the real food image cutting into the right edge. */
   .lv-hero {
-    position: relative;
-    display: block;
-    min-height: 1115px;
-    padding-top: 0;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at 20% 12%, rgba(150,93,38,.055) 0 1px, transparent 1.4px) 0 0 / 9px 9px,
-      #f6f1db;
-    color: #102839;
-  }
-  .lv-hero::after {
-    content: '';
-    position: absolute;
-    z-index: 1;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 125px;
-    opacity: .20;
-    background:
-      linear-gradient(to top, rgba(16,40,57,.20), transparent 68%),
-      repeating-linear-gradient(90deg, transparent 0 25px, rgba(16,40,57,.17) 25px 27px, transparent 27px 54px);
-    clip-path: polygon(0 80%,5% 70%,10% 76%,14% 58%,19% 74%,24% 64%,29% 80%,35% 62%,40% 75%,45% 56%,50% 74%,55% 66%,60% 78%,66% 59%,72% 76%,78% 64%,84% 79%,90% 58%,96% 72%,100% 66%,100% 100%,0 100%);
-    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--lv-paper);
   }
   .lv-hero-copy {
-    position: relative;
-    z-index: 3;
-    min-height: 1115px;
-    padding: 112px 22px 34px;
-    overflow: visible;
-    background: transparent;
-    color: #102839;
+    order: 1;
+    min-height: 0;
+    padding: 64px 20px 28px;
+    background: var(--lv-paper);
   }
-  .lv-hero-copy::after {
-    display: none;
-  }
-  .lv-hero .lv-script {
-    position: relative;
-    z-index: 4;
-    width: 74%;
-    margin: 0 0 18px;
-    color: #455832;
-    font-size: clamp(2rem, 8.5vw, 2.65rem);
-    line-height: 1;
-    transform: rotate(-1.2deg);
-  }
+  .lv-hero .lv-script { margin: 0 0 12px; color: var(--lv-forest); font-size: 1.8rem; }
   .lv-hero h1 {
-    position: relative;
-    z-index: 4;
-    max-width: 73%;
-    margin: 0;
-    color: #102839;
-    font-size: clamp(4.15rem, 17.5vw, 5.8rem);
-    line-height: .86;
-    letter-spacing: -.012em;
-  }
-  .lv-hero h1 span {
-    color: #364526;
-  }
-  .lv-hero-sub {
-    position: relative;
-    z-index: 4;
-    max-width: 72%;
-    margin: 28px 0 0;
-    color: rgba(16,40,57,.86);
-    font-size: 1.03rem;
-    line-height: 1.55;
-  }
-  .lv-hero-actions {
-    position: relative;
-    z-index: 4;
-    display: grid;
-    width: 72%;
-    max-width: none;
-    gap: 10px;
-    margin-top: 26px;
-  }
-  .lv-hero-actions .lv-btn {
-    min-height: 54px;
-    padding: 12px 16px;
-    font-size: .82rem;
-    letter-spacing: .12em;
-  }
-  .lv-hero-actions .lv-btn-gold {
-    background: #dd9a3a;
-    border-color: #dd9a3a;
-    color: #102839;
-  }
-  .lv-hero .lv-btn-cream {
-    background: rgba(246,241,219,.84);
-    border: 2px solid #102839;
-    color: #102839;
-  }
-  .lv-hero .lv-open-status {
-    display: none;
-  }
-  .lv-address {
-    position: absolute;
-    z-index: 4;
-    left: 22px;
-    bottom: 73px;
-    width: calc(100% - 44px);
     max-width: none;
     margin: 0;
-    color: #102839;
-    font-size: .72rem;
-    line-height: 1.35;
-    letter-spacing: .075em;
+    font-size: clamp(3.8rem,16vw,5.2rem);
+    line-height: .88;
   }
-  .lv-address svg {
-    flex: 0 0 22px;
-    width: 22px;
-    height: 22px;
-    stroke-width: 2.25;
-  }
-
+  .lv-hero-sub { max-width: none; margin-top: 20px; font-size: 1rem; }
+  .lv-hero-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 22px; }
+  .lv-hero-actions .lv-btn { min-height: 50px; padding: 10px 12px; }
+  .lv-order-modes { margin-top: 12px; }
+  .lv-open-status { margin-top: 14px; }
+  .lv-address { position: static; width: auto; margin-top: 18px; color: rgba(16,40,57,.7); }
   .lv-hero-photo {
-    position: absolute;
-    z-index: 2;
-    top: 145px;
-    right: -18%;
-    width: 65%;
-    height: 700px;
-    margin: 0;
-    clip-path: polygon(24% 0,100% 0,100% 100%,16% 100%,8% 93%,14% 85%,7% 76%,14% 66%,5% 55%,14% 45%,6% 35%,13% 25%,7% 15%);
-    filter: saturate(1.02) contrast(1.02);
-  }
-  .lv-hero-photo::before {
-    display: none;
-  }
-  .lv-hero-photo::after {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 -1px;
-    width: 38px;
-    background: linear-gradient(90deg,#f6f1db 4%,rgba(246,241,219,.56) 34%,transparent 100%);
-    pointer-events: none;
-  }
-  .lv-hero-photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: 48% 50%;
-  }
-
-  /* The mockup moves directly from the hero into a dark favorites strip. */
-  .lv-trust {
-    display: none;
-  }
-  .lv-favorites {
+    order: 2;
     position: relative;
-    z-index: 4;
-    display: block;
-    margin: 0;
-    padding: 25px 0 21px;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at 18% 24%, rgba(246,241,219,.06) 0 1px, transparent 1.5px) 0 0 / 8px 8px,
-      #102839;
-    border: 0;
-    color: #f6f1db;
-  }
-  .lv-favorites-intro {
-    position: relative;
-    padding: 0 20px 6px;
-    text-align: center;
-  }
-  .lv-favorites-intro .lv-kicker {
-    display: inline-block;
-    margin: 0;
-    color: #dd9a3a;
-    font-family: 'Great Vibes', cursive;
-    font-size: 1.65rem;
-    font-weight: 400;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-  .lv-favorites-intro .lv-kicker::before {
-    content: '★';
-    margin-right: 12px;
-    font-family: sans-serif;
-    font-size: .58rem;
-    vertical-align: middle;
-  }
-  .lv-favorites-intro .lv-kicker::after {
-    content: ' ★';
-    margin-left: 12px;
-    font-family: sans-serif;
-    font-size: .58rem;
-    vertical-align: middle;
-  }
-  .lv-favorites-intro h2 {
-    display: inline;
-    margin: 0 0 0 6px;
-    color: #dd9a3a;
-    font-family: 'Great Vibes', cursive;
-    font-size: 1.65rem;
-    font-weight: 400;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-  .lv-favorites-intro::after {
-    content: 'MADE FRESH. MADE LOCAL.';
-    display: block;
-    margin-top: 2px;
-    color: #f6f1db;
-    font-family: 'Oswald', sans-serif;
-    font-size: 1.22rem;
-    font-weight: 700;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-  }
-  .lv-favorites-scroll {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding: 8px 16px 8px;
-    scroll-snap-type: x mandatory;
-  }
-  .lv-favorite-card {
-    flex: 0 0 29%;
-    padding: 0;
-    overflow: hidden;
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    box-shadow: none;
-    transform: none;
-    scroll-snap-align: start;
-  }
-  .lv-favorite-card img {
     width: 100%;
-    aspect-ratio: 1.08 / .82;
-    object-fit: cover;
-    border-radius: 7px;
+    height: 310px;
+    min-height: 310px;
+    inset: auto;
+    clip-path: none;
   }
-  .lv-favorite-card strong,
-  .lv-favorite-card span {
-    display: none;
-  }
+  .lv-hero-photo::before { display: none; }
+  .lv-hero-photo img { object-position: center; }
 
-  /* Bottom app nav: cream dock with oversized centered order action and visual “More” at the end. */
-  .lv-bottom-nav {
-    min-height: 78px;
-    background: rgba(246,241,219,.985);
-    border-top: 1px solid rgba(16,40,57,.16);
-    box-shadow: 0 -5px 18px rgba(16,40,57,.08);
-  }
-  .lv-bottom-nav > a {
-    color: #102839;
-  }
-  .lv-bottom-nav > a.active {
-    color: #dd9a3a;
-  }
-  .lv-bottom-order > span {
-    width: 64px;
-    height: 64px;
-    margin-top: -27px;
-    background: #dd9a3a;
-    border: 5px solid #f6f1db;
-    box-shadow: 0 4px 10px rgba(16,40,57,.20);
-  }
-  .lv-bottom-nav > a:last-child svg {
-    display: none;
-  }
-  .lv-bottom-nav > a:last-child::before {
-    content: '•••';
-    display: block;
-    height: 27px;
-    font-size: 1.2rem;
-    font-weight: 800;
-    letter-spacing: 2px;
-    line-height: 18px;
-  }
-  .lv-bottom-nav > a:last-child span {
-    font-size: 0;
-  }
-  .lv-bottom-nav > a:last-child span::after {
-    content: 'More';
-    font-size: .67rem;
-  }
+  .lv-trust { display: grid; grid-template-columns: repeat(2,1fr); min-height: 0; padding: 12px 14px; }
+  .lv-trust > div { min-height: 58px; border-right: 1px solid rgba(248,243,229,.12); border-bottom: 1px solid rgba(248,243,229,.12); font-size: .72rem; }
+  .lv-trust > div:nth-child(2n) { border-right: 0; }
+  .lv-trust > div:nth-last-child(-n+2) { border-bottom: 0; }
+
+  .lv-favorites { display: block; padding: 36px 0 40px; }
+  .lv-favorites-intro { padding: 0 20px 20px; text-align: left; }
+  .lv-favorites-intro h2 { font-size: 3rem; }
+  .lv-favorites-scroll { display: flex; gap: 12px; overflow-x: auto; padding: 0 20px 6px; scroll-snap-type: x mandatory; }
+  .lv-favorite-card { flex: 0 0 68%; scroll-snap-align: start; }
+
+  .lv-order-band { grid-template-columns: 1fr; padding: 34px 20px; gap: 18px; }
+  .lv-order-title h2 { font-size: 3.1rem; }
+  .lv-order-choice { border-top: 1px solid rgba(248,243,229,.12); padding-top: 16px; }
+
+  .lv-story-catering { display: block; }
+  .lv-story { min-height: 0; padding: 40px 20px 34px; display: block; }
+  .lv-story h2,.lv-catering h2 { font-size: 3rem; }
+  .lv-story-photos { height: 260px; margin-top: 28px; }
+  .lv-story-photos .main { inset: 0 10% 12% 0; width: 90%; height: 88%; }
+  .lv-story-photos .small { width: 43%; height: 38%; }
+  .lv-catering { min-height: 440px; }
+  .lv-catering-copy { width: 100%; padding: 38px 20px 34px; background: linear-gradient(180deg,var(--lv-forest) 66%,rgba(38,55,31,.35)); }
+  .lv-catering img { top: auto; bottom: 0; width: 100%; height: 44%; opacity: .72; }
+
+  .lv-specials { display: block; padding: 38px 20px; }
+  .lv-specials h2 { font-size: 3.2rem; }
+  .lv-special-list { grid-template-columns: 1fr; margin-top: 24px; }
+  .lv-special-list article,.lv-special-list article:nth-child(odd),.lv-special-list article:nth-child(even) { padding: 18px 52px 18px 0; border-right: 0; }
+
+  .lv-reviews { display: block; padding: 40px 20px; }
+  .lv-reviews-heading h2 { font-size: 3rem; }
+  .lv-review { margin-top: 14px; }
+
+  .lv-visit { display: block; }
+  .lv-visit-copy { padding: 40px 20px 34px; }
+  .lv-visit h2 { font-size: 3.2rem; }
+  .lv-map-wrap,.lv-map-wrap iframe { min-height: 310px; }
+
+  .lv-catering-inquiry { padding: 40px 20px 44px; }
+  .lv-catering-inquiry-inner { grid-template-columns: 1fr; gap: 26px; }
+  .lv-catering-inquiry h2 { font-size: 3rem; }
+  .lv-form-row.two,.lv-form-row.three { grid-template-columns: 1fr; }
+
+  .lv-footer { padding-top: 34px; }
 }
 
 @media (max-width: 430px) {
-  .lv-hero {
-    min-height: 1065px;
-  }
-  .lv-hero-copy {
-    min-height: 1065px;
-    padding-top: 106px;
-  }
-  .lv-hero-photo {
-    top: 150px;
-    right: -21%;
-    width: 67%;
-    height: 665px;
-  }
-  .lv-hero h1 {
-    font-size: clamp(4rem,17vw,5.15rem);
-  }
-}
-
-@media (max-width: 375px) {
-  .lv-header-inner {
-    grid-template-columns: 1fr 170px 1fr;
-  }
-  .lv-brand img {
-    width: 172px;
-    height: 172px;
-  }
-  .lv-hero {
-    min-height: 1010px;
-  }
-  .lv-hero-copy {
-    min-height: 1010px;
-    padding: 98px 18px 30px;
-  }
-  .lv-hero .lv-script {
-    width: 76%;
-    font-size: 1.92rem;
-  }
-  .lv-hero h1 {
-    max-width: 76%;
-    font-size: clamp(3.85rem,16.8vw,4.7rem);
-  }
-  .lv-hero-sub,
-  .lv-hero-actions {
-    width: 74%;
-    max-width: 74%;
-  }
-  .lv-address {
-    left: 18px;
-    width: calc(100% - 36px);
-  }
-  .lv-hero-photo {
-    right: -24%;
-    width: 69%;
-    height: 625px;
-  }
-  .lv-favorites-intro::after {
-    font-size: 1.08rem;
-  }
+  .lv-hero-actions { grid-template-columns: 1fr; }
+  .lv-favorite-card { flex-basis: 78%; }
+  .lv-brand img { width: 124px; height: 124px; }
 }
