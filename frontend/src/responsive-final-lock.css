@@ -113,7 +113,7 @@
   }
 }
 
-/* TABLET: deliberate hybrid header — Menu / centered logo / Call + Order. */
+/* TABLET: deliberate hybrid header — Menu / centered logo / compact Call + Order. */
 @media (min-width: 768px) and (max-width: 1099px) {
   .lv-header,
   .lv-header-inner {
@@ -123,11 +123,14 @@
   .lv-header-inner {
     position: relative;
     display: grid !important;
-    grid-template-columns: 94px minmax(120px,1fr) auto !important;
+    grid-template-columns: 94px minmax(0,1fr) 258px !important;
     align-items: center !important;
-    gap: 14px !important;
-    padding-inline: 20px !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-inline: 18px !important;
     overflow: visible !important;
+    box-sizing: border-box !important;
   }
 
   .lv-desktop-nav {
@@ -145,23 +148,28 @@
     position: absolute !important;
     left: 50% !important;
     top: 50% !important;
-    width: 138px !important;
+    width: 132px !important;
     transform: translate(-50%,-50%) !important;
     z-index: 3;
   }
 
   .lv-brand img {
-    width: 138px !important;
-    height: 138px !important;
+    width: 132px !important;
+    height: 132px !important;
     max-width: none !important;
     top: 0 !important;
   }
 
   .lv-header-actions {
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: 98px 152px !important;
     justify-self: end !important;
     align-items: center !important;
     gap: 8px !important;
+    width: 258px !important;
+    min-width: 0 !important;
+    max-width: 258px !important;
+    overflow: visible !important;
   }
 
   .lv-mobile-call {
@@ -173,9 +181,21 @@
   .lv-call-desktop,
   .lv-order-desktop {
     display: inline-flex !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
     min-height: 44px !important;
-    padding-inline: 14px !important;
-    font-size: .72rem !important;
+    padding-inline: 10px !important;
+    font-size: .69rem !important;
+    letter-spacing: .075em !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+  }
+
+  .lv-order-desktop svg {
+    flex: 0 0 auto !important;
+    width: 14px !important;
+    height: 14px !important;
   }
 
   .lv-mobile-drawer {
@@ -206,8 +226,8 @@
   }
 
   .lv-menu-page .lv-menu-conversion-strip {
-    min-height: 72px !important;
-    padding: 10px 24px !important;
+    min-height: 68px !important;
+    padding: 9px 22px !important;
   }
 
   .lv-menu-page .lv-menu-conversion-strip > span {
@@ -220,12 +240,12 @@
   }
 
   .lv-menu-page .lv-menu-category {
-    padding-block: 30px 32px !important;
+    padding-block: 28px 30px !important;
   }
 
   .lv-menu-page .lv-menu-item {
-    min-height: 104px !important;
-    padding-block: 14px !important;
+    min-height: 100px !important;
+    padding-block: 13px !important;
   }
 
   .lv-menu-page .lv-menu-item:not(:has(> img)) {
@@ -233,7 +253,7 @@
   }
 
   .lv-bottom-nav {
-    min-height: 68px !important;
+    min-height: 66px !important;
   }
 
   .lv-bottom-nav svg {
