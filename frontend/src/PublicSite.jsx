@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ChevronRight,
@@ -129,6 +129,7 @@ const GA_EVENTS = {
   google_reviews_click:    { name: "review_click", params: { source: "google", location: "review_proof", link_url: GOOGLE_REVIEWS_URL } },
   // Catering
   catering_quote_click:    { name: "catering_quote_click", params: { location: "story_catering" } },
+  catering_form_start:     { name: "catering_form_start", params: { location: "catering_form" } },
   catering_inquiry_submit: { name: "generate_lead",        params: { lead_type: "catering" } },
   // Phone
   call_header:             { name: "phone_click", params: { location: "header",      link_url: PHONE_HREF } },
@@ -288,6 +289,12 @@ const CateringInquiry = () => {
   const [form, setForm] = useState({ name: "", email: "", phone: "", event_date: "", guest_count: "", message: "" });
   const [status, setStatus] = useState("idle");
   const [feedback, setFeedback] = useState("");
+  const formStarted = useRef(false);
+  const markFormStart = () => {
+    if (formStarted.current) return;
+    formStarted.current = true;
+    track("catering_form_start");
+  };
   const fieldStyle = { width: "100%", minHeight: 46, border: "1px solid rgba(16,40,57,.22)", background: "#fbf7e8", color: "#102839", padding: "11px 12px", font: "inherit", borderRadius: 4 };
   const setField = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
   const submit = async (event) => {
@@ -306,7 +313,7 @@ const CateringInquiry = () => {
     <section id="catering-quote" className="lv-catering-inquiry" aria-labelledby="catering-inquiry-title">
       <div className="lv-catering-inquiry-inner">
         <div><p className="lv-kicker">Planning an Event?</p><h2 id="catering-inquiry-title">Tell Us What You Need.</h2><p>Send your date, guest count and the kind of event you're planning. We'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF}>{PHONE}</a>.</p></div>
-        <form onSubmit={submit}>
+        <form onSubmit={submit} onFocusCapture={markFormStart}>
           <div className="lv-form-row two"><label>Name<input aria-label="Name" required value={form.name} onChange={setField("name")} style={fieldStyle} /></label><label>Email<input aria-label="Email" type="email" required value={form.email} onChange={setField("email")} style={fieldStyle} /></label></div>
           <div className="lv-form-row three"><label>Phone<input aria-label="Phone" value={form.phone} onChange={setField("phone")} style={fieldStyle} /></label><label>Event date<input aria-label="Event date" type="date" value={form.event_date} onChange={setField("event_date")} style={fieldStyle} /></label><label>Guests<input aria-label="Approximate guest count" inputMode="numeric" value={form.guest_count} onChange={setField("guest_count")} style={fieldStyle} /></label></div>
           <label>What are you planning?<textarea aria-label="Catering message" required rows={4} value={form.message} onChange={setField("message")} style={{ ...fieldStyle, resize: "vertical" }} /></label>
