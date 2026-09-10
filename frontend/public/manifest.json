@@ -37,7 +37,7 @@
       "description": "Browse the Lakeview menu"
     },
     {
-      "name": "Order Online",
+      "name": "Order Pickup",
       "short_name": "Order",
       "url": "https://lakeview-burgers-seafood.square.site",
       "description": "Order pickup from Lakeview"
