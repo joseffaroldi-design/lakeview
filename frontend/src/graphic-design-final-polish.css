@@ -1,0 +1,487 @@
+/* Graphic-design final polish — Sept 2026.
+   Visual-only refinement layer. No data, content, analytics, routing or ordering logic changes. */
+
+.lv-site {
+  --lv-paper: #f7f1e3;
+  --lv-paper-2: #fffaf0;
+  --lv-ink: #102839;
+  --lv-ink-2: #183548;
+  --lv-forest: #23382d;
+  --lv-gold: #c98e27;
+  --lv-rule: rgba(16,40,57,.15);
+  --lv-muted: rgba(16,40,57,.76);
+  --lv-soft-shadow: 0 10px 30px rgba(16,40,57,.07);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Global hierarchy and readability */
+.lv-site p,
+.lv-site li,
+.lv-site label,
+.lv-site small {
+  color: var(--lv-muted);
+}
+
+.lv-site h1,
+.lv-site h2,
+.lv-site h3,
+.lv-site strong,
+.lv-site b {
+  color: var(--lv-ink);
+}
+
+.lv-site a {
+  text-underline-offset: 3px;
+}
+
+.lv-site .lv-kicker {
+  margin-bottom: 10px;
+  color: var(--lv-gold);
+  font-size: .72rem;
+  letter-spacing: .16em;
+}
+
+.lv-site .lv-kicker::before {
+  width: 30px;
+  height: 1px;
+}
+
+/* Header: quieter, cleaner, more balanced */
+.lv-header {
+  box-shadow: 0 1px 0 rgba(16,40,57,.06);
+}
+
+.lv-header-inner {
+  align-items: center;
+}
+
+.lv-desktop-nav a {
+  color: rgba(16,40,57,.82);
+  font-weight: 600;
+}
+
+.lv-desktop-nav a:hover,
+.lv-desktop-nav a:focus-visible {
+  color: var(--lv-ink);
+}
+
+.lv-header-actions {
+  align-items: center;
+}
+
+/* Buttons: consistent shape, weight, and contrast */
+.lv-btn {
+  border-radius: 3px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease, border-color .16s ease;
+}
+
+.lv-btn:hover {
+  transform: translateY(-1px);
+}
+
+.lv-btn:focus-visible,
+.lv-mobile-trigger:focus-visible,
+.lv-mobile-call:focus-visible,
+.lv-bottom-nav a:focus-visible,
+.lv-category-nav button:focus-visible {
+  outline: 3px solid rgba(201,142,39,.48);
+  outline-offset: 3px;
+}
+
+.lv-btn-gold {
+  background: var(--lv-gold);
+  border-color: var(--lv-gold);
+  color: #102839;
+}
+
+.lv-btn-gold:hover {
+  box-shadow: 0 7px 18px rgba(16,40,57,.16);
+}
+
+/* Hero: stronger composition, less visual noise */
+.lv-hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.lv-hero .lv-script {
+  color: #d7a13d;
+}
+
+.lv-hero h1 {
+  max-width: 590px;
+  text-wrap: balance;
+}
+
+.lv-hero-sub {
+  max-width: 540px;
+  color: rgba(247,241,227,.9);
+}
+
+.lv-order-modes {
+  color: rgba(247,241,227,.72);
+}
+
+.lv-hero .lv-address {
+  color: rgba(247,241,227,.9) !important;
+}
+
+.lv-hero-photo::before {
+  opacity: .78;
+}
+
+.lv-hero-photo img {
+  display: block;
+}
+
+/* Trust bar: simplify and equalize */
+.lv-trust {
+  align-items: stretch;
+}
+
+.lv-trust > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 58px;
+  color: rgba(247,241,227,.92);
+  text-align: center;
+}
+
+.lv-trust > div:last-child {
+  border-right: 0;
+}
+
+/* Section rhythm */
+.lv-favorites,
+.lv-specials,
+.lv-reviews,
+.lv-visit,
+.lv-catering-inquiry {
+  border-bottom: 1px solid var(--lv-rule);
+}
+
+.lv-favorites-intro h2,
+.lv-story h2,
+.lv-catering h2,
+.lv-specials h2,
+.lv-reviews h2,
+.lv-visit h2,
+.lv-catering-inquiry h2 {
+  text-wrap: balance;
+}
+
+.lv-favorites-intro > p:not(.lv-kicker),
+.lv-story-copy > p:not(.lv-kicker),
+.lv-specials > div > p,
+.lv-catering-inquiry p {
+  max-width: 58ch;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+/* Cards: remove visual clutter and improve editorial consistency */
+.lv-favorite-card,
+.lv-review {
+  border-color: rgba(16,40,57,.12);
+  box-shadow: var(--lv-soft-shadow);
+}
+
+.lv-favorite-card {
+  border-radius: 6px;
+}
+
+.lv-favorite-card strong {
+  display: block;
+  padding: 0 12px;
+  font-family: Georgia,'Times New Roman',serif;
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.lv-favorite-card small {
+  padding: 4px 12px 0;
+  color: rgba(16,40,57,.72);
+  line-height: 1.45;
+}
+
+.lv-favorite-link {
+  margin-left: 12px;
+  font-weight: 700;
+}
+
+.lv-review p {
+  color: rgba(16,40,57,.88);
+  line-height: 1.6;
+}
+
+/* Story / catering: make the pair feel intentional */
+.lv-story,
+.lv-catering-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.lv-catering-copy > p:not(.lv-kicker) {
+  color: rgba(247,241,227,.9);
+  line-height: 1.65;
+}
+
+.lv-story-photos .main,
+.lv-story-photos .small {
+  box-shadow: 0 8px 24px rgba(16,40,57,.1);
+}
+
+/* Visit */
+.lv-visit-details {
+  gap: 16px;
+}
+
+.lv-visit-details p,
+.lv-visit-details a {
+  color: rgba(16,40,57,.82);
+  line-height: 1.5;
+}
+
+/* Forms: legible, calm and consistent */
+.lv-catering-inquiry label {
+  color: var(--lv-ink);
+  font-size: .82rem;
+  letter-spacing: .01em;
+}
+
+.lv-catering-inquiry input,
+.lv-catering-inquiry textarea,
+.lv-catering-inquiry select {
+  min-height: 48px;
+  padding: 12px 13px;
+  border-color: rgba(16,40,57,.24);
+  background: #fffdf7;
+  color: var(--lv-ink);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.lv-catering-inquiry textarea {
+  min-height: 120px;
+}
+
+.lv-catering-inquiry input::placeholder,
+.lv-catering-inquiry textarea::placeholder {
+  color: rgba(16,40,57,.5);
+}
+
+.lv-catering-inquiry input:focus,
+.lv-catering-inquiry textarea:focus,
+.lv-catering-inquiry select:focus {
+  outline: none;
+  border-color: var(--lv-gold);
+  box-shadow: 0 0 0 3px rgba(201,142,39,.14);
+}
+
+/* Menu: preserve editorial concept, improve readability and scan speed */
+.lv-menu-page {
+  color: var(--menu-ink);
+}
+
+.lv-menu-page .lv-menu-hero-copy > p:last-child,
+.lv-menu-page .lv-menu-subtitle,
+.lv-menu-page .lv-menu-item-copy > p {
+  color: rgba(16,40,57,.78);
+}
+
+.lv-menu-page .lv-menu-category-heading h2 {
+  text-wrap: balance;
+}
+
+.lv-menu-page .lv-menu-item-title h3 {
+  color: #102839;
+}
+
+.lv-menu-page .lv-menu-item-title strong {
+  color: #102839;
+  font-weight: 700;
+}
+
+.lv-menu-page .lv-category-nav button {
+  color: rgba(248,243,229,.9);
+}
+
+.lv-menu-page .lv-category-nav button.active,
+.lv-menu-page .lv-category-nav button:hover {
+  color: #efb552;
+}
+
+/* Footer: keep it quiet and readable */
+.lv-footer,
+.lv-footer p,
+.lv-footer a,
+.lv-footer small {
+  color: rgba(247,241,227,.82);
+}
+
+.lv-footer a:hover,
+.lv-footer a:focus-visible {
+  color: #fff;
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .lv-desktop-nav {
+    letter-spacing: .035em;
+  }
+
+  .lv-story-catering {
+    gap: 0;
+  }
+
+  .lv-catering-copy {
+    width: min(72%, 620px);
+  }
+
+  .lv-catering-inquiry-inner {
+    gap: 38px;
+  }
+
+  .lv-menu-page .lv-menu-item-title h3 {
+    font-size: 1.32rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+  .lv-mobile-trigger,
+  .lv-mobile-call {
+    color: var(--lv-ink);
+  }
+
+  .lv-mobile-trigger span,
+  .lv-mobile-call span {
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+
+  .lv-hero-copy {
+    justify-content: flex-start;
+  }
+
+  .lv-hero h1 {
+    text-wrap: pretty;
+  }
+
+  .lv-hero-sub {
+    max-width: 34ch;
+  }
+
+  .lv-trust {
+    padding-inline: 12px;
+  }
+
+  .lv-trust > div {
+    min-height: 54px;
+    padding-inline: 8px;
+    font-size: .72rem;
+    line-height: 1.25;
+  }
+
+  .lv-favorites-intro > p:not(.lv-kicker),
+  .lv-story-copy > p:not(.lv-kicker),
+  .lv-specials > div > p,
+  .lv-catering-inquiry p {
+    font-size: .97rem;
+    line-height: 1.58;
+  }
+
+  .lv-favorite-card strong {
+    font-size: 1rem;
+  }
+
+  .lv-order-band {
+    padding-inline: 20px;
+  }
+
+  .lv-story,
+  .lv-catering-copy,
+  .lv-specials,
+  .lv-reviews,
+  .lv-visit-copy,
+  .lv-catering-inquiry {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+
+  .lv-catering-copy {
+    width: 100%;
+  }
+
+  .lv-form-row.two,
+  .lv-form-row.three {
+    grid-template-columns: 1fr;
+  }
+
+  .lv-menu-page .lv-menu-sheet {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .lv-menu-page .lv-menu-category {
+    padding-top: 31px;
+    padding-bottom: 34px;
+  }
+
+  .lv-menu-page .lv-menu-item,
+  .lv-menu-page .lv-menu-item.is-popular,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
+    gap: 12px;
+  }
+
+  .lv-menu-page .lv-menu-item-title h3,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title h3 {
+    font-size: 1.16rem;
+    line-height: 1.14;
+  }
+
+  .lv-menu-page .lv-menu-item-copy > p,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-copy > p {
+    font-size: .91rem;
+    line-height: 1.42;
+  }
+
+  .lv-menu-page .lv-menu-item-title strong,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title strong {
+    font-size: 1rem;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 374px) {
+  .lv-site .lv-kicker {
+    font-size: .68rem;
+    letter-spacing: .13em;
+  }
+
+  .lv-hero-actions .lv-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .lv-menu-page .lv-menu-item,
+  .lv-menu-page .lv-menu-item.is-popular,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
+    grid-template-columns: minmax(0,1fr) 92px;
+  }
+
+  .lv-menu-page .lv-menu-item > img,
+  .lv-menu-page .lv-menu-item.is-popular > img {
+    width: 92px;
+    height: 80px;
+  }
+}
