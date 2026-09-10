@@ -4,19 +4,15 @@ Tiny standalone router so we don't bloat ai_ads.py / media.py further.
 """
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Header, HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
 
 from auth import verify_session
+from config import db
 
 router = APIRouter(prefix="/home")
-
-_client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-db = _client[os.environ["DB_NAME"]]
 
 
 def _iso(days_ago: int = 0) -> str:
@@ -48,7 +44,7 @@ async def home_summary(authorization: str = Header(None), session_token: str = C
     })
     active_specials = await db.marketing_packs.count_documents({"tag": "special", "is_active": True})
     new_subs = await db.newsletter_subscribers.count_documents({"subscribed_at": {"$gte": week_ago}})
-    new_inq = await db.catering_inquiries.count_documents({"created_at": {"$gte": week_ago}})
+    new_inq = await db.catering_inquiries.count_documents({"submitted_at": {"$gte": week_ago}})
 
     return {
         "today": {
