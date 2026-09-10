@@ -1,0 +1,168 @@
+/* Visual regression correction — Sept 2026.
+   Screenshot-driven fixes for contrast, mobile drawer hierarchy, and first-fold polish. */
+
+/* Restore intended light-on-dark typography after broad site-wide readability rules. */
+.lv-hero .lv-hero-sub,
+.lv-hero .lv-order-modes {
+  color: rgba(247, 241, 227, .92) !important;
+}
+
+.lv-hero .lv-order-modes {
+  color: rgba(247, 241, 227, .78) !important;
+}
+
+.lv-hero .lv-open-status {
+  color: #e0aa3f;
+}
+
+.lv-hero .lv-address {
+  color: rgba(247, 241, 227, .96) !important;
+}
+
+.lv-order-band p,
+.lv-order-band li,
+.lv-catering-copy p,
+.lv-footer p,
+.lv-footer li,
+.lv-footer a,
+.lv-trust b,
+.lv-trust span {
+  color: rgba(247, 241, 227, .9) !important;
+}
+
+/* Mobile navigation should read as a compact, intentional panel—not a washed-out full-screen sheet. */
+@media (max-width: 767px) {
+  .lv-mobile-drawer {
+    top: 82px !important;
+    left: 0;
+    right: 0;
+    display: grid !important;
+    gap: 0 !important;
+    padding: 14px 18px 18px !important;
+    background: #fffaf0 !important;
+    border-top: 1px solid rgba(16, 40, 57, .12) !important;
+    border-bottom: 1px solid rgba(16, 40, 57, .14) !important;
+    box-shadow: 0 16px 34px rgba(16, 40, 57, .14);
+    max-height: calc(100dvh - 82px - 84px);
+    overflow-y: auto;
+  }
+
+  .lv-mobile-drawer a {
+    min-height: 52px;
+    display: flex !important;
+    align-items: center;
+    padding: 0 10px !important;
+    margin: 0 !important;
+    border-bottom: 1px solid rgba(16, 40, 57, .09);
+    color: #102839 !important;
+    font-family: 'Oswald', sans-serif;
+    font-size: .92rem !important;
+    font-weight: 700 !important;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: 1 !important;
+  }
+
+  .lv-mobile-drawer a:last-child {
+    min-height: 52px;
+    margin-top: 12px !important;
+    padding: 0 14px !important;
+    justify-content: center;
+    border: 1px solid #c98e27;
+    background: #c98e27;
+    color: #102839 !important;
+  }
+
+  .lv-mobile-drawer a:nth-last-child(2) {
+    border-bottom: 0;
+  }
+
+  /* Keep the first fold balanced and readable on real iPhone viewport heights. */
+  .lv-hero-photo {
+    height: 262px;
+    min-height: 262px;
+  }
+
+  .lv-hero-copy {
+    padding: 30px 24px 28px;
+  }
+
+  .lv-hero .lv-script {
+    margin-bottom: 8px;
+  }
+
+  .lv-hero h1 {
+    font-size: clamp(3.25rem, 13.7vw, 4.2rem);
+    line-height: .91;
+  }
+
+  .lv-hero .lv-hero-sub {
+    max-width: 35ch;
+    margin-top: 16px;
+    font-size: .98rem;
+    line-height: 1.52;
+  }
+
+  .lv-hero-actions {
+    margin-top: 18px;
+  }
+
+  .lv-hero .lv-order-modes {
+    margin-top: 10px;
+    font-size: .78rem;
+    letter-spacing: .08em;
+  }
+
+  .lv-hero .lv-open-status {
+    margin-top: 14px;
+  }
+
+  .lv-hero .lv-address {
+    margin-top: 16px;
+    line-height: 1.35;
+  }
+
+  /* Menu page refinement from screenshot: stronger hierarchy, less crowding. */
+  .lv-menu-page .lv-menu-category-heading {
+    align-items: center;
+    gap: 12px;
+  }
+
+  .lv-menu-page .lv-menu-category-heading h2 {
+    font-size: clamp(2.7rem, 12vw, 3.7rem);
+    line-height: .96;
+  }
+
+  .lv-menu-page .lv-menu-item,
+  .lv-menu-page .lv-menu-item.is-popular,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
+    padding-top: 17px;
+    padding-bottom: 17px;
+  }
+
+  .lv-menu-page .lv-menu-item-title h3,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title h3 {
+    color: #102839 !important;
+  }
+
+  .lv-menu-page .lv-menu-item-copy > p,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-copy > p {
+    color: rgba(16, 40, 57, .78) !important;
+  }
+
+  .lv-menu-page .lv-popular-badge {
+    color: #a6670d !important;
+  }
+
+  .lv-bottom-nav {
+    border-top: 1px solid rgba(16, 40, 57, .08);
+    box-shadow: 0 -8px 22px rgba(16, 40, 57, .06);
+  }
+}
+
+@media (min-width: 768px) {
+  .lv-hero .lv-hero-sub,
+  .lv-hero .lv-order-modes {
+    color: rgba(247, 241, 227, .9) !important;
+  }
+}
