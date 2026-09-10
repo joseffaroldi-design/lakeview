@@ -241,6 +241,16 @@
   }
 }
 
+@media (max-width: 420px) {
+  .lv-favorite-card small {
+    max-width: 155px;
+  }
+
+  .lv-order-choice h3 {
+    font-size: .98rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lv-menu-conversion-strip {
     backdrop-filter: none;
