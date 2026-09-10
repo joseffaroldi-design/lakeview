@@ -6,7 +6,7 @@ A non-technical guide for the restaurant owner / manager.
 
 ## Login
 
-1. Open `https://lakeview-grill.emergent.host/login`
+1. Open `https://lakeviewburgersandseafood.com/login`
 2. Password: see your sealed envelope (or `/app/memory/test_credentials.md` for staging).
 3. Lockout after 5 wrong tries for 15 minutes — protects the dashboard from random tries.
 

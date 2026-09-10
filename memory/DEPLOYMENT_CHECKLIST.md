@@ -87,7 +87,7 @@ The most critical collections to back up:
 
 ## What to do if a service stops responding
 
-1. Check the deployed app first (`https://lakeview-grill.emergent.host/`). If preview is up but production isn't, redeploy via the Emergent dashboard.
+1. Check the deployed app first (`https://lakeviewburgersandseafood.com/`). If preview is up but production isn't, redeploy via the Emergent dashboard.
 2. Check `GET /api/ai-ads/health` — pinpoints which subsystem is down.
 3. If `database.ok=false` → check the MongoDB pod logs.
 4. If `scheduler.ok=false` for >5 min → restart backend (`sudo supervisorctl restart backend` in the pod).
