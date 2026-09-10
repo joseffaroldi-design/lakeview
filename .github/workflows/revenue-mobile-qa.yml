@@ -25,7 +25,7 @@ jobs:
       - name: Install browser QA tools
         working-directory: frontend
         run: |
-          npm install --no-save playwright@1.60.0 serve@14.2.4
+          npm install --no-save --legacy-peer-deps playwright@1.60.0 serve@14.2.4
           npx playwright install --with-deps chromium
       - name: Run mobile overflow and CTA checks
         working-directory: frontend
