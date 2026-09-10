@@ -27,7 +27,6 @@ jobs:
                   raise SystemExit(f'{label}: anchor not found in {path}')
               p.write_text(s.replace(old, new, 1))
 
-          # 1) Public page-view beacon, preserving revenue-polish code.
           replace_once(
               'frontend/src/PublicSite.jsx',
               '''const OrderButton = ({ className = "", children = "Order Online", tracking = "order_online" }) => (''',
@@ -46,8 +45,6 @@ jobs:
               '''export const PublicMenu = () => {\n  const images = useSiteImages();\n  const location = useLocation();\n  usePageViewBeacon("/menu");''',
               'menu beacon',
           )
-
-          # 2) Button-click retention parity with page views.
           replace_once(
               'backend/routers/analytics.py',
               '''    doc = button_click.model_dump()\n    doc['timestamp'] = doc['timestamp'].isoformat()\n    await db.button_clicks.insert_one(doc)''',
@@ -60,8 +57,6 @@ jobs:
               '''        await db.page_views.create_index(\n            "expires_at", name="pv_ttl", expireAfterSeconds=0\n        )\n        await db.button_clicks.create_index(\n            "expires_at", name="bc_ttl", expireAfterSeconds=0\n        )\n        await db.admin_sessions.create_index(''',
               'button click TTL index',
           )
-
-          # 3) Home summary uses shared DB and correct catering timestamp field.
           replace_once(
               'backend/routers/home.py',
               '''import os\nfrom datetime import datetime, timezone, timedelta\nfrom typing import Any, Dict, List, Optional\n\nfrom fastapi import APIRouter, Cookie, Header, HTTPException\nfrom motor.motor_asyncio import AsyncIOMotorClient\n\nfrom auth import verify_session\n\nrouter = APIRouter(prefix="/home")\n\n_client = AsyncIOMotorClient(os.environ["MONGO_URL"])\ndb = _client[os.environ["DB_NAME"]]''',
@@ -74,8 +69,6 @@ jobs:
               '''new_inq = await db.catering_inquiries.count_documents({"submitted_at": {"$gte": week_ago}})''',
               'catering timestamp',
           )
-
-          # 4) Specials tolerate numeric/null public prices without response validation failures.
           replace_once(
               'backend/routers/specials.py',
               '''router = APIRouter(prefix="/specials")\n\n\ndef _pack_to_special(pack: Dict[str, Any]) -> Dict[str, Any]:''',
@@ -88,16 +81,15 @@ jobs:
               '''        "price": _public_price(item.get("price")),''',
               'special price mapping',
           )
-
-          # 5) Restore regression coverage as a source-contract test that runs without live services.
           test = Path('backend/tests/test_analytics_beacon.py')
           if test.exists():
               raise SystemExit('test_analytics_beacon.py unexpectedly already exists')
           test.write_text('''from pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[2]\n\n\ndef test_public_pages_send_page_view_beacons():\n    src = (ROOT / "frontend/src/PublicSite.jsx").read_text()\n    assert "const usePageViewBeacon = (page) =>" in src\n    assert "sessionStorage.getItem(\\\"visitor_session\\\")" in src\n    assert "axios.post(`${API}/analytics/track`" in src\n    assert "usePageViewBeacon(\\\"/\\\")" in src\n    assert "usePageViewBeacon(\\\"/menu\\\")" in src\n\n\ndef test_analytics_retention_covers_page_views_and_button_clicks():\n    router = (ROOT / "backend/routers/analytics.py").read_text()\n    server = (ROOT / "backend/server.py").read_text()\n    assert "doc['expires_at'] = datetime.now(timezone.utc) + timedelta(days=180)" in router\n    assert router.count("doc['expires_at'] = datetime.now(timezone.utc) + timedelta(days=180)") >= 2\n    assert "db.button_clicks.create_index" in server\n    assert 'name="bc_ttl"' in server\n''')
           PY
-      - name: Syntax checks
+      - name: Syntax and regression checks
         run: |
           python -m compileall -q backend
+          python -m pip install -q pytest
           python -m pytest -q backend/tests/test_analytics_beacon.py
       - name: Commit restored fixes
         run: |
