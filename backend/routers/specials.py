@@ -24,6 +24,17 @@ from models import Special
 router = APIRouter(prefix="/specials")
 
 
+def _public_price(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    return None
+
+
 def _pack_to_special(pack: Dict[str, Any]) -> Dict[str, Any]:
     """Map a `marketing_packs` row (tag='special') to the public Special shape."""
     item = pack.get("item") or {}
@@ -49,7 +60,7 @@ def _pack_to_special(pack: Dict[str, Any]) -> Dict[str, Any]:
         "id": pack.get("migrated_from_special_id") or pack.get("id"),
         "title": item.get("name") or pack.get("title") or "Special",
         "description": item.get("description") or "",
-        "price": item.get("price"),
+        "price": _public_price(item.get("price")),
         "image_url": image_url,
         "is_active": bool(pack.get("is_active", True)),
         "created_at": created,
