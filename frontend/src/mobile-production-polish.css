@@ -1,0 +1,75 @@
+/* Mobile production polish — Sept 2026.
+   Narrow, screenshot-driven fixes only. */
+
+@media (max-width: 767px) {
+  .lv-header {
+    min-height: 86px;
+  }
+
+  .lv-header-inner {
+    min-height: 86px;
+    grid-template-columns: 1fr 142px 1fr;
+    padding: 0 18px;
+  }
+
+  .lv-brand img {
+    width: 142px;
+    height: 142px;
+    top: 0;
+  }
+
+  .lv-hero-photo {
+    height: 300px;
+    min-height: 300px;
+  }
+
+  .lv-hero-photo img {
+    object-position: center 47%;
+  }
+
+  .lv-hero-copy {
+    padding: 38px 32px 34px;
+  }
+
+  .lv-hero .lv-script {
+    margin-bottom: 12px;
+    font-size: 1.75rem;
+  }
+
+  .lv-hero h1 {
+    font-size: clamp(3.55rem, 15vw, 4.75rem);
+    line-height: .9;
+    letter-spacing: -.045em;
+  }
+
+  .lv-hero-sub {
+    margin-top: 20px;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .lv-hero-actions {
+    margin-top: 22px;
+  }
+
+  .lv-order-modes {
+    margin-top: 12px;
+  }
+
+  .lv-open-status {
+    margin-top: 16px;
+  }
+
+  .lv-hero .lv-address {
+    margin-top: 20px;
+    color: rgba(247,241,227,.82) !important;
+  }
+
+  .lv-hero .lv-address svg {
+    color: #d6a33d;
+  }
+
+  .lv-bottom-nav {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
