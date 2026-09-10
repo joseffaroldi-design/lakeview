@@ -1,0 +1,43 @@
+name: Apply Social Proof Patch
+
+on:
+  push:
+    branches: [revenue-polish-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: revenue-polish-v1
+      - name: Patch PublicSite social proof and review tracking
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/src/PublicSite.jsx')
+          s = p.read_text()
+          old = '  delivery_click:          { name: "order_delivery_click", params: { location: "order_band", link_url: UBER_URL } },\n  // Catering\n'
+          new = '  delivery_click:          { name: "order_delivery_click", params: { location: "order_band", link_url: UBER_URL } },\n  // Reviews / reputation\n  uber_reviews_click:      { name: "review_click", params: { source: "uber_eats", location: "review_proof", link_url: UBER_URL } },\n  google_reviews_click:    { name: "review_click", params: { source: "google", location: "review_proof", link_url: GOOGLE_REVIEWS_URL } },\n  // Catering\n'
+          if old not in s:
+              raise SystemExit('GA_EVENTS anchor not found; refusing to patch')
+          s = s.replace(old, new, 1)
+          old = '''const ReviewProof = () => (\n  <section className="lv-review-proof" aria-label="Lakeview customer reviews">\n    <div><p className="lv-kicker">Our Neighbors Say It Best</p><h2>See Why Lakeview Keeps Coming Back.</h2><div className="lv-review-stars" aria-hidden="true">★★★★★</div><p>Read recent customer reviews, then come see us on Harrison Avenue.</p></div>\n    <a className="lv-btn lv-btn-outline" href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("google_reviews_click")}>Read Google Reviews <ExternalLink size={15} /></a>\n  </section>\n);'''
+          new = '''const ReviewProof = () => (\n  <section className="lv-review-proof" aria-label="Lakeview customer reviews">\n    <div><p className="lv-kicker">Our Neighbors Say It Best</p><h2>See Why Lakeview Keeps Coming Back.</h2><div className="lv-review-stars" aria-hidden="true">★★★★★</div><a className="lv-review-rating" href={UBER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("uber_reviews_click")}>4.6 on Uber Eats · 800+ ratings <ExternalLink size={13} /></a><p>Recent customers repeatedly call out the burgers, wings, Café Fries, mozzarella sticks and friendly neighborhood service.</p></div>\n    <a className="lv-btn lv-btn-outline" href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("google_reviews_click")}>Read More Reviews <ExternalLink size={15} /></a>\n  </section>\n);'''
+          if old not in s:
+              raise SystemExit('ReviewProof anchor not found; refusing to patch')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/PublicSite.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Add verified social proof and review tracking"
+          git push origin HEAD:revenue-polish-v1
