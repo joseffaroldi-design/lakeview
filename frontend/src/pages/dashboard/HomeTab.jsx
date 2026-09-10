@@ -142,7 +142,7 @@ const HomeTab = ({ onNavigate, getAuthHeader }) => {
           </div>
           {analytics ? (
             <p className="text-xs text-navy/45 text-right">
-              {orderIntent}% order intent · {analytics.views_this_week ?? 0} views this week
+              {orderIntent}% order-click rate · {analytics.views_this_week ?? 0} views this week
             </p>
           ) : null}
         </div>
