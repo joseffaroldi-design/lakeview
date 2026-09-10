@@ -195,7 +195,7 @@ const Header = () => {
         </nav>
         <div className="lv-header-actions">
           <a className="lv-btn lv-btn-outline lv-call-desktop" href={PHONE_HREF} onClick={() => track("call_header")}>Call Us</a>
-          <OrderButton className="lv-order-desktop" tracking="order_online_header" />
+          <OrderButton className="lv-order-desktop" tracking="order_online_header">Order Pickup</OrderButton>
           <a href={PHONE_HREF} className="lv-mobile-call" onClick={() => track("call_mobile_header")} aria-label="Call Lakeview Burgers & Seafood"><Phone /><span>Call Us</span></a>
         </div>
       </div>
