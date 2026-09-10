@@ -9,7 +9,7 @@
 
 import { useEffect } from "react";
 
-const CANONICAL_ORIGIN = "https://lakeview-grill.emergent.host";
+const CANONICAL_ORIGIN = "https://lakeviewburgersandseafood.com";
 
 const setAttr = (selector, attr, value) => {
   const el = document.head.querySelector(selector);
