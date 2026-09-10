@@ -7,6 +7,7 @@ import RootApp from "@/RootApp";
 import "@/menu-editorial-redesign.css";
 import "@/mobile-production-polish.css";
 import "@/graphic-design-final-polish.css";
+import "@/visual-regression-fix.css";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 // ---- Global axios interceptor: surface auth + server errors instead of silent failure ----
