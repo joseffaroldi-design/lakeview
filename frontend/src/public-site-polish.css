@@ -505,3 +505,320 @@
     font-size: 1.08rem;
   }
 }
+
+/* Mobile cleanup pass — preserves the approved art direction while improving density, readability, and touch ergonomics. */
+@media (max-width: 767px) {
+  .lv-header,
+  .lv-header-inner {
+    min-height: 104px;
+  }
+
+  .lv-header::after {
+    bottom: -12px;
+    height: 20px;
+  }
+
+  .lv-header-inner {
+    grid-template-columns: 1fr 164px 1fr;
+    padding-inline: 16px;
+  }
+
+  .lv-brand img {
+    width: 164px;
+    height: 164px;
+    top: 4px;
+    filter: drop-shadow(0 6px 7px rgba(0,0,0,.18));
+  }
+
+  .lv-mobile-trigger {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 8px 2px;
+  }
+
+  .lv-mobile-trigger svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .lv-mobile-drawer {
+    top: 104px;
+  }
+
+  .lv-hero,
+  .lv-hero-copy {
+    min-height: 900px;
+  }
+
+  .lv-hero-copy {
+    padding: 82px 20px 28px;
+  }
+
+  .lv-hero .lv-script {
+    width: 67%;
+    margin-bottom: 12px;
+    font-size: clamp(1.85rem, 7.6vw, 2.35rem);
+  }
+
+  .lv-hero h1 {
+    max-width: 68%;
+    font-size: clamp(3.7rem, 15.5vw, 5rem);
+    line-height: .89;
+  }
+
+  .lv-hero-sub {
+    max-width: 66%;
+    margin-top: 20px;
+    font-size: .98rem;
+    line-height: 1.48;
+  }
+
+  .lv-hero-actions {
+    width: 66%;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .lv-hero-actions .lv-btn {
+    min-height: 50px;
+    padding: 11px 13px;
+    font-size: .78rem;
+    letter-spacing: .105em;
+  }
+
+  .lv-hero-photo {
+    top: 126px;
+    right: -17%;
+    width: 62%;
+    height: 555px;
+  }
+
+  .lv-address {
+    left: 20px;
+    bottom: 54px;
+    width: calc(100% - 40px);
+    font-size: .69rem;
+  }
+
+  .lv-favorites {
+    padding: 21px 0 18px;
+  }
+
+  .lv-favorites-intro {
+    padding-inline: 18px;
+  }
+
+  .lv-favorites-intro .lv-kicker,
+  .lv-favorites-intro h2 {
+    font-size: 1.48rem;
+  }
+
+  .lv-favorites-intro::after {
+    font-size: 1.1rem;
+    letter-spacing: .075em;
+  }
+
+  .lv-favorites-scroll {
+    gap: 10px;
+    padding: 9px 16px 6px;
+    scrollbar-width: none;
+  }
+
+  .lv-favorites-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lv-favorite-card {
+    flex-basis: 31%;
+    border-radius: 9px;
+  }
+
+  .lv-favorite-card img {
+    border-radius: 9px;
+  }
+
+  .lv-order-band,
+  .lv-story,
+  .lv-catering-copy,
+  .lv-specials,
+  .lv-visit-copy,
+  .lv-catering-inquiry,
+  .lv-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .lv-story {
+    padding-top: 28px;
+    padding-bottom: 22px;
+  }
+
+  .lv-story-photos {
+    height: 235px;
+  }
+
+  .lv-catering-copy {
+    padding-top: 27px;
+    padding-bottom: 28px;
+  }
+
+  .lv-catering-inquiry {
+    padding-top: 28px;
+    padding-bottom: 32px;
+  }
+
+  .lv-catering-inquiry-inner {
+    gap: 18px;
+  }
+
+  .lv-catering-inquiry h2 {
+    margin-top: 5px;
+    margin-bottom: 10px;
+    font-size: clamp(2.35rem, 11vw, 3.25rem);
+  }
+
+  .lv-catering-inquiry p {
+    line-height: 1.5;
+  }
+
+  .lv-catering-inquiry form {
+    gap: 10px;
+  }
+
+  .lv-catering-inquiry input,
+  .lv-catering-inquiry textarea {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .lv-catering-inquiry textarea {
+    min-height: 112px;
+  }
+
+  .lv-catering-inquiry .lv-btn {
+    width: 100%;
+    min-height: 50px;
+    justify-content: center;
+  }
+
+  .lv-specials {
+    padding-top: 27px;
+    padding-bottom: 27px;
+  }
+
+  .lv-visit-copy {
+    padding-top: 28px;
+    padding-bottom: 28px;
+  }
+
+  .lv-visit .lv-open-status {
+    margin: -5px 0 17px;
+  }
+
+  .lv-visit-actions {
+    gap: 9px;
+  }
+
+  .lv-visit-actions .lv-btn {
+    min-height: 48px;
+  }
+
+  .lv-map-wrap,
+  .lv-map-wrap iframe {
+    min-height: 300px;
+  }
+
+  .lv-footer {
+    padding-top: 28px;
+    padding-bottom: 96px;
+  }
+
+  .lv-footer-cta {
+    padding-bottom: 22px;
+    margin-bottom: 22px;
+  }
+
+  .lv-bottom-nav {
+    min-height: 72px;
+  }
+
+  .lv-bottom-nav > a {
+    min-height: 48px;
+  }
+
+  .lv-bottom-order > span {
+    width: 60px;
+    height: 60px;
+    margin-top: -24px;
+  }
+}
+
+@media (max-width: 430px) {
+  .lv-hero,
+  .lv-hero-copy {
+    min-height: 860px;
+  }
+
+  .lv-hero-copy {
+    padding-top: 78px;
+  }
+
+  .lv-hero-photo {
+    top: 128px;
+    right: -19%;
+    width: 64%;
+    height: 525px;
+  }
+
+  .lv-hero h1 {
+    font-size: clamp(3.55rem, 15.2vw, 4.65rem);
+  }
+}
+
+@media (max-width: 375px) {
+  .lv-header-inner {
+    grid-template-columns: 1fr 150px 1fr;
+  }
+
+  .lv-brand img {
+    width: 150px;
+    height: 150px;
+  }
+
+  .lv-hero,
+  .lv-hero-copy {
+    min-height: 825px;
+  }
+
+  .lv-hero-copy {
+    padding: 72px 17px 26px;
+  }
+
+  .lv-hero .lv-script {
+    width: 69%;
+    font-size: 1.78rem;
+  }
+
+  .lv-hero h1 {
+    max-width: 70%;
+    font-size: clamp(3.35rem, 15vw, 4.25rem);
+  }
+
+  .lv-hero-sub,
+  .lv-hero-actions {
+    width: 68%;
+    max-width: 68%;
+  }
+
+  .lv-hero-photo {
+    top: 122px;
+    right: -22%;
+    width: 66%;
+    height: 495px;
+  }
+
+  .lv-address {
+    left: 17px;
+    width: calc(100% - 34px);
+  }
+}
