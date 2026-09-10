@@ -1,23 +1,20 @@
-/* Visual regression correction — Sept 2026.
-   Screenshot-driven fixes for contrast, mobile drawer hierarchy, and first-fold polish. */
+/* Final visual system correction — Sept 2026.
+   Screenshot-driven finishing layer. Visual only: no content, routing, ordering,
+   analytics, data, or authentication changes. */
 
-/* Restore intended light-on-dark typography after broad site-wide readability rules. */
-.lv-hero .lv-hero-sub,
-.lv-hero .lv-order-modes {
-  color: rgba(247, 241, 227, .92) !important;
-}
+/* ---------- Core contrast discipline ---------- */
+.lv-hero .lv-script { color: #dda844 !important; }
+.lv-hero h1 { color: #f7f1e3 !important; }
+.lv-hero h1 span { color: #d6a33d !important; }
+.lv-hero .lv-hero-sub { color: rgba(247,241,227,.92) !important; }
+.lv-hero .lv-order-modes { color: rgba(247,241,227,.78) !important; }
+.lv-hero .lv-open-status { color: #e0aa3f !important; }
+.lv-hero .lv-address { color: rgba(247,241,227,.96) !important; }
 
-.lv-hero .lv-order-modes {
-  color: rgba(247, 241, 227, .78) !important;
-}
-
-.lv-hero .lv-open-status {
-  color: #e0aa3f;
-}
-
-.lv-hero .lv-address {
-  color: rgba(247, 241, 227, .96) !important;
-}
+.lv-order-band,
+.lv-catering-copy,
+.lv-footer,
+.lv-trust { color: #f7f1e3; }
 
 .lv-order-band p,
 .lv-order-band li,
@@ -25,47 +22,156 @@
 .lv-footer p,
 .lv-footer li,
 .lv-footer a,
+.lv-footer small,
 .lv-trust b,
-.lv-trust span {
-  color: rgba(247, 241, 227, .9) !important;
+.lv-trust span { color: rgba(247,241,227,.90) !important; }
+
+/* Light surfaces always use ink; prevents future broad text rules from washing out copy. */
+.lv-favorites p,
+.lv-favorites small,
+.lv-story p,
+.lv-specials p,
+.lv-reviews p,
+.lv-visit p,
+.lv-catering-inquiry p,
+.lv-catering-inquiry label { color: rgba(16,40,57,.80); }
+
+/* ---------- Consistent editorial rhythm ---------- */
+.lv-site h1,
+.lv-site h2,
+.lv-site h3 { text-wrap: balance; }
+
+.lv-site p { text-wrap: pretty; }
+
+.lv-favorites,
+.lv-specials,
+.lv-reviews,
+.lv-visit-copy,
+.lv-catering-inquiry { padding-block: clamp(38px, 5vw, 62px); }
+
+.lv-favorites-intro,
+.lv-specials > div:first-child,
+.lv-reviews-heading,
+.lv-visit-copy > div,
+.lv-catering-inquiry-copy { max-width: 62ch; }
+
+.lv-favorite-card,
+.lv-review { overflow: hidden; }
+
+.lv-favorite-card img,
+.lv-story-photos img,
+.lv-menu-item > img { display: block; }
+
+/* ---------- Header ---------- */
+.lv-header { isolation: isolate; }
+.lv-header-inner { box-sizing: border-box; }
+
+.lv-desktop-nav a,
+.lv-header-actions a { text-decoration: none; }
+
+/* ---------- Buttons ---------- */
+.lv-site .lv-btn {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
-/* Mobile navigation should read as a compact, intentional panel—not a washed-out full-screen sheet. */
+.lv-site .lv-btn-gold { color: #102839 !important; }
+
+/* ---------- Menu scanability ---------- */
+.lv-menu-page .lv-menu-item-title h3,
+.lv-menu-page .lv-menu-item-title strong { color: #102839 !important; }
+
+.lv-menu-page .lv-menu-item-copy > p,
+.lv-menu-page .lv-menu-subtitle { color: rgba(16,40,57,.78) !important; }
+
+.lv-menu-page .lv-popular-badge { color: #9a5f0c !important; }
+
+.lv-menu-page .lv-menu-item-title strong { font-variant-numeric: tabular-nums; }
+
+/* ---------- Tablet ---------- */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .lv-hero .lv-hero-sub,
+  .lv-hero .lv-order-modes { color: rgba(247,241,227,.90) !important; }
+
+  .lv-hero-copy { align-self: stretch; }
+
+  .lv-story-catering { grid-template-columns: 1fr; }
+
+  .lv-story,
+  .lv-catering { min-height: 0; }
+
+  .lv-catering-copy { width: min(78%, 660px); }
+
+  .lv-menu-page .lv-menu-sheet { max-width: 920px; }
+}
+
+/* ---------- Mobile ---------- */
 @media (max-width: 767px) {
+  /* Header stays compact and symmetrical. */
+  .lv-header,
+  .lv-header-inner { min-height: 80px !important; }
+
+  .lv-header-inner {
+    grid-template-columns: 1fr 130px 1fr !important;
+    padding-inline: 16px !important;
+  }
+
+  .lv-brand img {
+    width: 130px !important;
+    height: 130px !important;
+    top: 0 !important;
+  }
+
+  .lv-mobile-trigger,
+  .lv-mobile-call {
+    min-width: 54px;
+    min-height: 48px;
+    color: #102839 !important;
+  }
+
+  .lv-mobile-trigger svg,
+  .lv-mobile-call svg { width: 23px; height: 23px; }
+
+  /* Compact drawer with explicit contrast and no blank sheet effect. */
   .lv-mobile-drawer {
-    top: 82px !important;
+    top: 80px !important;
     left: 0;
     right: 0;
     display: grid !important;
     gap: 0 !important;
-    padding: 14px 18px 18px !important;
+    padding: 10px 18px 16px !important;
     background: #fffaf0 !important;
-    border-top: 1px solid rgba(16, 40, 57, .12) !important;
-    border-bottom: 1px solid rgba(16, 40, 57, .14) !important;
-    box-shadow: 0 16px 34px rgba(16, 40, 57, .14);
-    max-height: calc(100dvh - 82px - 84px);
+    border-top: 1px solid rgba(16,40,57,.10) !important;
+    border-bottom: 1px solid rgba(16,40,57,.14) !important;
+    box-shadow: 0 16px 34px rgba(16,40,57,.14);
+    max-height: calc(100dvh - 80px - 82px);
     overflow-y: auto;
   }
 
   .lv-mobile-drawer a {
-    min-height: 52px;
+    min-height: 48px;
     display: flex !important;
     align-items: center;
     padding: 0 10px !important;
     margin: 0 !important;
-    border-bottom: 1px solid rgba(16, 40, 57, .09);
+    border-bottom: 1px solid rgba(16,40,57,.085);
     color: #102839 !important;
     font-family: 'Oswald', sans-serif;
-    font-size: .92rem !important;
+    font-size: .86rem !important;
     font-weight: 700 !important;
-    letter-spacing: .08em;
+    letter-spacing: .075em;
     text-transform: uppercase;
     opacity: 1 !important;
   }
 
+  .lv-mobile-drawer a:nth-last-child(2) { border-bottom: 0; }
+
   .lv-mobile-drawer a:last-child {
-    min-height: 52px;
-    margin-top: 12px !important;
+    min-height: 50px;
+    margin-top: 10px !important;
     padding: 0 14px !important;
     justify-content: center;
     border: 1px solid #c98e27;
@@ -73,96 +179,202 @@
     color: #102839 !important;
   }
 
-  .lv-mobile-drawer a:nth-last-child(2) {
-    border-bottom: 0;
-  }
-
-  /* Keep the first fold balanced and readable on real iPhone viewport heights. */
+  /* First fold: food first, then a compact conversion block. */
   .lv-hero-photo {
-    height: 262px;
-    min-height: 262px;
+    height: clamp(238px, 62vw, 270px) !important;
+    min-height: clamp(238px, 62vw, 270px) !important;
   }
 
-  .lv-hero-copy {
-    padding: 30px 24px 28px;
-  }
+  .lv-hero-photo img { object-position: center 47%; }
+
+  .lv-hero-copy { padding: 28px 22px 27px !important; }
 
   .lv-hero .lv-script {
-    margin-bottom: 8px;
+    margin-bottom: 8px !important;
+    font-size: 1.52rem !important;
   }
 
   .lv-hero h1 {
-    font-size: clamp(3.25rem, 13.7vw, 4.2rem);
-    line-height: .91;
+    font-size: clamp(3.15rem, 13.4vw, 4.05rem) !important;
+    line-height: .91 !important;
+    letter-spacing: -.042em !important;
   }
 
   .lv-hero .lv-hero-sub {
-    max-width: 35ch;
-    margin-top: 16px;
-    font-size: .98rem;
-    line-height: 1.52;
+    max-width: 36ch;
+    margin-top: 15px !important;
+    font-size: .97rem !important;
+    line-height: 1.50 !important;
   }
 
   .lv-hero-actions {
-    margin-top: 18px;
+    margin-top: 17px !important;
+    gap: 8px !important;
+  }
+
+  .lv-hero-actions .lv-btn {
+    min-height: 47px !important;
+    padding-inline: 12px !important;
   }
 
   .lv-hero .lv-order-modes {
-    margin-top: 10px;
-    font-size: .78rem;
-    letter-spacing: .08em;
+    margin-top: 9px !important;
+    font-size: .76rem !important;
+    letter-spacing: .075em !important;
   }
 
-  .lv-hero .lv-open-status {
-    margin-top: 14px;
-  }
+  .lv-hero .lv-open-status { margin-top: 13px !important; }
 
   .lv-hero .lv-address {
-    margin-top: 16px;
+    margin-top: 14px !important;
     line-height: 1.35;
   }
 
-  /* Menu page refinement from screenshot: stronger hierarchy, less crowding. */
+  /* Trust bar: retain four proof points without oversized vertical bulk. */
+  .lv-trust { padding-inline: 8px !important; }
+  .lv-trust > div {
+    min-height: 52px !important;
+    padding-inline: 6px !important;
+    font-size: .69rem !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Section spacing: enough air, not brochure-like emptiness. */
+  .lv-favorites,
+  .lv-specials,
+  .lv-reviews,
+  .lv-visit-copy,
+  .lv-catering-inquiry { padding-block: 34px 38px !important; }
+
+  .lv-story,
+  .lv-catering-copy { padding: 36px 22px !important; }
+
+  .lv-order-band { padding: 30px 20px !important; }
+
+  .lv-review { padding: 18px !important; }
+
+  /* Menu: fit more useful information per screen while keeping photos recognizable. */
+  .lv-menu-page .lv-category-nav { top: 80px !important; }
+
+  .lv-menu-page .lv-category-nav button {
+    min-height: 50px !important;
+    padding-inline: 15px !important;
+    font-size: .72rem !important;
+  }
+
+  .lv-menu-page .lv-menu-sheet { padding: 8px 16px 96px !important; }
+
+  .lv-menu-page .lv-menu-category {
+    scroll-margin-top: 136px !important;
+    padding: 28px 0 30px !important;
+  }
+
   .lv-menu-page .lv-menu-category-heading {
     align-items: center;
-    gap: 12px;
+    gap: 11px !important;
+    margin-bottom: 7px !important;
   }
 
   .lv-menu-page .lv-menu-category-heading h2 {
-    font-size: clamp(2.7rem, 12vw, 3.7rem);
-    line-height: .96;
+    font-size: clamp(2.6rem, 11.5vw, 3.55rem) !important;
+    line-height: .96 !important;
+  }
+
+  .lv-menu-page .lv-menu-subtitle {
+    margin-bottom: 17px !important;
+    font-size: .93rem !important;
+    line-height: 1.45 !important;
   }
 
   .lv-menu-page .lv-menu-item,
   .lv-menu-page .lv-menu-item.is-popular,
   .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
-    padding-top: 17px;
-    padding-bottom: 17px;
+    min-height: 108px !important;
+    grid-template-columns: minmax(0,1fr) 102px !important;
+    gap: 12px !important;
+    padding: 14px 0 !important;
+  }
+
+  .lv-menu-page .lv-menu-item > img,
+  .lv-menu-page .lv-menu-item.is-popular > img {
+    width: 102px !important;
+    height: 86px !important;
+    border-radius: 5px !important;
   }
 
   .lv-menu-page .lv-menu-item-title h3,
   .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title h3 {
-    color: #102839 !important;
+    font-size: 1.13rem !important;
+    line-height: 1.13 !important;
+  }
+
+  .lv-menu-page .lv-menu-item-title strong,
+  .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-title strong {
+    font-size: .98rem !important;
   }
 
   .lv-menu-page .lv-menu-item-copy > p,
   .lv-menu-page .lv-menu-item.is-popular .lv-menu-item-copy > p {
-    color: rgba(16, 40, 57, .78) !important;
+    margin-top: 6px !important;
+    font-size: .89rem !important;
+    line-height: 1.38 !important;
   }
 
   .lv-menu-page .lv-popular-badge {
-    color: #a6670d !important;
+    margin-bottom: 6px !important;
+    font-size: .68rem !important;
   }
 
   .lv-bottom-nav {
-    border-top: 1px solid rgba(16, 40, 57, .08);
-    box-shadow: 0 -8px 22px rgba(16, 40, 57, .06);
+    min-height: 72px;
+    border-top: 1px solid rgba(16,40,57,.08);
+    box-shadow: 0 -7px 20px rgba(16,40,57,.055);
+  }
+
+  .lv-bottom-nav a { font-size: .68rem; }
+  .lv-bottom-nav svg { width: 21px; height: 21px; }
+}
+
+/* Small phones: prevent CTA and menu crowding. */
+@media (max-width: 374px) {
+  .lv-hero-actions { grid-template-columns: 1fr !important; }
+  .lv-hero-actions .lv-btn { width: 100%; }
+
+  .lv-menu-page .lv-menu-item,
+  .lv-menu-page .lv-menu-item.is-popular,
+  .lv-menu-page .lv-menu-item.is-popular:not(:has(> img)) {
+    grid-template-columns: minmax(0,1fr) 88px !important;
+  }
+
+  .lv-menu-page .lv-menu-item > img,
+  .lv-menu-page .lv-menu-item.is-popular > img {
+    width: 88px !important;
+    height: 76px !important;
   }
 }
 
-@media (min-width: 768px) {
-  .lv-hero .lv-hero-sub,
-  .lv-hero .lv-order-modes {
-    color: rgba(247, 241, 227, .9) !important;
+/* Desktop: cap excessive scale and preserve an editorial, neighborhood feel. */
+@media (min-width: 1100px) {
+  .lv-hero { min-height: 560px !important; }
+  .lv-hero-copy { padding-block: 64px 48px !important; }
+  .lv-hero h1 { font-size: clamp(4.6rem, 6.25vw, 6.65rem) !important; }
+
+  .lv-favorites,
+  .lv-specials,
+  .lv-reviews,
+  .lv-visit-copy,
+  .lv-catering-inquiry { padding-block: 52px 56px !important; }
+
+  .lv-menu-page .lv-menu-sheet { max-width: 1380px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-site *,
+  .lv-site *::before,
+  .lv-site *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
   }
 }
