@@ -4,8 +4,6 @@ import axios from "axios";
 import { toast, Toaster } from "sonner";
 import "@/index.css";
 import RootApp from "@/RootApp";
-import "@/mobile-polish-v2.css";
-import "@/mobile-hero-final.css";
 import "@/menu-editorial-redesign.css";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
