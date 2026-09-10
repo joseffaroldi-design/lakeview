@@ -124,6 +124,9 @@ const GA_EVENTS = {
   pickup_click:            { name: "order_pickup_click",  params: { location: "order_band",  link_url: SQUARE_URL } },
   // Uber Eats / delivery clicks
   delivery_click:          { name: "order_delivery_click", params: { location: "order_band", link_url: UBER_URL } },
+  // Reviews / reputation
+  uber_reviews_click:      { name: "review_click", params: { source: "uber_eats", location: "review_proof", link_url: UBER_URL } },
+  google_reviews_click:    { name: "review_click", params: { source: "google", location: "review_proof", link_url: GOOGLE_REVIEWS_URL } },
   // Catering
   catering_quote_click:    { name: "catering_quote_click", params: { location: "story_catering" } },
   catering_inquiry_submit: { name: "generate_lead",        params: { lead_type: "catering" } },
@@ -341,8 +344,8 @@ const Visit = ({ contact }) => {
 
 const ReviewProof = () => (
   <section className="lv-review-proof" aria-label="Lakeview customer reviews">
-    <div><p className="lv-kicker">Our Neighbors Say It Best</p><h2>See Why Lakeview Keeps Coming Back.</h2><div className="lv-review-stars" aria-hidden="true">★★★★★</div><p>Read recent customer reviews, then come see us on Harrison Avenue.</p></div>
-    <a className="lv-btn lv-btn-outline" href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("google_reviews_click")}>Read Google Reviews <ExternalLink size={15} /></a>
+    <div><p className="lv-kicker">Our Neighbors Say It Best</p><h2>See Why Lakeview Keeps Coming Back.</h2><div className="lv-review-stars" aria-hidden="true">★★★★★</div><a className="lv-review-rating" href={UBER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("uber_reviews_click")}>4.6 on Uber Eats · 800+ ratings <ExternalLink size={13} /></a><p>Recent customers repeatedly call out the burgers, wings, Café Fries, mozzarella sticks and friendly neighborhood service.</p></div>
+    <a className="lv-btn lv-btn-outline" href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("google_reviews_click")}>Read More Reviews <ExternalLink size={15} /></a>
   </section>
 );
 
