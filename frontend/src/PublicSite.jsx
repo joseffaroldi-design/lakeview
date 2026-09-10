@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ChevronRight,
@@ -124,8 +124,12 @@ const GA_EVENTS = {
   pickup_click:            { name: "order_pickup_click",  params: { location: "order_band",  link_url: SQUARE_URL } },
   // Uber Eats / delivery clicks
   delivery_click:          { name: "order_delivery_click", params: { location: "order_band", link_url: UBER_URL } },
+  // Reviews / reputation
+  uber_reviews_click:      { name: "review_click", params: { source: "uber_eats", location: "review_proof", link_url: UBER_URL } },
+  google_reviews_click:    { name: "review_click", params: { source: "google", location: "review_proof", link_url: GOOGLE_REVIEWS_URL } },
   // Catering
   catering_quote_click:    { name: "catering_quote_click", params: { location: "story_catering" } },
+  catering_form_start:     { name: "catering_form_start", params: { location: "catering_form" } },
   catering_inquiry_submit: { name: "generate_lead",        params: { lead_type: "catering" } },
   // Phone
   call_header:             { name: "phone_click", params: { location: "header",      link_url: PHONE_HREF } },
@@ -213,8 +217,8 @@ const Hero = ({ contact }) => {
       <div className="lv-hero-copy">
         <p className="lv-script">Lakeview, New Orleans</p>
         <h1>Burgers.<br />Seafood.<br /><span>Good Times.</span></h1>
-        <p className="lv-hero-sub">A family-owned neighborhood restaurant serving Lakeview since 2015.</p>
-        <div className="lv-hero-actions"><OrderButton tracking="order_online_hero" /><Link className="lv-btn lv-btn-cream" to="/menu" onClick={() => track("menu_view_hero")}>View Menu</Link></div>
+        <p className="lv-hero-sub">Fresh burgers, Gulf seafood, po'boys and Lakeview favorites—family-owned on Harrison Avenue since 2015.</p>
+        <div className="lv-hero-actions"><OrderButton tracking="order_online_hero">Order Pickup</OrderButton><Link className="lv-btn lv-btn-cream" to="/menu" onClick={() => track("menu_view_hero")}>View Menu</Link></div>
         <p className="lv-order-modes">Pickup • Delivery • Call-in</p>
         <div className={`lv-open-status ${status.open ? "is-open" : "is-closed"}`}><span></span>{status.label}</div>
         <a className="lv-address" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer" onClick={() => track("directions_hero")}><MapPin /> 872 Harrison Ave, New Orleans, LA</a>
@@ -226,22 +230,22 @@ const Hero = ({ contact }) => {
 
 const FavoriteCard = ({ image, name, category, note }) => (
   <Link to={`/menu?category=${encodeURIComponent(category)}`} className="lv-favorite-card" onClick={() => track(`favorite_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)}>
-    <img src={image} alt={`${name} from Lakeview Burgers & Seafood`} loading="lazy" /><strong>{name}</strong><small>{note}</small><span>★</span>
+    <img src={image} alt={`${name} from Lakeview Burgers & Seafood`} loading="lazy" /><strong>{name}</strong><small>{note}</small><span className="lv-favorite-link">See on Menu →</span>
   </Link>
 );
 
 const Favorites = () => {
   const images = useSiteImages();
   const items = [
-    [images.burger, "Lakeview Burger", "Burgers", "Our neighborhood classic"],
-    [images.tacos, "Shrimp Tacos", "Tacos", "A Lakeview favorite"],
-    [images.poboy, "Shrimp Po'boy", "Sandwiches & Po'Boys", "A New Orleans classic"],
-    [images.fries, "Café Fries", "Appetizers", "Loaded and made for sharing"],
-    [images.tenders, "Chicken Tenders", "Fried Plates", "Crispy comfort food"],
+    [images.burger, "Lakeview Burger", "Burgers", "Fresh 8 oz burger. A neighborhood staple."],
+    [images.tacos, "Shrimp Tacos", "Tacos", "Blackened, grilled or fried shrimp."],
+    [images.poboy, "Shrimp Po'boy", "Sandwiches & Po'Boys", "A New Orleans classic, built Lakeview-style."],
+    [images.fries, "Café Fries", "Appetizers", "Loaded, shareable and made for the table."],
+    [images.tenders, "Chicken Tenders", "Fried Plates", "Crispy comfort food and a regular favorite."],
   ];
   return (
     <section className="lv-favorites" id="menu-preview">
-      <div className="lv-favorites-intro"><p className="lv-kicker">Our</p><h2>Favorites</h2><p>The dishes our regulars keep coming back for.</p><Link to="/menu" className="lv-text-link" onClick={() => track("menu_view_favorites")}>View the full menu <ChevronRight /></Link></div>
+      <div className="lv-favorites-intro"><p className="lv-kicker">What Lakeview Orders</p><h2>Favorites</h2><p>Start with the dishes our regulars come back for.</p><Link to="/menu" className="lv-text-link" onClick={() => track("menu_view_favorites")}>View the full menu <ChevronRight /></Link></div>
       <div className="lv-favorites-scroll">{items.map(([image, name, category, note]) => <FavoriteCard key={name} image={image} name={name} category={category} note={note} />)}</div>
     </section>
   );
@@ -250,7 +254,7 @@ const Favorites = () => {
 const OrderBand = () => (
   <section className="lv-order-band">
     <div className="lv-order-title"><p>How do you</p><h2>Want It?</h2></div>
-    <div className="lv-order-choice"><span className="mustard"><ShoppingBag /></span><div><h3>Pickup</h3><p>Order ahead and we'll have it ready.</p><a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("pickup_click")}>Order Pickup →</a></div></div>
+    <div className="lv-order-choice"><span className="mustard"><ShoppingBag /></span><div><h3>Order Direct for Pickup</h3><p>Order ahead directly from Lakeview and we'll have it ready.</p><a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("pickup_click")}>Order Pickup Direct →</a></div></div>
     <div className="lv-order-choice"><span className="blue"><Truck /></span><div><h3>Delivery</h3><p>Get Lakeview delivered to you.</p><a href={UBER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("delivery_click")}>Get Delivery →</a></div></div>
     <div className="lv-order-choice"><span className="orange"><Phone /></span><div><h3>Call It In</h3><p>Prefer the old-fashioned way?</p><a href={PHONE_HREF} onClick={() => track("call_order_click")}>Call an Order In →</a></div></div>
   </section>
@@ -274,7 +278,7 @@ const StoryCatering = () => {
         <div className="lv-story-photos"><img className="main" src={images.about} alt="Lakeview Burgers & Seafood restaurant and family story" loading="lazy" /><img className="small" src={images.burger} alt="Lakeview burger served at Lakeview Burgers & Seafood" loading="lazy" /></div>
       </article>
       <article id="catering" className="lv-catering">
-        <div className="lv-catering-copy"><p className="lv-kicker">Lakeview Catering</p><h2>Feeding 20? 50? 100?</h2><p>Office lunches, game days, birthdays, family gatherings and events—we'll help you put together something everyone will want to eat.</p><a className="lv-btn lv-btn-cream" href="#catering-quote" onClick={() => track("catering_quote_click")}>Get a Catering Quote <ChevronRight /></a></div>
+        <div className="lv-catering-copy"><p className="lv-kicker">Lakeview Catering</p><h2>Feeding 20? 50? 100+?</h2><p>Office lunches, game days, birthdays, family gatherings and events. Tell us your guest count, date and what you're planning—we'll help build the food from there.</p><ul className="lv-catering-options"><li>Burgers & chicken</li><li>Po'boys & seafood</li><li>Wings & appetizers</li><li>Sides for the table</li></ul><a className="lv-btn lv-btn-cream" href="#catering-quote" onClick={() => track("catering_quote_click")}>Get a Catering Quote <ChevronRight /></a></div>
         <img src={images.catering} alt="Catering from Lakeview Burgers & Seafood" loading="lazy" />
       </article>
     </section>
@@ -285,6 +289,12 @@ const CateringInquiry = () => {
   const [form, setForm] = useState({ name: "", email: "", phone: "", event_date: "", guest_count: "", message: "" });
   const [status, setStatus] = useState("idle");
   const [feedback, setFeedback] = useState("");
+  const formStarted = useRef(false);
+  const markFormStart = () => {
+    if (formStarted.current) return;
+    formStarted.current = true;
+    track("catering_form_start");
+  };
   const fieldStyle = { width: "100%", minHeight: 46, border: "1px solid rgba(16,40,57,.22)", background: "#fbf7e8", color: "#102839", padding: "11px 12px", font: "inherit", borderRadius: 4 };
   const setField = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
   const submit = async (event) => {
@@ -302,8 +312,8 @@ const CateringInquiry = () => {
   return (
     <section id="catering-quote" className="lv-catering-inquiry" aria-labelledby="catering-inquiry-title">
       <div className="lv-catering-inquiry-inner">
-        <div><p className="lv-kicker">Planning an Event?</p><h2 id="catering-inquiry-title">Tell Us What You Need.</h2><p>Send the basics and we'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF}>{PHONE}</a>.</p></div>
-        <form onSubmit={submit}>
+        <div><p className="lv-kicker">Planning an Event?</p><h2 id="catering-inquiry-title">Tell Us What You Need.</h2><p>Send your date, guest count and the kind of event you're planning. We'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF}>{PHONE}</a>.</p></div>
+        <form onSubmit={submit} onFocusCapture={markFormStart}>
           <div className="lv-form-row two"><label>Name<input aria-label="Name" required value={form.name} onChange={setField("name")} style={fieldStyle} /></label><label>Email<input aria-label="Email" type="email" required value={form.email} onChange={setField("email")} style={fieldStyle} /></label></div>
           <div className="lv-form-row three"><label>Phone<input aria-label="Phone" value={form.phone} onChange={setField("phone")} style={fieldStyle} /></label><label>Event date<input aria-label="Event date" type="date" value={form.event_date} onChange={setField("event_date")} style={fieldStyle} /></label><label>Guests<input aria-label="Approximate guest count" inputMode="numeric" value={form.guest_count} onChange={setField("guest_count")} style={fieldStyle} /></label></div>
           <label>What are you planning?<textarea aria-label="Catering message" required rows={4} value={form.message} onChange={setField("message")} style={{ ...fieldStyle, resize: "vertical" }} /></label>
@@ -341,8 +351,8 @@ const Visit = ({ contact }) => {
 
 const ReviewProof = () => (
   <section className="lv-review-proof" aria-label="Lakeview customer reviews">
-    <div><p className="lv-kicker">Our Neighbors Say It Best</p><h2>See Why Lakeview Keeps Coming Back.</h2><div className="lv-review-stars" aria-hidden="true">★★★★★</div><p>Read recent customer reviews, then come see us on Harrison Avenue.</p></div>
-    <a className="lv-btn lv-btn-outline" href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("google_reviews_click")}>Read Google Reviews <ExternalLink size={15} /></a>
+    <div><p className="lv-kicker">Our Neighbors Say It Best</p><h2>See Why Lakeview Keeps Coming Back.</h2><div className="lv-review-stars" aria-hidden="true">★★★★★</div><a className="lv-review-rating" href={UBER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("uber_reviews_click")}>4.6 on Uber Eats · 800+ ratings <ExternalLink size={13} /></a><p>Recent customers repeatedly call out the burgers, wings, Café Fries, mozzarella sticks and friendly neighborhood service.</p></div>
+    <a className="lv-btn lv-btn-outline" href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("google_reviews_click")}>Read More Reviews <ExternalLink size={15} /></a>
   </section>
 );
 
@@ -428,7 +438,7 @@ export const PublicMenu = () => {
           const label = categoryAliases[String(cat.slug || "").toLowerCase()] || cat.display_name || cat.name || "Menu";
           return <button key={key} className={active === key ? "active" : ""} onClick={() => jumpTo(cat, index)}>{label}</button>;
         })}</nav>
-        <div className="lv-menu-conversion-strip"><span>Ready to eat?</span><OrderButton tracking="order_online_menu_strip" /></div>
+        <div className="lv-menu-conversion-strip"><span>Ready to eat?</span><OrderButton tracking="order_online_menu_strip">Order Pickup</OrderButton></div>
         <section className="lv-menu-sheet">
           {navCategories.length === 0 ? <div className="lv-menu-loading">Loading today's menu…</div> : navCategories.map((cat, catIndex) => {
             const id = `menu-${cat.slug || cat.id || catIndex}`;
