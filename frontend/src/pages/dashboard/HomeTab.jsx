@@ -53,6 +53,18 @@ const businessDateKey = (value = new Date()) => {
   }).format(date);
 };
 
+const ORDER_CLICK_KEYS = new Set([
+  "order_online",
+  "order_online_hero",
+  "order_online_header",
+  "order_online_drawer",
+  "order_online_bottom_nav",
+  "order_online_footer",
+  "order_online_menu_strip",
+  "pickup_click",
+  "delivery_click",
+]);
+
 const HomeTab = ({ onNavigate, getAuthHeader }) => {
   const [analytics, setAnalytics] = useState(null);
   const [operations, setOperations] = useState({ cateringLeads: 0, newCustomersToday: 0 });
@@ -103,8 +115,8 @@ const HomeTab = ({ onNavigate, getAuthHeader }) => {
     if (!analytics?.button_clicks_today) return 0;
     return Object.entries(analytics.button_clicks_today).reduce((sum, [name, count]) => {
       const key = name.toLowerCase();
-      if (key.includes("uber") || key.includes("square")) return sum + Number(count || 0);
-      return sum;
+      const isOrderClick = ORDER_CLICK_KEYS.has(key) || key.startsWith("special_");
+      return isOrderClick ? sum + Number(count || 0) : sum;
     }, 0);
   }, [analytics]);
 
