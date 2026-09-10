@@ -175,7 +175,7 @@ const usePageViewBeacon = (page) => {
   }, [page]);
 };
 
-const OrderButton = ({ className = "", children = "Order Online", tracking = "order_online" }) => (
+const OrderButton = ({ className = "", children = "Order Pickup", tracking = "order_online" }) => (
   <a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track(tracking)} className={`lv-btn lv-btn-gold ${className}`}>
     {children}<ChevronRight size={16} aria-hidden="true" />
   </a>
@@ -201,7 +201,7 @@ const Header = () => {
       </div>
       {open && (
         <nav className="lv-mobile-drawer" aria-label="Mobile navigation">
-          <Link to="/menu" onClick={() => setOpen(false)}>Menu</Link><a href="/#specials" onClick={() => setOpen(false)}>Specials</a><a href="/#catering" onClick={() => setOpen(false)}>Catering</a><a href="/#story" onClick={() => setOpen(false)}>Our Story</a><a href="/#visit" onClick={() => setOpen(false)}>Visit</a><a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("order_online_drawer")}>Order Online</a>
+          <Link to="/menu" onClick={() => setOpen(false)}>Menu</Link><a href="/#specials" onClick={() => setOpen(false)}>Specials</a><a href="/#catering" onClick={() => setOpen(false)}>Catering</a><a href="/#story" onClick={() => setOpen(false)}>Our Story</a><a href="/#visit" onClick={() => setOpen(false)}>Visit</a><a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("order_online_drawer")}>Order Pickup</a>
         </nav>
       )}
     </header>
