@@ -117,7 +117,7 @@
 @media (min-width: 768px) and (max-width: 1099px) {
   .lv-header,
   .lv-header-inner {
-    min-height: 84px !important;
+    min-height: 148px !important;
   }
 
   .lv-header-inner {
@@ -149,6 +149,7 @@
     left: 50% !important;
     top: 50% !important;
     width: 132px !important;
+    height: 132px !important;
     transform: translate(-50%,-50%) !important;
     z-index: 3;
   }
@@ -199,7 +200,7 @@
   }
 
   .lv-mobile-drawer {
-    top: 84px !important;
+    top: 148px !important;
     padding: 10px 22px 18px !important;
     background: #fffaf0 !important;
     border-top: 1px solid rgba(16,40,57,.10) !important;

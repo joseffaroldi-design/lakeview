@@ -4,6 +4,7 @@ Tiny standalone router so we don't bloat ai_ads.py / media.py further.
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
