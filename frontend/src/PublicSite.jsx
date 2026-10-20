@@ -21,6 +21,7 @@ import "@/public-site-polish.css";
 import "@/revenue-conversion.css";
 import { DEFAULT_IMAGES } from "@/config/siteImages";
 import { event as gaEvent } from "@/lib/gaAnalytics";
+import { hasActiveSpecials, scrollToHashTarget } from "@/lib/publicNavigation";
 import { useSeo } from "@/lib/seo";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -181,8 +182,15 @@ const OrderButton = ({ className = "", children = "Order Pickup", tracking = "or
   </a>
 );
 
-const Header = () => {
+const Header = ({ showSpecials = false }) => {
   const [open, setOpen] = useState(false);
+  const navItems = [
+    { label: "Menu", to: "/menu" },
+    ...(showSpecials ? [{ label: "Specials", href: "/#specials" }] : []),
+    { label: "Catering", href: "/#catering" },
+    { label: "Our Story", href: "/#story" },
+    { label: "Contact", mobileLabel: "Visit", href: "/#visit" },
+  ];
   return (
     <header className="lv-header">
       <div className="lv-header-inner">
@@ -191,7 +199,12 @@ const Header = () => {
         </button>
         <Link to="/" className="lv-brand" aria-label="Lakeview Burgers and Seafood home"><img src={LOGO} alt="Lakeview Burgers & Seafood" /></Link>
         <nav className="lv-desktop-nav" aria-label="Primary navigation">
-          <Link to="/menu">Menu</Link><span>★</span><a href="/#specials">Specials</a><span>★</span><a href="/#catering">Catering</a><span>★</span><a href="/#story">Our Story</a><span>★</span><a href="/#visit">Contact</a>
+          {navItems.map((item, index) => (
+            <React.Fragment key={item.label}>
+              {index > 0 ? <span aria-hidden="true">★</span> : null}
+              {item.to ? <Link to={item.to}>{item.label}</Link> : <a href={item.href}>{item.label}</a>}
+            </React.Fragment>
+          ))}
         </nav>
         <div className="lv-header-actions">
           <a className="lv-btn lv-btn-outline lv-call-desktop" href={PHONE_HREF} onClick={() => track("call_header")}>Call Us</a>
@@ -201,7 +214,10 @@ const Header = () => {
       </div>
       {open && (
         <nav className="lv-mobile-drawer" aria-label="Mobile navigation">
-          <Link to="/menu" onClick={() => setOpen(false)}>Menu</Link><a href="/#specials" onClick={() => setOpen(false)}>Specials</a><a href="/#catering" onClick={() => setOpen(false)}>Catering</a><a href="/#story" onClick={() => setOpen(false)}>Our Story</a><a href="/#visit" onClick={() => setOpen(false)}>Visit</a><a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("order_online_drawer")}>Order Pickup</a>
+          {navItems.map((item) => item.to
+            ? <Link key={item.label} to={item.to} onClick={() => setOpen(false)}>{item.mobileLabel || item.label}</Link>
+            : <a key={item.label} href={item.href} onClick={() => setOpen(false)}>{item.mobileLabel || item.label}</a>)}
+          <a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("order_online_drawer")}>Order Pickup</a>
         </nav>
       )}
     </header>
@@ -383,6 +399,7 @@ const Footer = () => (
 );
 
 export const PublicHome = () => {
+  const location = useLocation();
   const [content, setContent] = useState(null);
   const [specials, setSpecials] = useState([]);
   usePageViewBeacon("/");
@@ -392,14 +409,22 @@ export const PublicHome = () => {
     path: "/",
   });
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (!location.hash) window.scrollTo(0, 0);
     track("home_view");
     Promise.allSettled([axios.get(`${API}/content`), axios.get(`${API}/specials?active_only=true`)]).then(([contentResult, specialsResult]) => {
       if (contentResult.status === "fulfilled") setContent(contentResult.value.data);
       if (specialsResult.status === "fulfilled") setSpecials(specialsResult.value.data || []);
     });
+    // The initial route is intentionally handled once; hash changes have a
+    // dedicated effect below so async homepage content cannot reset scrolling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return <div className="lv-site"><Header /><main><Hero contact={content?.contact} /><TrustBand /><Favorites /><OrderBand /><MobileStatusBar contact={content?.contact} /><Visit contact={content?.contact} /><Specials specials={specials} /><StoryCatering /><CateringInquiry /><ReviewProof /></main><Footer /><MobileBottomNav /></div>;
+  useEffect(() => {
+    if (!location.hash) return undefined;
+    const frame = window.requestAnimationFrame(() => scrollToHashTarget(location.hash));
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, content, specials]);
+  return <div className="lv-site"><Header showSpecials={hasActiveSpecials(specials)} /><main><Hero contact={content?.contact} /><TrustBand /><Favorites /><OrderBand /><MobileStatusBar contact={content?.contact} /><Visit contact={content?.contact} /><Specials specials={specials} /><StoryCatering /><CateringInquiry /><ReviewProof /></main><Footer /><MobileBottomNav /></div>;
 };
 
 const categoryAliases = {

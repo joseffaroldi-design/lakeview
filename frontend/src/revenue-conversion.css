@@ -186,6 +186,10 @@
   color: #102839;
 }
 
+#specials,
+#visit,
+#story,
+#catering,
 #catering-quote {
   scroll-margin-top: 100px;
 }
