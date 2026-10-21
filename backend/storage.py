@@ -1,171 +1,256 @@
-"""Persistent media storage — Emergent Object Storage with legacy local fallback.
+"""Provider-independent persistent media storage.
 
-All NEW media (uploads, AI images, edits, exports, rendered videos) is written
-to Emergent Object Storage so it survives pod restarts, deploys, and scaling
-events. The canonical path shape is `{APP_NAME}/{subdir}/{uuid}.{ext}` (always
-contains '/'). Legacy `media_assets` rows whose `storage_path` is just a bare
-filename (no '/') still resolve via the local /app/backend/media_storage fallback
-so old test data keeps working in preview.
+The production backend is any S3-compatible service (Cloudflare R2 is the
+deployment target). Callers deliberately keep the small historical interface:
+``init_storage``, ``make_path``, ``put_bytes``, ``get_bytes``, ``exists``,
+``download_to_tmp`` and ``health``.
 
-The storage backend is opaque to callers: `put_bytes`, `get_bytes`, `exists`,
-`download_to_tmp`, `make_path`, `health` are the only public functions.
+Existing database paths are preserved during migration:
+
+* paths containing ``/`` keep their object key unchanged;
+* legacy bare filenames are read from the packaged local directory first, then
+  from ``{STORAGE_APP_NAME}/legacy/{filename}`` in object storage.
+
+This dual-read strategy makes the transition reversible. New writes always go
+to object storage, and no function in this module deletes source data.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import mimetypes
 import os
 import threading
-from pathlib import Path
-from typing import Optional, Tuple
+from pathlib import Path, PurePosixPath
+from typing import Any, Tuple
 
-import requests
+import boto3
+from botocore.client import Config
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger("uvicorn.error")
 
-STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
-APP_NAME = os.environ.get("STORAGE_APP_NAME", "lakeview")
+APP_NAME = (os.environ.get("STORAGE_APP_NAME") or "lakeview").strip().strip("/")
+STORAGE_BACKEND = (os.environ.get("STORAGE_BACKEND") or "s3").strip().lower()
+LOCAL_STORAGE_DIR = Path(
+    os.environ.get("MEDIA_STORAGE_DIR", "/app/backend/media_storage")
+)
 
-# Local fallback (still used for legacy paths AND as a tmp scratch dir for
-# ffmpeg pipelines that need filesystem inputs).
-LOCAL_STORAGE_DIR = Path(os.environ.get("MEDIA_STORAGE_DIR", "/app/backend/media_storage"))
-LOCAL_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-
-_storage_key: Optional[str] = None
+_client: Any = None
 _init_lock = threading.Lock()
 
 
+def _safe_object_key(path: str) -> str:
+    """Return a normalized object key or reject traversal/absolute paths."""
+    raw = (path or "").strip().replace("\\", "/")
+    parsed = PurePosixPath(raw)
+    if not raw or raw.startswith("/") or any(part in ("", ".", "..") for part in parsed.parts):
+        raise ValueError(f"invalid storage path: {path!r}")
+    return str(parsed)
+
+
 def is_remote_path(path: str) -> bool:
-    """New paths live in object storage (contain '/'); legacy paths are bare filenames."""
+    """Historical discriminator retained for callers and migration tooling."""
     return "/" in (path or "")
 
 
-def init_storage() -> Optional[str]:
-    """Call once at startup. Returns session-scoped storage_key or None if init failed.
-    Thread-safe so concurrent first-requests don't fight."""
-    global _storage_key
-    if _storage_key:
-        return _storage_key
+def legacy_object_key(filename: str) -> str:
+    """Stable R2 key used for a legacy bare-filename database value."""
+    safe_name = _safe_object_key(filename)
+    if "/" in safe_name:
+        raise ValueError(f"legacy path must be a bare filename: {filename!r}")
+    return f"{APP_NAME}/legacy/{safe_name}"
+
+
+def _required_s3_settings() -> dict[str, str]:
+    names = (
+        "S3_ENDPOINT_URL",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_BUCKET",
+    )
+    missing = [name for name in names if not (os.environ.get(name) or "").strip()]
+    if missing:
+        raise RuntimeError(
+            "S3 storage is not configured; missing " + ", ".join(sorted(missing))
+        )
+    return {name: os.environ[name].strip() for name in names}
+
+
+def init_storage() -> str:
+    """Initialize the configured backend once and return its backend name."""
+    global _client
+    if STORAGE_BACKEND == "local":
+        if (os.environ.get("ENVIRONMENT") or "").strip().lower() == "production":
+            raise RuntimeError("STORAGE_BACKEND=local is forbidden in production")
+        LOCAL_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        return "local"
+    if STORAGE_BACKEND != "s3":
+        raise RuntimeError(f"unsupported STORAGE_BACKEND={STORAGE_BACKEND!r}")
+    if _client is not None:
+        return "s3"
     with _init_lock:
-        if _storage_key:
-            return _storage_key
-        key = os.environ.get("EMERGENT_LLM_KEY")
-        if not key:
-            logger.error("[storage] EMERGENT_LLM_KEY not set — object storage disabled")
-            return None
-        try:
-            r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": key}, timeout=30)
-            r.raise_for_status()
-            _storage_key = r.json()["storage_key"]
-            logger.info("[storage] Emergent Object Storage initialized (app=%s)", APP_NAME)
-            return _storage_key
-        except Exception as e:  # noqa: BLE001
-            logger.error("[storage] init failed: %s", e)
-            return None
+        if _client is not None:
+            return "s3"
+        settings = _required_s3_settings()
+        _client = boto3.client(
+            "s3",
+            endpoint_url=settings["S3_ENDPOINT_URL"],
+            aws_access_key_id=settings["S3_ACCESS_KEY_ID"],
+            aws_secret_access_key=settings["S3_SECRET_ACCESS_KEY"],
+            region_name=(os.environ.get("S3_REGION") or "auto").strip(),
+            config=Config(
+                signature_version="s3v4",
+                s3={"addressing_style": "path"},
+                retries={"max_attempts": 4, "mode": "standard"},
+                connect_timeout=10,
+                read_timeout=60,
+            ),
+        )
+    logger.info("[storage] S3-compatible storage initialized (app=%s)", APP_NAME)
+    return "s3"
 
 
-def _storage_key_or_raise() -> str:
-    k = init_storage()
-    if not k:
-        raise RuntimeError("Object storage unavailable: init failed or EMERGENT_LLM_KEY missing")
-    return k
+def _s3_client():
+    init_storage()
+    return _client
+
+
+def _bucket() -> str:
+    return _required_s3_settings()["S3_BUCKET"]
 
 
 def make_path(subdir: str, asset_id: str, ext: str) -> str:
-    """Canonical object-storage path: `{APP_NAME}/{subdir}/{uuid}.{ext}`."""
-    return f"{APP_NAME}/{subdir}/{asset_id}.{ext}"
+    """Canonical object key: ``{APP_NAME}/{subdir}/{asset_id}.{ext}``."""
+    subdir = _safe_object_key(subdir).strip("/")
+    asset_id = _safe_object_key(asset_id)
+    ext = (ext or "bin").strip().lower().lstrip(".")
+    if "/" in asset_id or not ext.isalnum():
+        raise ValueError("asset_id and extension must not contain path separators")
+    return _safe_object_key(f"{APP_NAME}/{subdir}/{asset_id}.{ext}")
+
+
+def _local_path(key: str) -> Path:
+    safe = _safe_object_key(key)
+    target = (LOCAL_STORAGE_DIR / safe).resolve()
+    root = LOCAL_STORAGE_DIR.resolve()
+    if target != root and root not in target.parents:
+        raise ValueError(f"storage path escapes local root: {key!r}")
+    return target
 
 
 def put_bytes(path: str, data: bytes, content_type: str) -> dict:
-    """Upload bytes to object storage. `path` must be a remote path (contains '/').
-
-    Re-initializes the session key once on 403 (expired token)."""
+    """Write a canonical object. Bare filenames are intentionally rejected."""
     if not is_remote_path(path):
-        raise ValueError(f"put_bytes requires remote path with '/' — got {path!r}")
-    key = _storage_key_or_raise()
-    headers = {"X-Storage-Key": key, "Content-Type": content_type}
-    r = requests.put(f"{STORAGE_URL}/objects/{path}", headers=headers, data=data, timeout=180)
-    if r.status_code == 403:
-        # Storage key expired — re-init and retry once
-        logger.warning("[storage] 403 on put — re-initializing session key")
-        global _storage_key
-        _storage_key = None
-        key = _storage_key_or_raise()
-        headers["X-Storage-Key"] = key
-        r = requests.put(f"{STORAGE_URL}/objects/{path}", headers=headers, data=data, timeout=180)
-    r.raise_for_status()
+        raise ValueError(f"put_bytes requires an object key containing '/': {path!r}")
+    key = _safe_object_key(path)
+    if STORAGE_BACKEND == "local":
+        init_storage()
+        target = _local_path(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        return {"path": key, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+
+    digest = hashlib.sha256(data).hexdigest()
+    response = _s3_client().put_object(
+        Bucket=_bucket(),
+        Key=key,
+        Body=data,
+        ContentType=content_type or "application/octet-stream",
+        Metadata={"sha256": digest},
+    )
+    return {
+        "path": key,
+        "size": len(data),
+        "sha256": digest,
+        "etag": str(response.get("ETag", "")).strip('"'),
+    }
+
+
+def _read_object(key: str) -> Tuple[bytes, str]:
+    if STORAGE_BACKEND == "local":
+        init_storage()
+        local = _local_path(key)
+        if not local.is_file():
+            raise FileNotFoundError(f"object not in local storage: {key}")
+        return local.read_bytes(), mimetypes.guess_type(local.name)[0] or "application/octet-stream"
     try:
-        return r.json()
-    except Exception:  # noqa: BLE001
-        return {"path": path, "size": len(data)}
+        response = _s3_client().get_object(Bucket=_bucket(), Key=_safe_object_key(key))
+    except ClientError as exc:
+        status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        code = exc.response.get("Error", {}).get("Code")
+        if status == 404 or code in {"404", "NoSuchKey", "NotFound"}:
+            raise FileNotFoundError(f"object not in storage: {key}") from exc
+        raise
+    return (
+        response["Body"].read(),
+        response.get("ContentType") or "application/octet-stream",
+    )
 
 
 def get_bytes(path: str) -> Tuple[bytes, str]:
-    """Download bytes + content-type. Legacy local paths fall back to disk."""
-    if not is_remote_path(path):
-        local = LOCAL_STORAGE_DIR / path
-        if not local.exists():
-            raise FileNotFoundError(f"legacy local file missing: {local}")
-        return local.read_bytes(), "application/octet-stream"
+    """Read bytes and content type with the legacy local-to-R2 fallback."""
+    if is_remote_path(path):
+        return _read_object(_safe_object_key(path))
 
-    key = _storage_key_or_raise()
-    headers = {"X-Storage-Key": key}
-    r = requests.get(f"{STORAGE_URL}/objects/{path}", headers=headers, timeout=60)
-    if r.status_code == 403:
-        logger.warning("[storage] 403 on get — re-initializing session key")
-        global _storage_key
-        _storage_key = None
-        key = _storage_key_or_raise()
-        headers["X-Storage-Key"] = key
-        r = requests.get(f"{STORAGE_URL}/objects/{path}", headers=headers, timeout=60)
-    if r.status_code == 404:
-        raise FileNotFoundError(f"object not in storage: {path}")
-    r.raise_for_status()
-    return r.content, r.headers.get("Content-Type", "application/octet-stream")
+    local = _local_path(path)
+    if local.is_file():
+        return local.read_bytes(), mimetypes.guess_type(local.name)[0] or "application/octet-stream"
+    return _read_object(legacy_object_key(path))
 
 
-def exists(path: str) -> bool:
-    """Cheap presence check. Legacy local paths check disk."""
-    if not is_remote_path(path):
-        return (LOCAL_STORAGE_DIR / path).exists()
+def _object_exists(key: str) -> bool:
+    if STORAGE_BACKEND == "local":
+        init_storage()
+        return _local_path(key).is_file()
     try:
-        key = _storage_key_or_raise()
-        # No HEAD endpoint in the API — use a 1-byte ranged GET as a cheap probe.
-        r = requests.get(
-            f"{STORAGE_URL}/objects/{path}",
-            headers={"X-Storage-Key": key, "Range": "bytes=0-0"},
-            timeout=10,
-        )
-        return r.status_code in (200, 206)
-    except Exception:  # noqa: BLE001
+        _s3_client().head_object(Bucket=_bucket(), Key=_safe_object_key(key))
+        return True
+    except ClientError as exc:
+        status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        code = exc.response.get("Error", {}).get("Code")
+        if status == 404 or code in {"404", "NoSuchKey", "NotFound"}:
+            return False
+        logger.warning("[storage] head_object failed for %s: %s", key, exc)
+        return False
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[storage] existence check failed for %s: %s", key, exc)
         return False
 
 
+def exists(path: str) -> bool:
+    """Check presence without downloading the object."""
+    if is_remote_path(path):
+        return _object_exists(path)
+    if _local_path(path).is_file():
+        return True
+    return _object_exists(legacy_object_key(path))
+
+
 def download_to_tmp(path: str, dest: Path) -> None:
-    """Download an object to a local path. Used by ffmpeg / PIL pipelines that
-    require an actual file on disk. Caller is responsible for cleanup."""
+    """Copy an object to scratch space. The caller owns destination cleanup."""
     data, _ = get_bytes(path)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)
 
 
 def health() -> dict:
-    """Probe storage reachability. Returns a dict suitable for /api/media/health."""
+    """Read-only reachability probe suitable for readiness diagnostics."""
     info = {
-        "backend": "emergent_object_storage",
+        "backend": STORAGE_BACKEND,
         "app_name": APP_NAME,
+        "configured": False,
         "reachable": False,
-        "initialized": _storage_key is not None,
         "error": None,
     }
     try:
-        _storage_key_or_raise()
-        # End-to-end probe: PUT a tiny key, GET it back. Proves auth + reachability.
-        probe_path = f"{APP_NAME}/_health/probe.txt"
-        put_bytes(probe_path, b"ok", "text/plain")
-        data, _ = get_bytes(probe_path)
-        info["reachable"] = data == b"ok"
-        if not info["reachable"]:
-            info["error"] = "probe roundtrip mismatch"
-    except Exception as e:  # noqa: BLE001
-        info["error"] = str(e)[:200]
+        backend = init_storage()
+        info["configured"] = True
+        if backend == "local":
+            info["reachable"] = LOCAL_STORAGE_DIR.is_dir() and os.access(LOCAL_STORAGE_DIR, os.R_OK | os.W_OK)
+        else:
+            _s3_client().head_bucket(Bucket=_bucket())
+            info["reachable"] = True
+    except Exception as exc:  # noqa: BLE001
+        info["error"] = str(exc)[:200]
     return info

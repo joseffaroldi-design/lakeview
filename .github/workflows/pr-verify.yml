@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [agent/simplify-photo-flyer-backend]
+    branches: [main]
 
 jobs:
   frontend-build:
@@ -16,13 +16,16 @@ jobs:
           node-version: '20'
       - name: Install frontend dependencies
         working-directory: frontend
-        run: yarn install --non-interactive
+        run: yarn install --frozen-lockfile --non-interactive
       - name: Build frontend
         working-directory: frontend
         env:
           CI: 'false'
           REACT_APP_BACKEND_URL: http://localhost:8000
         run: yarn build
+      - name: Test public navigation
+        working-directory: frontend
+        run: yarn test --watchAll=false --runInBand src/lib/publicNavigation.test.js
       - name: Verify removed marketing systems stay out of active frontend
         run: |
           if grep -RInE '/api/(photo-flyer|ai-designer|creative-director|design-memory|marketing-pack|workspace)' frontend/src; then
@@ -42,8 +45,30 @@ jobs:
           python-version: '3.11'
       - name: Compile backend
         run: python -m compileall -q backend
+      - name: Install active backend and test dependencies
+        working-directory: backend
+        run: pip install -r requirements-test.txt
+      - name: Check Python dependency consistency
+        run: pip check
+      - name: Verify independent deployment surface
+        run: |
+          pytest -q \
+            backend/tests/test_storage_s3.py \
+            backend/tests/test_migration_tools.py \
+            backend/tests/test_independent_deployment.py \
+            backend/tests/test_v1_security_config.py \
+            backend/tests/test_analytics_beacon.py
+      - name: Audit production Python dependencies
+        run: pip-audit -r backend/requirements-prod.txt
       - name: Verify historical compatibility code remains dormant
         run: |
           test -d backend/ai_designer
           test -d backend/theme_packs
           grep -q 'HIDDEN_THEMES = frozenset' backend/routers/ai_designer.py
+
+  backend-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production backend container
+        run: docker build -f backend/Dockerfile backend

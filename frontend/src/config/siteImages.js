@@ -75,7 +75,7 @@ export const SITE_IMAGE_SLOTS = [
     label: "Our Story",
     sub: "Story section photo",
     ratio: "Portrait or square",
-    default: "https://customer-assets.emergentagent.com/job_lakeview-grill/artifacts/11ja5k21_IMG_1894.jpeg",
+    default: "/hero-burger.jpg",
   },
 ];
 

@@ -1,0 +1,71 @@
+services:
+  - type: web
+    name: lakeview-api
+    runtime: docker
+    region: ohio
+    plan: 1c-2g
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/health/live
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DB_NAME
+        sync: false
+      - key: MONGO_URL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: STORAGE_APP_NAME
+        value: lakeview
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+
+  - type: web
+    name: lakeview-web
+    runtime: static
+    buildCommand: yarn install --frozen-lockfile --non-interactive && yarn build
+    staticPublishPath: ./build
+    rootDir: frontend
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        sync: false
+      - key: REACT_APP_GA_MEASUREMENT_ID
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+    buildFilter:
+      paths:
+        - frontend/**
+        - render.yaml

@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.cors import CORSMiddleware
 
 import auth
-from config import ALLOWED_ORIGINS, client, db
+from config import ALLOWED_ORIGINS, client, db, validate_runtime_config
 from rate_limit import limiter
 from routers import (
     analytics,
@@ -68,6 +68,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     """Start only the infrastructure still used by the public site/admin."""
+    validate_runtime_config()
     await seed_defaults(db)
 
     try:

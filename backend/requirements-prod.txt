@@ -1,0 +1,21 @@
+# Runtime dependencies for backend/server.py and its mounted routers only.
+# Historical, unmounted AI/design modules intentionally remain in source but
+# their provider SDKs are not installed in the production image.
+bcrypt==4.3.0
+boto3==1.43.116
+botocore==1.43.116
+dnspython==2.8.0
+email-validator==2.3.0
+fastapi==0.156.4
+Jinja2==3.1.6
+motor==3.7.1
+pydantic==2.14.1
+pymongo==4.19.0
+s3transfer==0.19.3
+pillow==13.0.0
+playwright==1.60.0
+python-dotenv==1.2.4
+python-multipart==0.0.32
+slowapi==0.1.10
+starlette==1.9.0
+uvicorn[standard]==0.54.0

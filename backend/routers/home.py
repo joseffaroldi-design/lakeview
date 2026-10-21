@@ -4,7 +4,6 @@ Tiny standalone router so we don't bloat ai_ads.py / media.py further.
 """
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -65,31 +64,22 @@ async def home_summary(authorization: str = Header(None), session_token: str = C
 
 @router.get("/health")
 async def home_health(authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Composite health pill — green/yellow/red based on subsystem state.
-
-    Sprint 15B: ffmpeg and rembg are no longer "red" triggers. They're optional
-    subsystems used by Marketing Pack slideshow (ffmpeg) and AI Designer food
-    cutout (rembg). Today's Pick and the rest of the platform run without them.
-    Only a missing LLM key — which kills *everything* — keeps the pill red.
-    """
+    """Composite health pill for the mounted core application."""
     await verify_session(authorization, session_token)
+    import asyncio
     import shutil
-    from bootstrap import rembg_state
+    import storage as objstore
 
     ffmpeg_ok = shutil.which("ffmpeg") is not None
-    rembg = rembg_state()
-    llm_key_ok = bool(os.environ.get("EMERGENT_LLM_KEY"))
+    storage_health = await asyncio.to_thread(objstore.health)
 
     issues = []
     if not ffmpeg_ok:
-        issues.append("Slideshow video rendering offline (ffmpeg missing)")
-    if not llm_key_ok:
-        issues.append("AI key missing")
-    if not rembg.get("model_ready"):
-        issues.append("Background removal warming up")
+        issues.append("Video thumbnails are unavailable (ffmpeg missing)")
+    if not storage_health.get("reachable"):
+        issues.append("Media storage is unavailable")
 
-    # Only LLM key drives "red" — without it, no AI features work at all.
-    if not llm_key_ok:
+    if not storage_health.get("reachable"):
         level = "red"
     elif issues:
         level = "yellow"
@@ -100,8 +90,11 @@ async def home_health(authorization: str = Header(None), session_token: str = Co
         "level": level,
         "issues": issues,
         "ffmpeg_ok": ffmpeg_ok,
-        "rembg_ok": rembg.get("model_ready", False),
-        "llm_ok": llm_key_ok,
+        "storage_ok": storage_health.get("reachable", False),
+        "storage_backend": storage_health.get("backend"),
+        # Backward-compatible keys for an older dashboard client.
+        "rembg_ok": False,
+        "llm_ok": True,
     }
 
 
