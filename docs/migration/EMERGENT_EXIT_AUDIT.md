@@ -1,8 +1,9 @@
 # Emergent exit: recoverability and portability audit
 
 Audit date: 2026-10-20. This is a repository-only audit. No production
-credentials, Emergent account, MongoDB source, R2 account, Render account, or
-DNS provider was accessed.
+credentials, legacy-provider account, MongoDB source, R2 account, Render
+account, or DNS provider was accessed. The selected migration path requires no
+legacy-provider login, API key, or storage API.
 
 ## Verified from the repository
 
@@ -24,11 +25,13 @@ DNS provider was accessed.
   Emergent-hosted fallback/SEO images.
 - No MongoDB BSON dump/archive was found in the repository.
 - No repository evidence proves the previous note of 279 remote objects. That
-  count remains unverified and must be regenerated from the source database.
+  count remains unverified and cannot be recovered without a Lakeview-owned,
+  provider-neutral database/object backup.
 
 The old February count of 346 local assets is stale, but 683 is not a direct
-replacement asset count because it includes derivative caches. The source
-database inventory must determine the authoritative referenced-media count.
+replacement asset count because it includes derivative caches. In the
+repository-only reconstruction path, the 328 top-level files are the migration
+set; the authoritative historical referenced-media count remains unknown.
 
 ## Recoverable without external access
 
@@ -40,7 +43,7 @@ database inventory must determine the authoritative referenced-media count.
 5. Static Square, Uber Eats, phone, location, and social links in the frontend.
 6. The active route contract and automated tests.
 
-## Requires production or Emergent source access
+## Not recoverable from the repository
 
 1. The authoritative MongoDB database: owner edits, menu/content state,
    sessions, subscribers, loyalty members, catering inquiries, analytics,
@@ -49,11 +52,11 @@ database inventory must determine the authoritative referenced-media count.
    export already exists elsewhere.
 3. Confirmation of how many bare-filename database records correspond to the
    683 repository files, and which local files are orphaned or unreferenced.
-4. Current production environment values (database name, allowed origins,
-   analytics measurement ID) and current DNS ownership.
+4. Current production environment values and current DNS ownership.
 
-Database and remote media recovery are **not verified** until inventories and
-checksums are generated against the actual source.
+These items are treated as unavailable unless Lakeview already owns a neutral
+MongoDB archive/URI or filesystem object export. They are not prerequisites for
+starting a fresh Atlas database from the repository's idempotent seed data.
 
 ## Portability changes
 
@@ -100,19 +103,24 @@ delta copy by `_id`. It never drops collections or deletes target documents.
 ### Media
 
 `backend/scripts/migrate_media.py` inventories local/database media and copies
-content to R2 with SHA-256 metadata and post-upload verification. It preserves
-remote keys, maps bare names to the legacy prefix, refuses to overwrite a
-conflicting target by default, never mutates MongoDB, and has no delete path.
-By default it also preserves repository-local files that have no database row;
-`--database-records-only` is an explicit opt-out.
-It can read slash-path objects from a filesystem export or, solely for source
-evacuation, with `SOURCE_EMERGENT_LLM_KEY`.
+content to R2 with SHA-256 metadata and downloaded-byte verification. It
+preserves remote keys, maps bare names to the legacy prefix, refuses to
+overwrite a conflicting target by default, never mutates MongoDB, and has no
+delete path. `local-sync` migrates all top-level repository media without any
+source database or former-provider connection. The optional database-driven
+path accepts only a neutral filesystem object export through `--source-root`.
 
 ## Readiness conclusion
 
 Code/configuration readiness: **locally verified**.
 
-Data readiness: **blocked on source MongoDB and remote-object access**.
+Repository reconstruction readiness: **locally verified**. An empty Atlas
+database will be initialized from `backend/seed_data.py`, and the 328 top-level
+repository media files can be migrated directly to R2.
+
+Historical-data readiness: **unavailable unless a Lakeview-owned neutral backup
+is supplied**. This does not block staging, but it means prior edits, customer
+records, analytics, media metadata, and remote-only objects will not be present.
 
 Deployment readiness: **ready for staging configuration, not production
 cutover**. Production DNS must remain unchanged until the staging checklist and

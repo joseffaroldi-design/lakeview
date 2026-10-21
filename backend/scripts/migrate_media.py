@@ -13,9 +13,7 @@ import hashlib
 import json
 import mimetypes
 import os
-import urllib.error
 import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -24,9 +22,6 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 from pymongo import MongoClient
-
-EMERGENT_STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
-
 
 def _env(name: str, *, required: bool = True) -> str | None:
     value = (os.environ.get(name) or "").strip()
@@ -56,35 +51,6 @@ def _r2_client():
         region_name=_env("S3_REGION", required=False) or "auto",
         config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
-
-
-class EmergentReader:
-    """Read-only adapter used solely to evacuate historical remote objects."""
-
-    def __init__(self, key: str):
-        payload = json.dumps({"emergent_key": key}).encode()
-        request = urllib.request.Request(
-            f"{EMERGENT_STORAGE_URL}/init",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            self.storage_key = json.load(response)["storage_key"]
-
-    def read(self, key: str) -> tuple[bytes, str]:
-        quoted = urllib.parse.quote(_safe_key(key), safe="/")
-        request = urllib.request.Request(
-            f"{EMERGENT_STORAGE_URL}/objects/{quoted}",
-            headers={"X-Storage-Key": self.storage_key},
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=90) as response:
-                return response.read(), response.headers.get_content_type()
-        except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                raise FileNotFoundError(key) from exc
-            raise
 
 
 def _load_assets() -> tuple[MongoClient, list[dict[str, Any]]]:
@@ -130,7 +96,7 @@ def _local_inventory(local_dir: Path) -> dict[str, Any]:
     }
 
 
-def _source_bytes(asset: dict[str, Any], local_dir: Path, source_root: Path | None, emergent: EmergentReader | None):
+def _source_bytes(asset: dict[str, Any], local_dir: Path, source_root: Path | None):
     storage_path = _safe_key(asset.get("storage_path") or "")
     if "/" not in storage_path:
         path = local_dir / storage_path
@@ -141,9 +107,25 @@ def _source_bytes(asset: dict[str, Any], local_dir: Path, source_root: Path | No
         path = source_root / storage_path
         if path.is_file():
             return path.read_bytes(), asset.get("mime") or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    if emergent:
-        return emergent.read(storage_path)
-    raise FileNotFoundError(f"no source configured for remote object {storage_path}")
+    raise FileNotFoundError(
+        f"remote object is absent from the repository and neutral export: {storage_path}"
+    )
+
+
+def _repository_assets(local_dir: Path) -> list[dict[str, Any]]:
+    """Describe repository-owned top-level media without requiring a database."""
+    return [
+        {
+            "id": None,
+            "filename": path.name,
+            "storage_path": path.name,
+            "mime": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+            "size_bytes": path.stat().st_size,
+            "inventory_source": "repository",
+        }
+        for path in sorted(local_dir.glob("*"))
+        if path.is_file()
+    ]
 
 
 def _target_key(storage_path: str, app_name: str) -> str:
@@ -174,8 +156,6 @@ def _sync(args, assets: list[dict[str, Any]]) -> dict[str, Any]:
     bucket = _env("S3_BUCKET")
     app_name = (_env("STORAGE_APP_NAME", required=False) or "lakeview").strip("/")
     source_root = Path(args.source_root) if args.source_root else None
-    emergent_key = _env("SOURCE_EMERGENT_LLM_KEY", required=False)
-    emergent = EmergentReader(emergent_key) if emergent_key else None
     local_dir = Path(args.local_dir)
     selected_assets = assets[: args.limit or None]
     stats = {"planned": len(selected_assets), "uploaded": 0, "verified": 0, "skipped": 0, "conflicts": 0, "missing_source": 0}
@@ -186,7 +166,7 @@ def _sync(args, assets: list[dict[str, Any]]) -> dict[str, Any]:
         key = _target_key(source_path, app_name)
         item = {"asset_id": asset.get("id"), "source_path": source_path, "target_key": key}
         try:
-            data, content_type = _source_bytes(asset, local_dir, source_root, emergent)
+            data, content_type = _source_bytes(asset, local_dir, source_root)
         except FileNotFoundError as exc:
             item.update(status="missing_source", error=str(exc)[:200])
             stats["missing_source"] += 1
@@ -233,7 +213,9 @@ def _sync(args, assets: list[dict[str, Any]]) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("local-inventory", "inventory", "sync"))
+    parser.add_argument(
+        "command", choices=("local-inventory", "local-sync", "inventory", "sync")
+    )
     parser.add_argument("--local-dir", default=str(Path(__file__).resolve().parents[1] / "media_storage"))
     parser.add_argument("--source-root", help="Optional export directory containing full object keys")
     parser.add_argument("--limit", type=int)
@@ -254,6 +236,8 @@ def main() -> int:
     try:
         if args.command == "local-inventory":
             report = _local_inventory(Path(args.local_dir))
+        elif args.command == "local-sync":
+            report = _sync(args, _repository_assets(Path(args.local_dir)))
         else:
             source_client, assets = _load_assets()
             local_files = sorted(path for path in Path(args.local_dir).glob("*") if path.is_file())
@@ -296,7 +280,7 @@ def main() -> int:
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(encoded + "\n")
         print(encoded)
-        if args.command == "sync" and (
+        if args.command in {"local-sync", "sync"} and (
             report["stats"]["missing_source"] or report["stats"]["conflicts"]
         ):
             return 2

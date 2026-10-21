@@ -111,6 +111,12 @@ def test_production_requirements_exclude_dormant_vendor_ai_sdks():
         assert required in requirements
 
 
+def test_migration_tool_has_no_former_provider_network_adapter():
+    migration_tool = (BACKEND / "scripts/migrate_media.py").read_text().lower()
+    assert "emergent" not in migration_tool
+    assert "emergentagent" not in migration_tool
+
+
 def test_active_frontend_has_no_emergent_runtime_dependency():
     checked = [
         ROOT / "frontend/public/index.html",

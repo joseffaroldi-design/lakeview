@@ -25,6 +25,18 @@ def test_media_target_keys_preserve_remote_and_namespace_legacy():
     assert migrate_media._target_key("old.jpg", "lakeview") == "lakeview/legacy/old.jpg"
 
 
+def test_repository_assets_require_no_database_or_provider(tmp_path):
+    (tmp_path / "one.jpg").write_bytes(b"one")
+    (tmp_path / "two.png").write_bytes(b"two")
+    (tmp_path / ".thumbs").mkdir()
+    (tmp_path / ".thumbs" / "cached.jpg").write_bytes(b"cache")
+
+    assets = migrate_media._repository_assets(tmp_path)
+
+    assert [asset["storage_path"] for asset in assets] == ["one.jpg", "two.png"]
+    assert all(asset["inventory_source"] == "repository" for asset in assets)
+
+
 class _ExistingObjectClient:
     def __init__(self):
         self.downloads = 0
