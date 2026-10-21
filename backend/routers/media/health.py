@@ -20,31 +20,12 @@ router = APIRouter()
 
 @router.get("/health")
 async def media_health(authorization: str = Header(None), session_token: str = Cookie(None)):
-    """Operational health probe — exposes ffmpeg + rembg + storage."""
+    """Operational health probe for the mounted media feature set."""
     await verify_session(authorization, session_token)
     ffmpeg_path = shutil.which("ffmpeg")
 
-    # rembg state (lazy import so health works even if bootstrap fails)
-    rembg = {"available": False, "model_ready": False, "error": "not initialized"}
-    try:
-        from bootstrap import rembg_state
-        rembg = rembg_state()
-    except Exception as e:  # noqa: BLE001
-        rembg["error"] = str(e)[:200]
-
-    # Object storage probe (PUT + GET roundtrip)
+    # Read-only object storage reachability probe.
     storage_health = await asyncio.to_thread(objstore.health)
-
-    # Sprint 15B.8: image-provider diagnostics (Flux / OpenAI gpt-image-1).
-    try:
-        from services.image_generation import available_providers as _img_providers
-        image_provider_info = _img_providers()
-    except Exception as e:  # noqa: BLE001
-        image_provider_info = {
-            "active": None,
-            "providers": [],
-            "error": str(e)[:200],
-        }
 
     asset_count = await db.media_assets.count_documents({"status": "active"})
 
@@ -52,10 +33,6 @@ async def media_health(authorization: str = Header(None), session_token: str = C
     empty_queue = {"queued": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
     aij_empty_queue = {"pending": 0, "processing": 0, "completed_recent": 0, "failed_recent": 0}
 
-    # Sprint 15B.3 made rembg opt-in (lazy-loaded only when an owner explicitly
-    # checks "Remove background"). Its absence is NOT a failure — `healthy`
-    # tracks only the critical path: object storage + ffmpeg. rembg state is
-    # still returned in the payload below for admin visibility.
     healthy = (
         ffmpeg_path is not None
         and storage_health.get("reachable")
@@ -64,18 +41,14 @@ async def media_health(authorization: str = Header(None), session_token: str = C
         "healthy": healthy,
         "ffmpeg_available": ffmpeg_path is not None,
         "ffmpeg_path": ffmpeg_path,
-        "rembg_available": rembg.get("available", False),
-        "rembg_model_ready": rembg.get("model_ready", False),
-        "rembg_error": rembg.get("error"),
+        "rembg_available": False,
+        "rembg_model_ready": False,
+        "rembg_error": "disabled in the core deployment",
         "storage": storage_health,
-        # Sprint 15B.8 — image-generation provider status (Flux / OpenAI).
-        "image_provider": image_provider_info.get("active"),
-        "provider_status": "healthy" if image_provider_info.get("active") else "unconfigured",
-        "api_key_loaded": bool(
-            image_provider_info.get("emergent_llm_key_loaded")
-            or image_provider_info.get("fal_key_loaded")
-        ),
-        "image_providers": image_provider_info,
+        "image_provider": None,
+        "provider_status": "disabled",
+        "api_key_loaded": False,
+        "image_providers": {"active": None, "providers": [], "disabled": True},
         "asset_count": asset_count,
         "stale_ai_image_jobs": 0,
         "stale_render_jobs": 0,

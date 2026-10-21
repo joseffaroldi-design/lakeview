@@ -1,4 +1,4 @@
-"""Shared configuration: env loading, MongoDB client, admin password verification."""
+"""Shared configuration and fail-fast production validation."""
 import os
 import bcrypt
 from pathlib import Path
@@ -8,14 +8,22 @@ from motor.motor_asyncio import AsyncIOMotorClient
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+
+def _required(name: str) -> str:
+    value = (os.environ.get(name) or '').strip()
+    if not value:
+        raise RuntimeError(f"Required environment variable {name} is not set")
+    return value
+
+
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = _required('MONGO_URL')
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[_required('DB_NAME')]
 
 # Admin credentials — load plain password from env, hash once on startup
 # (bcrypt verification is timing-safe by design)
-_ADMIN_PASSWORD_PLAIN = os.environ['ADMIN_PASSWORD']
+_ADMIN_PASSWORD_PLAIN = _required('ADMIN_PASSWORD')
 _ADMIN_PASSWORD_HASH = bcrypt.hashpw(_ADMIN_PASSWORD_PLAIN.encode('utf-8'), bcrypt.gensalt())
 
 
@@ -47,4 +55,26 @@ else:
     # Dev / preview convenience: allow all when explicitly requested via
     # `*` or when nothing is configured.
     ALLOWED_ORIGINS = ["*"]
+
+
+def validate_runtime_config() -> None:
+    """Reject unsafe/incomplete production configuration before serving traffic."""
+    if not _IS_PROD:
+        return
+
+    problems = []
+    if not ALLOWED_ORIGINS:
+        problems.append('CORS_ORIGINS must list the production frontend origin')
+    if any(origin == '*' for origin in ALLOWED_ORIGINS):
+        problems.append('CORS_ORIGINS cannot contain * in production')
+    if len(_ADMIN_PASSWORD_PLAIN) < 12:
+        problems.append('ADMIN_PASSWORD must contain at least 12 characters')
+    if (os.environ.get('STORAGE_BACKEND') or 's3').strip().lower() != 's3':
+        problems.append('STORAGE_BACKEND must be s3 in production')
+    for name in ('S3_ENDPOINT_URL', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'S3_BUCKET'):
+        if not (os.environ.get(name) or '').strip():
+            problems.append(f'{name} is required in production')
+
+    if problems:
+        raise RuntimeError('Unsafe production configuration: ' + '; '.join(problems))
 

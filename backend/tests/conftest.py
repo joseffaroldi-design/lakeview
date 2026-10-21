@@ -17,6 +17,12 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+import sys
+
+
+BACKEND = Path(__file__).resolve().parents[1]
+if str(BACKEND) not in sys.path:
+    sys.path.insert(0, str(BACKEND))
 
 
 def _load_env_file(path: Path) -> None:
@@ -46,11 +52,18 @@ def _admin_password_from_credentials_file() -> str | None:
 _load_env_file(Path("/app/backend/.env"))
 _load_env_file(Path("/app/frontend/.env"))
 
-# 2. ADMIN_PASSWORD fallback for local pytest runs.
+# 2. Safe local defaults. Real environment values always win.
 if not os.environ.get("ADMIN_PASSWORD"):
     pw = _admin_password_from_credentials_file()
     if pw:
         os.environ["ADMIN_PASSWORD"] = pw
+
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("MONGO_URL", "mongodb://127.0.0.1:27017")
+os.environ.setdefault("DB_NAME", "lakeview_test")
+os.environ.setdefault("ADMIN_PASSWORD", "test-only-password")
+os.environ.setdefault("STORAGE_BACKEND", "local")
+os.environ.setdefault("MEDIA_STORAGE_DIR", "/tmp/lakeview-test-media")
 
 
 def pytest_configure(config):

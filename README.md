@@ -1,12 +1,14 @@
 # Lakeview Burgers & Seafood
 
-Production website and owner marketing studio for Lakeview Burgers & Seafood.
+Production website and core owner/admin tools for Lakeview Burgers & Seafood.
 
 ## Product surfaces
 
 - **Public website** — menu, featured items, specials, catering inquiries, loyalty signup, hours, location, and ordering links.
-- **Lakeview Studio** — authenticated owner dashboard for menu/content management, promotion creation, media library, customer inquiries, and homepage layout controls.
-- **Creative engine** — photo-to-flyer, template, HTML, and image-rendering workflows used to create restaurant marketing assets.
+- **Lakeview Admin** — authenticated owner dashboard for menu/content management,
+  media library, website images, customers, catering, and analytics.
+- **Historical creative source** — archived AI/design/rendering modules remain in
+  the repository but are not mounted by the production server.
 
 ## Repository structure
 
@@ -25,7 +27,7 @@ FROZEN_FEATURES.md       Current protected product scope
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-test.txt
 uvicorn server:app --reload
 ```
 
@@ -35,11 +37,13 @@ Configure the required backend environment variables before startup. Never commi
 
 ```bash
 cd frontend
-yarn install
+yarn install --frozen-lockfile
 yarn start
 ```
 
-The frontend expects `REACT_APP_BACKEND_URL` to point to the backend origin.
+Copy values from `backend/env.example` and `frontend/env.example` into local
+untracked `.env` files. The frontend expects `REACT_APP_BACKEND_URL` to point
+to the backend origin.
 
 ## Verification
 
@@ -47,7 +51,13 @@ The frontend expects `REACT_APP_BACKEND_URL` to point to the backend origin.
 
 ```bash
 cd backend
-pytest tests/
+pytest -q \
+  tests/test_storage_s3.py \
+  tests/test_migration_tools.py \
+  tests/test_independent_deployment.py \
+  tests/test_v1_security_config.py \
+  tests/test_analytics_beacon.py
+pip-audit -r requirements-prod.txt
 ```
 
 ### Frontend
@@ -55,18 +65,39 @@ pytest tests/
 ```bash
 cd frontend
 yarn build
+yarn test --watchAll=false --runInBand src/lib/publicNavigation.test.js
 ```
 
-Run focused regression tests for any workflow being changed, especially authentication, media storage, homepage layout, platform sizing, hidden-theme compatibility, and Photo-to-Flyer generation.
+## Production deployment
+
+The supported production architecture is a Render Static Site (`frontend`), a
+Render Docker Web Service (`backend`), MongoDB Atlas, and private Cloudflare R2
+object storage. `render.yaml` defines the two Render services without embedding
+secrets. The backend proxies media reads, so the R2 bucket does not need public
+object access.
+
+Use `backend/requirements-prod.txt` for the mounted server routes. The larger
+historical `backend/requirements.txt` remains for archived AI/design code and is
+not installed in the production image.
+
+See `docs/migration/EMERGENT_EXIT_AUDIT.md` for the recoverability boundary and
+`docs/migration/RENDER_MIGRATION_RUNBOOK.md` for staging, cutover, and rollback.
+
+Run focused regression tests for any workflow being changed, especially
+authentication, media storage, homepage layout, menu/content editing, customer
+records, analytics, and responsive public navigation.
 
 ## Production-critical workflows
 
 1. Public site loads content, menu data, and homepage layout.
 2. Admin login verifies the stored token before loading Lakeview Studio.
-3. Menu items can be edited and passed into the promotion workflow.
-4. Photo-to-Flyer accepts a library image or fresh upload, analyzes it, generates variants, and stores retrievable outputs.
+3. Menu items and public-site content can be edited and restored safely.
+4. Media uploads are written to durable object storage and remain retrievable
+   after backend restart.
 5. Catering inquiries are accepted publicly and reviewed through the owner workflow.
-6. Homepage layout falls back safely when layout configuration is unavailable.
+6. Newsletter, loyalty, site-image assignments, and analytics retain their
+   current public/admin behavior.
+7. Homepage layout falls back safely when layout configuration is unavailable.
 
 ## Change discipline
 
