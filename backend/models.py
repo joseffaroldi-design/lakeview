@@ -1,7 +1,7 @@
 """All Pydantic models for Lakeview API."""
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field, ConfigDict, EmailStr, constr
 
 
@@ -48,9 +48,21 @@ class PageView(BaseModel):
     device_type: Optional[str] = None
     browser: Optional[str] = None
     referrer: Optional[str] = None
+    referrer_domain: Optional[str] = None
+    source: Optional[str] = None
     session_id: Optional[str] = None
+    visitor_id: Optional[str] = None
     screen_width: Optional[int] = None
     screen_height: Optional[int] = None
+    page_title: Optional[str] = None
+    language: Optional[str] = None
+    timezone: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    utm_content: Optional[str] = None
+    utm_term: Optional[str] = None
+    is_bot: bool = False
 
 
 class TrackingData(BaseModel):
@@ -58,8 +70,17 @@ class TrackingData(BaseModel):
     user_agent: Optional[constr(max_length=500)] = None
     referrer: Optional[constr(max_length=500)] = None
     session_id: Optional[constr(max_length=100)] = None
+    visitor_id: Optional[constr(max_length=100)] = None
     screen_width: Optional[int] = None
     screen_height: Optional[int] = None
+    page_title: Optional[constr(max_length=300)] = None
+    language: Optional[constr(max_length=50)] = None
+    timezone: Optional[constr(max_length=100)] = None
+    utm_source: Optional[constr(max_length=200)] = None
+    utm_medium: Optional[constr(max_length=200)] = None
+    utm_campaign: Optional[constr(max_length=200)] = None
+    utm_content: Optional[constr(max_length=200)] = None
+    utm_term: Optional[constr(max_length=200)] = None
 
 
 class ButtonClick(BaseModel):
@@ -68,11 +89,19 @@ class ButtonClick(BaseModel):
     button_name: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     session_id: Optional[str] = None
+    visitor_id: Optional[str] = None
+    page: Optional[str] = None
+    event_category: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ButtonClickData(BaseModel):
     button_name: constr(max_length=100)
     session_id: Optional[constr(max_length=100)] = None
+    visitor_id: Optional[constr(max_length=100)] = None
+    page: Optional[constr(max_length=500)] = None
+    event_category: Optional[constr(max_length=100)] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class NewsletterSubscribe(BaseModel):

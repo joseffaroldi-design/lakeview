@@ -142,37 +142,116 @@ const GA_EVENTS = {
   directions_click:        { name: "directions_click", params: { location: "visit" } },
 };
 
-const track = async (buttonName) => {
+const createAnalyticsId = (prefix) => `${prefix}_${globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
+
+const getAnalyticsIds = () => {
+  let sessionId;
+  let visitorId;
+  try {
+    sessionId = sessionStorage.getItem("visitor_session");
+    if (!sessionId) {
+      sessionId = createAnalyticsId("session");
+      sessionStorage.setItem("visitor_session", sessionId);
+    }
+    visitorId = localStorage.getItem("lakeview_visitor_id");
+    if (!visitorId) {
+      visitorId = createAnalyticsId("visitor");
+      localStorage.setItem("lakeview_visitor_id", visitorId);
+    }
+  } catch (_) {
+    // Storage can be disabled in privacy modes; analytics remains anonymous.
+    sessionId = sessionId || createAnalyticsId("session");
+    visitorId = visitorId || sessionId;
+  }
+  return { sessionId, visitorId };
+};
+
+const sendAnalyticsEvent = (payload, useBeacon = false) => {
+  const body = JSON.stringify(payload);
+  if (useBeacon && navigator.sendBeacon) {
+    const sent = navigator.sendBeacon(`${API}/analytics/event`, new Blob([body], { type: "application/json" }));
+    if (sent) return;
+  }
+  fetch(`${API}/analytics/event`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+};
+
+const track = (buttonName, metadata = {}) => {
   // Fire GA4 event first (synchronous, non-blocking, guarded no-op if
   // GA4 isn't configured). Backend analytics call follows and its errors
   // are swallowed so a customer action never blocks on analytics.
   const mapped = GA_EVENTS[buttonName];
   if (mapped) gaEvent(mapped.name, mapped.params);
-  try {
-    await axios.post(`${API}/analytics/button-click`, {
-      button_name: buttonName,
-      session_id: sessionStorage.getItem("visitor_session") || undefined,
-    });
-  } catch (_) {
-    // Analytics must never block a customer action.
-  }
+  const { sessionId, visitorId } = getAnalyticsIds();
+  sendAnalyticsEvent({
+    button_name: buttonName,
+    session_id: sessionId,
+    visitor_id: visitorId,
+    page: window.location.pathname,
+    metadata,
+  });
 };
 
 const usePageViewBeacon = (page) => {
   useEffect(() => {
-    let sessionId = sessionStorage.getItem("visitor_session");
-    if (!sessionId) {
-      sessionId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      sessionStorage.setItem("visitor_session", sessionId);
-    }
+    const { sessionId, visitorId } = getAnalyticsIds();
+    const params = new URLSearchParams(window.location.search);
     axios.post(`${API}/analytics/track`, {
       page,
       user_agent: navigator.userAgent,
       referrer: document.referrer || undefined,
       session_id: sessionId,
+      visitor_id: visitorId,
       screen_width: window.innerWidth,
       screen_height: window.innerHeight,
+      page_title: document.title,
+      language: navigator.language,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      utm_source: params.get("utm_source") || undefined,
+      utm_medium: params.get("utm_medium") || undefined,
+      utm_campaign: params.get("utm_campaign") || undefined,
+      utm_content: params.get("utm_content") || undefined,
+      utm_term: params.get("utm_term") || undefined,
     }).catch(() => {});
+
+    const startedAt = Date.now();
+    let maxScrollDepth = 0;
+    let reported = false;
+    const updateScrollDepth = () => {
+      const available = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+      maxScrollDepth = Math.max(maxScrollDepth, Math.min(100, Math.round((window.scrollY / available) * 100)));
+    };
+    const reportEngagement = () => {
+      if (reported) return;
+      reported = true;
+      updateScrollDepth();
+      const durationSeconds = Math.min(1800, Math.max(0, Math.round((Date.now() - startedAt) / 1000)));
+      if (durationSeconds < 2 && maxScrollDepth < 10) return;
+      sendAnalyticsEvent({
+        button_name: "page_engagement",
+        event_category: "engagement",
+        session_id: sessionId,
+        visitor_id: visitorId,
+        page,
+        metadata: { duration_seconds: durationSeconds, scroll_depth: maxScrollDepth },
+      }, true);
+    };
+    window.addEventListener("scroll", updateScrollDepth, { passive: true });
+    window.addEventListener("pagehide", reportEngagement);
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") reportEngagement();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("scroll", updateScrollDepth);
+      window.removeEventListener("pagehide", reportEngagement);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      reportEngagement();
+    };
   }, [page]);
 };
 
@@ -185,24 +264,24 @@ const OrderButton = ({ className = "", children = "Order Pickup", tracking = "or
 const Header = ({ showSpecials = false }) => {
   const [open, setOpen] = useState(false);
   const navItems = [
-    { label: "Menu", to: "/menu" },
-    ...(showSpecials ? [{ label: "Specials", href: "/#specials" }] : []),
-    { label: "Catering", href: "/#catering" },
-    { label: "Our Story", href: "/#story" },
-    { label: "Contact", mobileLabel: "Visit", href: "/#visit" },
+    { label: "Menu", to: "/menu", event: "nav_menu" },
+    ...(showSpecials ? [{ label: "Specials", href: "/#specials", event: "nav_specials" }] : []),
+    { label: "Catering", href: "/#catering", event: "nav_catering" },
+    { label: "Our Story", href: "/#story", event: "nav_story" },
+    { label: "Contact", mobileLabel: "Visit", href: "/#visit", event: "nav_visit" },
   ];
   return (
     <header className="lv-header">
       <div className="lv-header-inner">
-        <button className="lv-mobile-trigger" type="button" onClick={() => setOpen((v) => !v)} aria-label="Open menu" aria-expanded={open}>
+        <button className="lv-mobile-trigger" type="button" onClick={() => { setOpen((v) => !v); track(open ? "mobile_nav_close" : "mobile_nav_open"); }} aria-label="Open menu" aria-expanded={open}>
           {open ? <X /> : <MenuIcon />}<span>Menu</span>
         </button>
-        <Link to="/" className="lv-brand" aria-label="Lakeview Burgers and Seafood home"><img src={LOGO} alt="Lakeview Burgers & Seafood" /></Link>
+        <Link to="/" className="lv-brand" onClick={() => track("nav_home_brand")} aria-label="Lakeview Burgers and Seafood home"><img src={LOGO} alt="Lakeview Burgers & Seafood" /></Link>
         <nav className="lv-desktop-nav" aria-label="Primary navigation">
           {navItems.map((item, index) => (
             <React.Fragment key={item.label}>
               {index > 0 ? <span aria-hidden="true">★</span> : null}
-              {item.to ? <Link to={item.to}>{item.label}</Link> : <a href={item.href}>{item.label}</a>}
+              {item.to ? <Link to={item.to} onClick={() => track(item.event, { placement: "header" })}>{item.label}</Link> : <a href={item.href} onClick={() => track(item.event, { placement: "header" })}>{item.label}</a>}
             </React.Fragment>
           ))}
         </nav>
@@ -215,8 +294,8 @@ const Header = ({ showSpecials = false }) => {
       {open && (
         <nav className="lv-mobile-drawer" aria-label="Mobile navigation">
           {navItems.map((item) => item.to
-            ? <Link key={item.label} to={item.to} onClick={() => setOpen(false)}>{item.mobileLabel || item.label}</Link>
-            : <a key={item.label} href={item.href} onClick={() => setOpen(false)}>{item.mobileLabel || item.label}</a>)}
+            ? <Link key={item.label} to={item.to} onClick={() => { setOpen(false); track(`mobile_${item.event}`, { placement: "drawer" }); }}>{item.mobileLabel || item.label}</Link>
+            : <a key={item.label} href={item.href} onClick={() => { setOpen(false); track(`mobile_${item.event}`, { placement: "drawer" }); }}>{item.mobileLabel || item.label}</a>)}
           <a href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("order_online_drawer")}>Order Pickup</a>
         </nav>
       )}
@@ -229,10 +308,10 @@ const MobileBottomNav = () => {
   const onMenu = location.pathname === "/menu";
   return (
     <nav className="lv-bottom-nav" aria-label="Mobile app navigation">
-      <Link className={!onMenu ? "active" : ""} to="/"><Home /><span>Home</span></Link>
-      <Link className={onMenu ? "active" : ""} to="/menu"><UtensilsCrossed /><span>Menu</span></Link>
+      <Link className={!onMenu ? "active" : ""} to="/" onClick={() => track("mobile_nav_home", { placement: "bottom_nav" })}><Home /><span>Home</span></Link>
+      <Link className={onMenu ? "active" : ""} to="/menu" onClick={() => track("mobile_nav_menu", { placement: "bottom_nav" })}><UtensilsCrossed /><span>Menu</span></Link>
       <a className="lv-bottom-order" href={SQUARE_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("order_online_bottom_nav")}><span><ShoppingBag /></span><b>Order</b></a>
-      <a href="/#catering"><ShoppingBag /><span>Catering</span></a><a href="/#visit"><MapPin /><span>Visit</span></a>
+      <a href="/#catering" onClick={() => track("mobile_nav_catering", { placement: "bottom_nav" })}><ShoppingBag /><span>Catering</span></a><a href="/#visit" onClick={() => track("mobile_nav_visit", { placement: "bottom_nav" })}><MapPin /><span>Visit</span></a>
     </nav>
   );
 };
@@ -308,7 +387,7 @@ const StoryCatering = () => {
   return (
     <section className="lv-story-catering">
       <article id="story" className="lv-story">
-        <div className="lv-story-copy"><p className="lv-kicker">Our Story</p><h2>New Orleans Cooking.<br />Lakeview Family.</h2><p>Lakeview Burgers & Seafood has been part of the neighborhood since 2015. Built on decades of restaurant experience and a love for good food, we're proud to serve the community we call home.</p><a className="lv-btn lv-btn-outline" href="#visit">Visit Us <ChevronRight /></a></div>
+        <div className="lv-story-copy"><p className="lv-kicker">Our Story</p><h2>New Orleans Cooking.<br />Lakeview Family.</h2><p>Lakeview Burgers & Seafood has been part of the neighborhood since 2015. Built on decades of restaurant experience and a love for good food, we're proud to serve the community we call home.</p><a className="lv-btn lv-btn-outline" href="#visit" onClick={() => track("directions_story")}>Visit Us <ChevronRight /></a></div>
         <div className="lv-story-photos"><img className="main" src={images.about} alt="Lakeview Burgers & Seafood restaurant and family story" loading="lazy" /><img className="small" src={images.burger} alt="Lakeview burger served at Lakeview Burgers & Seafood" loading="lazy" /></div>
       </article>
       <article id="catering" className="lv-catering">
@@ -346,7 +425,7 @@ const CateringInquiry = () => {
   return (
     <section id="catering-quote" className="lv-catering-inquiry" aria-labelledby="catering-inquiry-title">
       <div className="lv-catering-inquiry-inner">
-        <div><p className="lv-kicker">Planning an Event?</p><h2 id="catering-inquiry-title">Tell Us What You Need.</h2><p>Send your date, guest count and the kind of event you're planning. We'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF}>{PHONE}</a>.</p></div>
+        <div><p className="lv-kicker">Planning an Event?</p><h2 id="catering-inquiry-title">Tell Us What You Need.</h2><p>Send your date, guest count and the kind of event you're planning. We'll follow up about menu options, quantities and timing. Prefer to talk it through? Call us at <a href={PHONE_HREF} onClick={() => track("call_catering")}>{PHONE}</a>.</p></div>
         <form onSubmit={submit} onFocusCapture={markFormStart}>
           <div className="lv-form-row two"><label>Name<input aria-label="Name" required value={form.name} onChange={setField("name")} style={fieldStyle} /></label><label>Email<input aria-label="Email" type="email" required value={form.email} onChange={setField("email")} style={fieldStyle} /></label></div>
           <div className="lv-form-row three"><label>Phone<input aria-label="Phone" value={form.phone} onChange={setField("phone")} style={fieldStyle} /></label><label>Event date<input aria-label="Event date" type="date" value={form.event_date} onChange={setField("event_date")} style={fieldStyle} /></label><label>Guests<input aria-label="Approximate guest count" inputMode="numeric" value={form.guest_count} onChange={setField("guest_count")} style={fieldStyle} /></label></div>
@@ -377,7 +456,7 @@ const Visit = ({ contact }) => {
   const status = getBusinessStatus(contact);
   return (
     <section id="visit" className="lv-visit">
-      <div className="lv-visit-copy"><p className="lv-script">Come See Us</p><h2>Right Here on Harrison.</h2><div className={`lv-open-status ${status.open ? "is-open" : "is-closed"}`}><span></span>{status.label}</div><div className="lv-visit-details"><MapPin /><p><strong>Lakeview Burgers & Seafood</strong><br />872 Harrison Ave<br />New Orleans, LA 70124</p><Clock /><p><strong>Hours</strong><br />{hours1}<br />{hours2}</p><Phone /><p><strong>Phone</strong><br /><a href={PHONE_HREF}>{PHONE}</a></p></div><div className="lv-visit-actions"><a className="lv-btn lv-btn-green" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer" onClick={() => track("directions_click")}>Get Directions <ExternalLink /></a><a className="lv-btn lv-btn-outline" href={PHONE_HREF} onClick={() => track("call_visit_click")}>Call Us</a></div></div>
+      <div className="lv-visit-copy"><p className="lv-script">Come See Us</p><h2>Right Here on Harrison.</h2><div className={`lv-open-status ${status.open ? "is-open" : "is-closed"}`}><span></span>{status.label}</div><div className="lv-visit-details"><MapPin /><p><strong>Lakeview Burgers & Seafood</strong><br />872 Harrison Ave<br />New Orleans, LA 70124</p><Clock /><p><strong>Hours</strong><br />{hours1}<br />{hours2}</p><Phone /><p><strong>Phone</strong><br /><a href={PHONE_HREF} onClick={() => track("call_visit_details")}>{PHONE}</a></p></div><div className="lv-visit-actions"><a className="lv-btn lv-btn-green" href={`https://maps.google.com/?q=${encodeURIComponent(ADDRESS)}`} target="_blank" rel="noopener noreferrer" onClick={() => track("directions_click")}>Get Directions <ExternalLink /></a><a className="lv-btn lv-btn-outline" href={PHONE_HREF} onClick={() => track("call_visit_click")}>Call Us</a></div></div>
       <div className="lv-map-wrap"><iframe title="Lakeview Burgers & Seafood location" src="https://maps.google.com/maps?q=872%20Harrison%20Ave%2C%20New%20Orleans%2C%20LA%2070124&t=&z=15&ie=UTF8&iwloc=&output=embed" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div>
     </section>
   );
@@ -393,7 +472,7 @@ const ReviewProof = () => (
 const Footer = () => (
   <footer className="lv-footer">
     <div className="lv-footer-cta"><p>What's for dinner?</p><span>Burgers • Seafood • Po'boys • New Orleans Favorites</span><OrderButton tracking="order_online_footer" /></div>
-    <div className="lv-footer-grid"><img src={LOGO} alt="Lakeview Burgers & Seafood" loading="lazy" /><div><b>Lakeview Burgers & Seafood</b><p>872 Harrison Ave<br />New Orleans, LA 70124<br />{PHONE}</p></div><div><b>Quick Links</b><Link to="/menu">Menu</Link><a href="/#catering">Catering</a><a href="/#story">Our Story</a><a href="/#visit">Visit</a></div><div><b>Hours</b><p>Mon–Sat<br />11:30 AM – 11:00 PM<br />Sunday: Closed</p></div></div>
+    <div className="lv-footer-grid"><img src={LOGO} alt="Lakeview Burgers & Seafood" loading="lazy" /><div><b>Lakeview Burgers & Seafood</b><p>872 Harrison Ave<br />New Orleans, LA 70124<br />{PHONE}</p></div><div><b>Quick Links</b><Link to="/menu" onClick={() => track("footer_menu")}>Menu</Link><a href="/#catering" onClick={() => track("footer_catering")}>Catering</a><a href="/#story" onClick={() => track("footer_story")}>Our Story</a><a href="/#visit" onClick={() => track("footer_visit")}>Visit</a></div><div><b>Hours</b><p>Mon–Sat<br />11:30 AM – 11:00 PM<br />Sunday: Closed</p></div></div>
     <div style={{ maxWidth: 1200, margin: "24px auto 0", padding: "0 4px", textAlign: "right" }}><Link to="/login" style={{ fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(246,241,219,0.38)", textDecoration: "none" }}>Admin</Link></div>
   </footer>
 );
@@ -481,7 +560,7 @@ export const PublicMenu = () => {
         <nav className="lv-category-nav" aria-label="Menu categories">{navCategories.map((cat, index) => {
           const key = cat.slug || cat.id || `category-${index}`;
           const label = categoryAliases[String(cat.slug || "").toLowerCase()] || cat.display_name || cat.name || "Menu";
-          return <button key={key} className={active === key ? "active" : ""} onClick={() => jumpTo(cat, index)}>{label}</button>;
+          return <button key={key} className={active === key ? "active" : ""} onClick={() => { jumpTo(cat, index); track("menu_category_view", { category: label }); }}>{label}</button>;
         })}</nav>
         <div className="lv-menu-conversion-strip"><span>Ready to eat?</span><OrderButton tracking="order_online_menu_strip">Order Pickup</OrderButton></div>
         <section className="lv-menu-sheet">

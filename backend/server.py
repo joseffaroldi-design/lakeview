@@ -94,8 +94,28 @@ async def on_startup():
         await db.page_views.create_index(
             "expires_at", name="pv_ttl", expireAfterSeconds=0
         )
+        await db.page_views.create_index("timestamp", name="pv_timestamp")
+        await db.page_views.create_index(
+            [("session_id", 1), ("timestamp", -1)], name="pv_session_timestamp"
+        )
+        await db.page_views.create_index(
+            [("visitor_id", 1), ("timestamp", -1)], name="pv_visitor_timestamp"
+        )
+        await db.page_views.create_index(
+            [("page", 1), ("timestamp", -1)], name="pv_page_timestamp"
+        )
+        await db.page_views.create_index(
+            [("source", 1), ("timestamp", -1)], name="pv_source_timestamp"
+        )
         await db.button_clicks.create_index(
             "expires_at", name="bc_ttl", expireAfterSeconds=0
+        )
+        await db.button_clicks.create_index("timestamp", name="bc_timestamp")
+        await db.button_clicks.create_index(
+            [("session_id", 1), ("timestamp", -1)], name="bc_session_timestamp"
+        )
+        await db.button_clicks.create_index(
+            [("event_category", 1), ("timestamp", -1)], name="bc_category_timestamp"
         )
         await db.admin_sessions.create_index(
             "expires_at", name="as_ttl", expireAfterSeconds=0
